@@ -10,40 +10,153 @@ class ActivationType(str, Enum):
     GELU = 'gelu'
     TANH = 'tanh'
 
+# === 网络配置相关类 ===
 @dataclass
-class NetworkConfig:
-    """网络架构配置"""
-    # 状态空间
-    state_dim: int = 128        # 元控制器状态向量维度
-    node_dim: int = 64         # 图节点特征维度
-    edge_dim: int = 32         # 图边特征维度
-    
-    # 动作空间
-    action_dim: int = 10       # 元控制器动作维度
-    wh_action_dim: int = 20    # 仓储动作维度
-    dist_action_dim: int = 15  # 配送动作维度
-    
-    # 网络结构
+class MetaControllerNetConfig:
+    """元控制器网络配置"""
+    state_dim: int = 128        # 状态向量维度
+    action_dim: int = 10        # 动作维度
+    hidden_dim: int = 256       # 隐藏层维度
     transformer_layers: int = 3  # Transformer层数
     transformer_heads: int = 4   # 注意力头数
+    dropout: float = 0.1        # Dropout比率
+    activation: ActivationType = ActivationType.GELU
+    
+
+    """元控制器配置"""
+    max_jobs: int = 100            # 最大作业数量
+    max_time: float = 1000.0       # 最大时间单位
+    max_priority: int = 10         # 最大优先级
+    max_load: float = 5000.0       # 最大加工负载
+    urgent_time_threshold: float = 50.0  # 紧急作业时间阈值
+
+
+@dataclass
+class SchedulingNetConfig:
+    """调度策略网络配置"""
+    node_dim: int = 64           # 图节点特征维度
+    edge_dim: int = 32          # 图边特征维度
+    action_dim: int = 20        # 调度动作维度
     gat_hidden_dim: int = 64    # GAT隐藏层维度
+    gat_layers: int = 2         # GAT层数
+    gat_heads: int = 4          # GAT注意力头数
     dropout: float = 0.1        # Dropout比率
     activation: ActivationType = ActivationType.GELU
 
+
+
+@dataclass
+class DispatchingNetConfig:
+    """配送策略网络配置"""
+    state_dim: int = 96        # 状态向量维度
+    action_dim: int = 15       # 配送动作维度
+    hidden_dim: int = 128      # 隐藏层维度
+    lstm_layers: int = 2       # LSTM层数
+    dropout: float = 0.1       # Dropout比率
+    activation: ActivationType = ActivationType.GELU
+
+@dataclass
+class NetworkConfig:
+    """网络架构总配置"""
+    meta_controller: MetaControllerNetConfig = field(default_factory=MetaControllerNetConfig)
+    scheduling: SchedulingNetConfig = field(default_factory=SchedulingNetConfig)
+    dispatching: DispatchingNetConfig = field(default_factory=DispatchingNetConfig)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'meta_controller': self.meta_controller.__dict__,
+            'scheduling': self.scheduling.__dict__,
+            'dispatching': self.dispatching.__dict__
+        }
+
+    @classmethod
+    def from_dict(cls, config_dict: Dict[str, Any]) -> 'NetworkConfig':
+        meta = MetaControllerNetConfig(**config_dict.get('meta_controller', {}))
+        sched = SchedulingNetConfig(**config_dict.get('scheduling', {}))
+        disp = DispatchingNetConfig(**config_dict.get('dispatching', {}))
+        return cls(meta_controller=meta, scheduling=sched, dispatching=disp)
+
+# === 训练配置相关类 ===
+@dataclass
+class BaseTrainingConfig:
+    """基础训练配置"""
+    learning_rate: float = 1e-4    # 学习率
+    gamma: float = 0.99            # 折扣因子
+    tau: float = 0.005             # 目标网络软更新系数
+    batch_size: int = 64           # 训练批次大小
+    buffer_size: int = 100000      # 经验回放缓冲区大小
+    grad_clip: float = 0.5         # 梯度裁剪阈值
+
+@dataclass
+class MetaControllerTrainConfig(BaseTrainingConfig):
+    """元控制器训练配置"""
+    update_freq: int = 5           # 策略更新频率
+    entropy_coef: float = 0.01     # 熵正则化系数
+    value_loss_coef: float = 0.5   # 价值损失系数
+    ppo_epochs: int = 10           # PPO更新轮数
+    clip_param: float = 0.2        # PPO裁剪参数
+
+@dataclass
+class SchedulingTrainConfig(BaseTrainingConfig):
+    """调度策略训练配置"""
+    n_step_returns: int = 5        # n步回报
+    priority_alpha: float = 0.6     # 优先经验回放alpha参数
+    priority_beta: float = 0.4      # 优先经验回放beta参数
+    dueling_network: bool = True    # 是否使用Dueling网络结构
+    double_q: bool = True          # 是否使用Double DQN
+    policy_update_freq: int = 5           # 策略更新频率
+
+@dataclass
+class DispatchingTrainConfig(BaseTrainingConfig):
+    """配送策略训练配置"""
+    sac_alpha: float = 0.2         # SAC温度参数
+    auto_entropy_tuning: bool = True # 是否自动调整熵参数
+    reward_scale: float = 1.0       # 奖励缩放因子
+    q_update_steps: int = 1         # Q网络更新步数
+    policy_update_freq: int = 2     # 策略更新频率
+
 @dataclass
 class TrainingConfig:
-    """训练相关配置"""
-    # 基础参数
-    gamma: float = 0.99         # 折扣因子
-    tau: float = 0.005         # 目标网络软更新系数
-    batch_size: int = 64       # 训练批次大小
-    buffer_size: int = 100000  # 经验回放缓冲区大小
-    learning_rate: float = 1e-4 # 学习率
-    grad_clip: float = 0.5     # 梯度裁剪阈值
+    """训练总配置"""
+    meta_controller: MetaControllerTrainConfig = field(default_factory=MetaControllerTrainConfig)
+    scheduling: SchedulingTrainConfig = field(default_factory=SchedulingTrainConfig)
+    dispatching: DispatchingTrainConfig = field(default_factory=DispatchingTrainConfig)
     
-    # 评估参数
-    eval_episodes: int = 50     # 评估轮数
-    save_interval: int = 100    # 模型保存间隔
+    # 通用评估参数
+    eval_episodes: int = 50         # 评估轮数
+    save_interval: int = 100        # 模型保存间隔
+    log_interval: int = 10          # 日志记录间隔
+    max_episodes: int = 1000        # 最大训练轮数
+    warmup_episodes: int = 10       # 预热轮数
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'meta_controller': self.meta_controller.__dict__,
+            'scheduling': self.scheduling.__dict__,
+            'dispatching': self.dispatching.__dict__,
+            'eval_episodes': self.eval_episodes,
+            'save_interval': self.save_interval,
+            'log_interval': self.log_interval,
+            'max_episodes': self.max_episodes,
+            'warmup_episodes': self.warmup_episodes
+        }
+
+    @classmethod
+    def from_dict(cls, config_dict: Dict[str, Any]) -> 'TrainingConfig':
+        meta = MetaControllerTrainConfig(**config_dict.get('meta_controller', {}))
+        sched = SchedulingTrainConfig(**config_dict.get('scheduling', {}))
+        disp = DispatchingTrainConfig(**config_dict.get('dispatching', {}))
+        
+        return cls(
+            meta_controller=meta,
+            scheduling=sched,
+            dispatching=disp,
+            eval_episodes=config_dict.get('eval_episodes', 50),
+            save_interval=config_dict.get('save_interval', 100),
+            log_interval=config_dict.get('log_interval', 10),
+            max_episodes=config_dict.get('max_episodes', 1000),
+            warmup_episodes=config_dict.get('warmup_episodes', 10)
+        )
 
 @dataclass
 class ProblemConfig:
@@ -124,7 +237,7 @@ class Config:
             max_time_steps=config_dict.get('max_time_steps', 10000)
         )
     
-    def save(self, filepath: str | Path) -> None:
+    def save(self, filepath) -> None:
         """保存配置到文件"""
         filepath = Path(filepath)
         filepath.parent.mkdir(parents=True, exist_ok=True)
@@ -132,7 +245,7 @@ class Config:
             json.dump(self.to_dict(), f, indent=2)
     
     @classmethod
-    def load(cls, filepath: str | Path) -> 'Config':
+    def load(cls, filepath) -> 'Config':
         """从文件加载配置"""
         with open(filepath) as f:
             config_dict = json.load(f)

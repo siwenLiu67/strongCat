@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
-from paper.v4_amount.v3_code.entity.environment import WarehouseEnvironment
-from paper.v4_amount.v3_code.data.caseBuilder.config import Config
-from paper.v4_amount.v3_code.data.caseBuilder.jobshop_case_generator import JobShopCase
+from entity.environment import WarehouseEnvironment
+from data.caseBuilder.config import Config
+from data.caseBuilder.jobshop_case_generator import FlexibleJobShopScenario
 
 class EnvironmentTester:
     """环境测试器类"""
@@ -10,18 +10,19 @@ class EnvironmentTester:
     def __init__(self):
         # 创建小规模测试用例
         self.config = self._create_test_config()
-        self.case = JobShopCase(self.config)
+        self.case = FlexibleJobShopScenario(self.config)
         self.env = WarehouseEnvironment(self.config, self.case)
         
     def _create_test_config(self):
         """创建测试配置"""
-        config = Config()
+
         # 使用小规模问题进行测试
-        config.num_jobs = 5
-        config.num_machines = 3
-        config.num_distributors = 2
-        config.max_jobs_per_batch = 3
-        config.max_operations = 4
+        config = Config()
+        Config.problem.num_jobs = 5
+        config.problem.num_machines = 3
+        config.problem.num_distributors = 2
+        config.problem.max_jobs_per_batch = 3
+        config.problem.max_operations = 4
         config.max_time_steps = 10
         return config
     
@@ -54,8 +55,8 @@ class EnvironmentTester:
         state = self.env.reset()
         
         # 验证初始状态
-        assert len(self.env.jobs) == self.config.num_jobs, "作业数量不匹配"
-        assert len(self.env.machines) == self.config.num_machines, "机器数量不匹配"
+        assert len(self.env.jobs) == self.config.problem.num_jobs, "作业数量不匹配"
+        assert len(self.env.machines) == self.config.problem.num_machines, "机器数量不匹配"
         assert self.env.current_time == 0, "初始时间不为0"
         
         print("✓ 环境初始化测试通过")
@@ -72,8 +73,8 @@ class EnvironmentTester:
         
         # 验证仓储状态
         warehouse = state['warehouse']
-        assert warehouse['nodes']['jobs'].shape[0] == self.config.num_jobs, "作业节点数量错误"
-        assert warehouse['nodes']['machines'].shape[0] == self.config.num_machines, "机器节点数量错误"
+        assert warehouse['nodes']['jobs'].shape[0] == self.config.problem.num_jobs, "作业节点数量错误"
+        assert warehouse['nodes']['machines'].shape[0] == self.config.problem.num_machines, "机器节点数量错误"
         
         print("✓ 状态表示测试通过")
         
@@ -83,7 +84,7 @@ class EnvironmentTester:
         
         # 创建测试动作
         actions = {
-            'machine_assignment': [0 if i == 0 else None for i in range(self.config.num_machines)],
+            'machine_assignment': [0 if i == 0 else None for i in range(self.config.problem.num_machines)],
             'batch_assignment': {0: '1_1260'}
         }
         
@@ -120,7 +121,7 @@ class EnvironmentTester:
         print("\n测试奖励计算...")
         
         # 测试调度奖励
-        schedule_rewards = self.env._process_scheduling([None] * self.config.num_machines)
+        schedule_rewards = self.env._process_scheduling([None] * self.config.problem.num_machines)
         assert isinstance(schedule_rewards, (int, float)), "调度奖励格式错误"
         
         # 测试批次奖励

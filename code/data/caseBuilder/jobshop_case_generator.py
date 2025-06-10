@@ -7,10 +7,10 @@ import numpy as np
 import pandas as pd
 from dataclasses import dataclass
 from typing import Dict, List, Optional
-from config import Config
+from code.data.caseBuilder.config import Config
 
 @dataclass
-class JobShopCase:
+class FlexibleJobShopScenario:
     """FJSP-DP算例生成器
     
     基于配置生成包含加工时间和交付要求的标准算例。
@@ -29,11 +29,11 @@ class JobShopCase:
                 - seed: 随机种子
         """
         self.config = config
-        self.num_jobs = config.num_jobs
-        self.num_machines = config.num_machines
-        self.num_distributors = config.num_distributors
-        self.T_base = config.batch_loading_base_time
-        self.T_item = config.item_loading_time
+        self.num_jobs = config.problem.num_jobs
+        self.num_machines = config.problem.num_machines
+        self.num_distributors = config.problem.num_distributors
+        self.T_base = config.problem.batch_loading_base_time
+        self.T_item = config.problem.item_loading_time
         self.seed = config.random_seed
         
         # 初始化数据结构
@@ -69,8 +69,8 @@ class JobShopCase:
     
     def _generate_operations(self):
         """为每个工件生成随机工序数"""
-        min_ops = self.config.min_operations
-        max_ops = self.config.max_operations
+        min_ops = self.config.problem.min_operations
+        max_ops = self.config.problem.max_operations
         self.job_num_ops = {
             j: np.random.randint(min_ops, max_ops + 1) 
             for j in range(self.num_jobs)
@@ -82,8 +82,8 @@ class JobShopCase:
             self.available_machines[j] = {}
             for o in range(self.job_num_ops[j]):
                 n_machines = np.random.randint(
-                    self.config.min_machines_per_op,
-                    min(self.config.max_machines_per_op, self.num_machines) + 1
+                    self.config.problem.min_machines_per_op,
+                    min(self.config.problem.max_machines_per_op, self.num_machines) + 1
                 )
                 self.available_machines[j][o] = sorted(
                     np.random.choice(
@@ -100,8 +100,8 @@ class JobShopCase:
             for o in range(self.job_num_ops[j]):
                 self.processing_time[j][o] = {
                     m: int(np.random.randint(
-                        self.config.min_processing_time,
-                        self.config.max_processing_time
+                        self.config.problem.min_processing_time,
+                        self.config.problem.max_processing_time
                     ))
                     for m in self.available_machines[j][o]
                 }
@@ -122,8 +122,8 @@ class JobShopCase:
     
     def _generate_delivery_requirements(self):
         """生成交付要求"""
-        min_time = self.config.earliest_delivery_time
-        max_time = self.config.latest_delivery_time
+        min_time = self.config.problem.earliest_delivery_time
+        max_time = self.config.problem.latest_delivery_time
         
         for d in range(self.num_distributors):
             jobs = self.distributor2jobs[d]
@@ -131,8 +131,8 @@ class JobShopCase:
                 continue
                 
             n_req = np.random.randint(
-                self.config.min_delivery_requirements,
-                self.config.max_delivery_requirements + 1
+                self.config.problem.min_delivery_requirements,
+                self.config.problem.max_delivery_requirements + 1
             )
             
             ratios = np.linspace(1/n_req, 1, n_req)
@@ -227,7 +227,7 @@ class JobShopCase:
 
 import os
 
-def save_caseAsCsv(case: JobShopCase, filename='../data/jobshopCase/case'):
+def save_caseAsCsv(case: FlexibleJobShopScenario, filename='../data/jobshopCase/case'):
     """将算例信息保存为CSV文件
     
     参数:
@@ -257,6 +257,6 @@ def save_caseAsCsv(case: JobShopCase, filename='../data/jobshopCase/case'):
 # 使用示例
 if __name__ == "__main__":
     config = Config()
-    case = JobShopCase(config)
+    case = FlexibleJobShopScenario(config)
     case_info = case.summary()
-    save_caseAsCsv(case)
+   # save_caseAsCsv(case)

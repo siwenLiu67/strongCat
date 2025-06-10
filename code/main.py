@@ -1,101 +1,208 @@
-import torch
+import torch 
 import os
-import numpy as np
+import numpy as np 
 from datetime import datetime
-import logging 
-import json
-from algo.hdrl_framework import MetaController, create_dispatching_features
-import algo.SchedulingPolicy as SchedulingPolicy
-import algo.DispatchingPolicy as DispatchingPolicy
+import logging
+from collections import deque
+import random
+from typing import Dict, List
+from data.outputPrinter.training_period import TrainingVisualizer
+from algo.meta_controller import MetaController
+from algo.scheduling_policy import SchedulingPolicy
+from algo.dispatching_policy import DispatchingPolicy
+from algo.feature_builder import FeatureBuilder
 from entity.environment import WarehouseEnvironment
-from data.outputPrinter import generate_comparison_plots
+from data.caseBuilder.config import Config
+from data.caseBuilder.jobshop_case_generator import FlexibleJobShopScenario
 
-from matplotlib import pyplot as plt
-from data.caseBuilder import Config
+def setup_logger(exp_dir: str) -> logging.Logger:
+    """设置日志"""
+    logger = logging.getLogger("WarehouseExperiment")
+    logger.setLevel(logging.INFO)
+    
+    # 文件处理器
+    fh = logging.FileHandler(f"{exp_dir}/train.log")
+    fh.setLevel(logging.INFO)
+    
+    # 控制台处理器
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
+    
+    # 格式化器
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    fh.setFormatter(formatter)
+    ch.setFormatter(formatter)
+    
+    logger.addHandler(fh)
+    logger.addHandler(ch)
+    
+    return logger
+
+class ExperienceBuffer:
+    """经验回放缓冲区"""
+    def __init__(self, capacity: int):
+        self.buffer = deque(maxlen=capacity)
+        
+    def push(self, experience: Dict):
+        self.buffer.append(experience)
+        
+    def sample(self, batch_size: int) -> List[Dict]:
+        return random.sample(self.buffer, batch_size)
+        
+    def __len__(self):
+        return len(self.buffer)
 
 def main():
-    # 1. 读取参数
+    # 1. 读取配置
     config = Config()
     
     # 2. 创建实验目录
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     exp_dir = f"experiments/exp_{timestamp}"
     os.makedirs(exp_dir, exist_ok=True)
-
+    
     # 3. 设置日志
-    logger = logging.getLogger("WarehouseExperiment")
+    logger = setup_logger(exp_dir)
     logger.info("开始实验...")
     
     # 4. 设置随机种子
-    torch.manual_seed(config['random_seed'])
+    torch.manual_seed(config.random_seed)
+    np.random.seed(config.random_seed)
+    random.seed(config.random_seed)
+
+    # 生成算例
+    case = FlexibleJobShopScenario(config=config)
+    logger.info(f"生成算例: {case.summary()}")
+    logger.info("算例生成完成")
     
-    # 5. 初始化环境和智能体
-    env = WarehouseEnvironment(config)
+    # 5. 初始化环境和特征构建器
+    env = WarehouseEnvironment(config, case)
+    feature_builder = FeatureBuilder(config.to_dict())
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
-    # 初始化网络
-    meta_controller = MetaController(
-        state_dim=config['meta_state_dim'],
-        action_dim=config['meta_action_dim'],
-        hidden_dim=config['hidden_dim']
-    ).to(device)
-    
+    # 6. 初始化策略网络
+    meta_controller = MetaController(config).to(device)
     scheduling_policy = SchedulingPolicy(config).to(device)
     dispatching_policy = DispatchingPolicy(config).to(device)
     
-    # 初始化优化器
-    meta_optimizer = torch.optim.Adam(meta_controller.parameters(), lr=config['learning_rate'])
-    scheduling_optimizer = torch.optim.Adam(scheduling_policy.parameters(), lr=config['learning_rate'])
-    dispatching_optimizer = torch.optim.Adam(dispatching_policy.parameters(), lr=config['learning_rate'])
+    # 7. 初始化经验缓冲区
+    meta_buffer = ExperienceBuffer(config.training.meta_controller.buffer_size)
+    scheduling_buffer = ExperienceBuffer(config.training.scheduling.buffer_size)
+    dispatching_buffer = ExperienceBuffer(config.training.dispatching.buffer_size)
     
-    # 6. 训练循环
-    epsilon = config['epsilon_start']
+    # 8. 训练循环
+    total_steps = 0
     best_reward = float('-inf')
+    training_stats = {
+        'episode_rewards': [],
+        'meta_losses': [],
+        'scheduling_losses': [],
+        'dispatching_losses': []
+    }
     
-    for episode in range(config['num_episodes']):
-        total_reward = 0
+    for episode in range(config.training.max_episodes):
         state = env.reset()
+        episode_reward = 0
         done = False
         
         while not done:
             # 元控制器决策
-            meta_state = torch.FloatTensor(state['meta']).unsqueeze(0).to(device)
-            if np.random.random() < epsilon:
-                meta_action = np.random.randint(0, 3)
-            else:
-                with torch.no_grad():
-                    meta_action = meta_controller.predict(meta_state).item()
+            meta_features = feature_builder.create_meta_features(state)
+            meta_features = torch.FloatTensor(meta_features).unsqueeze(0).to(device)
+            
+            meta_action, meta_log_prob = meta_controller.act(meta_features)
             
             # 根据元动作选择子策略
             if meta_action == 0:  # 调度决策
-                scheduling_features = create_scheduling_features(state, config)
-                scheduling_action = scheduling_policy(scheduling_features)
+                job_features, job_adj, machine_features, machine_adj = (
+                    feature_builder.create_scheduling_features(state)
+                )
+                scheduling_action, sched_log_prob = scheduling_policy.act(
+                    job_features, job_adj, machine_features, machine_adj
+                )
                 action = {'type': 'scheduling', 'action': scheduling_action}
             else:  # 配送决策
-                dispatching_features = create_dispatching_features(state, config)
-                dispatching_action = dispatching_policy(dispatching_features)
+                job_features, batch_features, valid_mask = (
+                    feature_builder.create_dispatching_features(state)
+                )
+                dispatching_action, disp_log_prob = dispatching_policy.act(
+                    job_features, batch_features, valid_mask
+                )
                 action = {'type': 'dispatching', 'action': dispatching_action}
             
             # 执行动作
             next_state, reward, done, info = env.step(action)
-            total_reward += reward
+            episode_reward += reward
+            total_steps += 1
             
             # 存储经验
-            # (这里需要实现经验回放缓冲区)
-
+            if meta_action == 0:
+                scheduling_buffer.push({
+                    'state': state,
+                    'action': scheduling_action,
+                    'reward': reward,
+                    'next_state': next_state,
+                    'log_prob': sched_log_prob,
+                    'done': done
+                })
+            else:
+                dispatching_buffer.push({
+                    'state': state,
+                    'action': dispatching_action,
+                    'reward': reward,
+                    'next_state': next_state,
+                    'log_prob': disp_log_prob,
+                    'done': done
+                })
+                
+            meta_buffer.push({
+                'state': state,
+                'action': meta_action,
+                'reward': reward,
+                'next_state': next_state,
+                'log_prob': meta_log_prob,
+                'done': done
+            })
             
-            # 更新状态
+            # 更新网络
+            if total_steps % config.training.meta_controller.update_freq == 0:
+                if len(meta_buffer) >= config.training.meta_controller.batch_size:
+                    batch = meta_buffer.sample(config.training.meta_controller.batch_size)
+                    # Convert list of dicts to dict of tensors
+                    batch_dict = {k: torch.tensor([d[k] for d in batch]) if not isinstance(batch[0][k], torch.Tensor) else torch.stack([d[k] for d in batch]) for k in batch[0]}
+                    meta_info = meta_controller.update(batch_dict)
+                    training_stats['meta_losses'].append(meta_info)
+            
+            if total_steps % config.training.scheduling.policy_update_freq == 0:
+                if len(scheduling_buffer) >= config.training.scheduling.batch_size:
+                    batch = scheduling_buffer.sample(config.training.scheduling.batch_size)
+                    batch_dict = {k: torch.tensor([d[k] for d in batch]) if not isinstance(batch[0][k], torch.Tensor) else torch.stack([d[k] for d in batch]) for k in batch[0]}
+                    sched_info = scheduling_policy.update(batch_dict)
+                    training_stats['scheduling_losses'].append(sched_info)
+            
+            if total_steps % config.training.dispatching.policy_update_freq == 0:
+                if len(dispatching_buffer) >= config.training.dispatching.batch_size:
+                    batch = dispatching_buffer.sample(config.training.dispatching.batch_size)
+                    batch_dict = {k: torch.tensor([d[k] for d in batch]) if not isinstance(batch[0][k], torch.Tensor) else torch.stack([d[k] for d in batch]) for k in batch[0]}
+                    disp_info = dispatching_policy.update(batch_dict)
+                    training_stats['dispatching_losses'].append(disp_info)
+            
             state = next_state
         
-        # 更新探索率
-        epsilon = max(config['epsilon_end'], epsilon * config['epsilon_decay'])
+        # 记录训练统计
+        training_stats['episode_rewards'].append(episode_reward)
         
-        # 记录日志
-        logger.info(f"Episode {episode}, Total Reward: {total_reward}, Epsilon: {epsilon:.4f}")
+        # 日志记录
+        logger.info(f"Episode {episode}/{config.training.max_episodes}")
+        logger.info(f"Total Reward: {episode_reward:.2f}")
+        logger.info(f"Average Loss - Meta: {np.mean(training_stats['meta_losses'][-10:]):.4f}")
+        logger.info(f"Average Loss - Scheduling: {np.mean(training_stats['scheduling_losses'][-10:]):.4f}")
+        logger.info(f"Average Loss - Dispatching: {np.mean(training_stats['dispatching_losses'][-10:]):.4f}")
         
         # 保存最佳模型
-        if total_reward > best_reward:
-            best_reward = total_reward
+        if episode_reward > best_reward:
+            best_reward = episode_reward
+            save_path = f"{exp_dir}/best_model.pt"
             torch.save({
                 'meta_controller': meta_controller.state_dict(),
                 'scheduling_policy': scheduling_policy.state_dict(),
@@ -103,82 +210,32 @@ def main():
                 'config': config,
                 'episode': episode,
                 'reward': best_reward
-            }, f"{exp_dir}/best_model.pth")
-        
+            }, save_path)
+            
         # 定期保存检查点
-        if episode % 100 == 0:
+        if episode % config.training.save_interval == 0:
+            save_path = f"{exp_dir}/checkpoint_ep{episode}.pt"
             torch.save({
                 'meta_controller': meta_controller.state_dict(),
                 'scheduling_policy': scheduling_policy.state_dict(),
                 'dispatching_policy': dispatching_policy.state_dict(),
-                'meta_optimizer': meta_optimizer.state_dict(),
-                'scheduling_optimizer': scheduling_optimizer.state_dict(),
-                'dispatching_optimizer': dispatching_optimizer.state_dict(),
+                'training_stats': training_stats,
                 'config': config,
-                'episode': episode,
-                'epsilon': epsilon
-            }, f"{exp_dir}/checkpoint_ep{episode}.pth")
+                'episode': episode
+            }, save_path)
+        
+        # 可视化训练进度
+        if episode % config.training.log_interval == 0:
+            visualizer = TrainingVisualizer(exp_dir)
+            visualizer.plot_rewards(training_stats['episode_rewards'], episode)
+            visualizer.plot_losses(training_stats, episode)
+            visualizer.plot_decision_distribution(training_stats, episode)
     
     logger.info("训练完成!")
-
-if __name__ == "__main__":
-    main()
-
-
-def visualize_progress(results, current_episode):
-    """Plot training metrics"""
-    plt.figure(figsize=(15, 5))
     
-    # Reward plot
-    plt.subplot(1, 3, 1)
-    plt.plot(results['episode'], results['reward'])
-    plt.title('Episode Reward')
-    plt.xlabel('Episode')
-    plt.ylabel('Total Reward')
-    
-    # Tardiness plot
-    plt.subplot(1, 3, 2)
-    plt.plot(results['episode'], results['tardiness'])
-    plt.title('Average Tardiness')
-    plt.xlabel('Episode')
-    plt.ylabel('Tardiness (hours)')
-    
-    # Utilization plot
-    plt.subplot(1, 3, 3)
-    plt.plot(results['episode'], results['utilization'])
-    plt.title('Resource Utilization')
-    plt.xlabel('Episode')
-    plt.ylabel('Utilization (%)')
-    
-    plt.tight_layout()
-    plt.savefig(f'results/progress_{current_episode}.png')
-    plt.close()
-
-
-def final_evaluation(agent, env, config):
-    """Run final evaluation on test scenarios"""
-    test_results = []
-    for _ in range(10):  # 10 test scenarios
-        state = env.reset()
-        done = False
-        while not done:
-            actions = agent.get_actions(state, eval_mode=True)
-            state, _, done, info = env.step(actions)
-        test_results.append(info)
-    
-    # Save evaluation metrics
-    with open('results/final_evaluation.json', 'w') as f:
-        json.dump(test_results, f)
-        
-    # Generate comparison plots
-    generate_comparison_plots(test_results)
-
-def save_final_results(agent, results):
-    """Save final models and results"""
-    torch.save(agent.state_dict(), 'results/final_model.pt')
-    
-    with open('results/final_training_metrics.json', 'w') as f:
-        json.dump(results, f)
+    # 最终评估
+   # final_evaluation(meta_controller, scheduling_policy, dispatching_policy, env, config)
+   # save_final_results(training_stats, exp_dir)
 
 if __name__ == "__main__":
     main()

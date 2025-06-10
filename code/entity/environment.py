@@ -178,24 +178,6 @@ class WarehouseEnvironment:
             return False
             
         return True
-    
-    def _update_batch_states(self):
-        """更新批次状态"""
-        for batch in self.batches:
-            if batch['status'] == 'waiting':
-                # 如果有作业分配，则激活批次
-                if len(batch['assigned_jobs']) > 0:
-                    batch['status'] = 'active'
-                    
-            elif batch['status'] == 'active':
-                # 检查是否达到要求的作业数量
-                if len(batch['assigned_jobs']) >= batch['required_jobs']:
-                    batch['status'] = 'completed'
-                    self.completed_batches.append(batch['id'])
-                # 检查是否超过截止时间但未达到要求
-                elif self.current_time > batch['due_time']:
-                    batch['status'] = 'failed'
-
                     
     def _process_batching(self, batch_assignment):
         """处理配送批次决策
@@ -367,10 +349,12 @@ class WarehouseEnvironment:
                 # 你可以根据业务需求设置提前量，比如提前x步激活批次
                 advance = getattr(self.config, 'batch_start_advance', 0)
                 batch['start_time'] = max(0, batch['due_time'] - advance)
+            
             # 如果end_time为None，初始化为due_time
             if batch.get('end_time', None) is None:
                 batch['end_time'] = batch['due_time']
 
+            
             if batch['status'] == 'waiting':
                 # 检查是否到达开始时间
                 if current_time >= batch['start_time']:
