@@ -72,8 +72,6 @@ class MetaController(nn.Module):
         # 初始化优化器
         self.optimizer = optim.Adam(self.parameters(), lr=self.learning_rate)
         
-        # 初始化权重
-        self._init_weights()
 
     def act(self, state: torch.Tensor, epsilon: float = 0.1) -> Tuple[torch.Tensor, float]:
         """选择动作

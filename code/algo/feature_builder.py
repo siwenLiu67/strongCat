@@ -1,50 +1,50 @@
 from typing import Any, Dict, List, Tuple
 import torch
-from dataclasses import dataclass,field
+from dataclasses import dataclass, field
 from collections import defaultdict
+from data.caseBuilder.config import Config
 
 class FeatureExtractor:
     """特征提取器基类"""
-    def __init__(self, config: Dict):
+    def __init__(self, config: Config):
         self.config = config
         
     def normalize_time(self, time_value: float) -> float:
         """时间归一化"""
-        return time_value / self.config['max_time']
+        return time_value / self.config.problem.max_processing_time
     
     def normalize_weight(self, weight: float) -> float:
         """重量归一化"""
-        return weight / self.config['max_weight']
+        return weight / self.config.problem.max_weight
 
 class JobFeatures(FeatureExtractor):
     """作业特征提取器"""
     def get_basic_features(self, job: Dict) -> List[float]:
         """获取基础特征"""
         return [
-            self.normalize_time(job['due_date']),         # 截止日期
-            job['priority'] / self.config['max_priority'], # 优先级
-            self.normalize_weight(job['weight']),         # 重量
-            len(job.get('operations', [])) / self.config['max_operations'] # 工序数
+            self.normalize_time(job['due_date']),                     # 截止日期
+            job['priority'] / self.config.problem.max_priority,       # 优先级
+            self.normalize_weight(job['weight']),                     # 重量
+            len(job.get('operations', [])) / self.config.problem.max_operations  # 工序数
         ]
     
     def get_scheduling_features(self, job: Dict) -> List[float]:
         """获取调度相关特征"""
         basic_features = self.get_basic_features(job)
         scheduling_features = [
-            len(job['remaining_operations']) / len(job['operations']), # 剩余工序比例
-            self.normalize_time(job['processing_time']),              # 加工时间
-            job['machine_compatibility'] / self.config['num_machines'] # 机器兼容性
+            len(job['remaining_operations']) / len(job['operations']),  # 剩余工序比例
+            self.normalize_time(job['processing_time']),                # 加工时间
+            len(job['machine_compatibility']) / self.config.problem.num_machines  # 机器兼容性
         ]
         return basic_features + scheduling_features
     
-
-    def get_dispatching_features(self, job: Dict, timestamp) -> List[float]:
+    def get_dispatching_features(self, job: Dict, current_time: float) -> List[float]:
         """获取配送相关特征"""
         basic_features = self.get_basic_features(job)
         dispatching_features = [
-            self.normalize_time(timestamp.time_until(job['completion_time'])),  # 剩余完工时间
-            job['distributor_id'] / self.config['num_distributors'],           # 配送商ID
-            self.normalize_time(job.get('tardiness', 0))                      # 延迟时间
+            self.normalize_time(max(0, job['completion_time'] - current_time)),  # 剩余完工时间
+            job['distributor_id'] / self.config.problem.num_distributors,       # 配送商ID
+            self.normalize_time(job.get('tardiness', 0))                        # 延迟时间
         ]
         return basic_features + dispatching_features
 
@@ -52,10 +52,10 @@ class MachineFeatures(FeatureExtractor):
     """机器特征提取器"""
     def get_features(self, machine: Dict) -> List[float]:
         return [
-            len(machine['queue']) / self.config['max_queue_length'],   # 队列长度
-            machine['utilization'],                                     # 利用率
-            self.normalize_time(machine['remaining_time']),            # 剩余时间
-            machine['status'] == 'idle'                                # 是否空闲
+            len(machine['queue']) / self.config.problem.max_machine_queue,  # 队列长度
+            machine['utilization'],                                        # 利用率
+            self.normalize_time(machine['remaining_time']),                # 剩余时间
+            float(machine['status'] == 'idle')                            # 是否空闲
         ]
 
 class BatchFeatures(FeatureExtractor):
@@ -63,294 +63,200 @@ class BatchFeatures(FeatureExtractor):
     def get_features(self, batch: Dict, current_time: float) -> List[float]:
         current_load = sum(j['weight'] for j in batch['assigned_jobs'])
         return [
-            (batch['max_capacity'] - current_load) / batch['max_capacity'], # 剩余容量比例
-            self.normalize_time(batch['earliest_start'] - current_time),   # 最早开始时间
-            self.normalize_time(batch['latest_start'] - current_time),     # 最晚开始时间
-            len(batch['assigned_jobs']) / self.config['max_batch_size'],   # 已分配数量
-            batch['distributor_id'] / self.config['num_distributors'],     # 配送商ID
-            batch.get('utilization', 0)                                    # 当前利用率
+            (batch['max_capacity'] - current_load) / batch['max_capacity'],  # 剩余容量比例
+            self.normalize_time(batch['earliest_start'] - current_time),     # 最早开始时间
+            self.normalize_time(batch['latest_start'] - current_time),       # 最晚开始时间
+            len(batch['assigned_jobs']) / self.config.problem.max_jobs_per_batch,# 已分配数量
+            batch['distributor_id'] / self.config.problem.num_distributors,  # 配送商ID
+            batch.get('utilization', 0)                                      # 当前利用率
         ]
 
 @dataclass
 class FeatureCache:
     """特征缓存"""
-    job_features: Dict[int, torch.Tensor] = field(default_factory=dict)
-    machine_features: Dict[int, torch.Tensor] = field(default_factory=dict)
-    batch_features: Dict[int, torch.Tensor] = field(default_factory=dict)
+    features: Dict[str, Dict[int, torch.Tensor]] = field(
+        default_factory=lambda: defaultdict(dict)
+    )
     ttl: int = 100  # 缓存生存期
 
-class FeatureBuilder:
+class FeatureBuilder(FeatureExtractor):
     """特征构建器"""
-    def __init__(self, config: Dict):
-        self.config = config
+    def __init__(self, config: Config):
+        super().__init__(config)
         self.job_extractor = JobFeatures(config)
         self.machine_extractor = MachineFeatures(config)
         self.batch_extractor = BatchFeatures(config)
         self.cache = FeatureCache()
 
+    def build_features(self, state: Dict[str, Any], feature_type: str) -> Dict[str, torch.Tensor]:
+        """构建指定类型的特征"""
+        feature_builders = {
+            'meta': self._build_meta_features,
+            'scheduling': self._build_scheduling_features,
+            'dispatching': self._build_dispatching_features
+        }
+        
+        if feature_type not in feature_builders:
+            raise ValueError(f"不支持的特征类型: {feature_type}")
+            
+        return feature_builders[feature_type](state)
 
-        # ...existing code...
-    
-    def create_meta_features(
-        self,
-        state: Dict[str, Any]
-    ) -> Dict[str, torch.Tensor]:
-        """创建元控制器的输入特征
+    def _build_meta_features(self, state: Dict[str, Any]) -> Dict[str, torch.Tensor]:
+        """构建元控制器特征
         
-        构造5个全局指标:
-        1. q_t: 输入缓冲区中的平均作业数量
-        2. sigma_mach_t: 各机器剩余加工时间的标准差
-        3. s_due_t: 缓冲区作业的平均时间裕度
-        4. rho_urg_t: 缓冲区中紧急作业的比例
-        5. mu_load_t: 系统中所有作业按订单类型的估计加工负载
-        
-        Args:
-            state: 系统当前状态，包含:
-                - jobs: 所有作业信息
-                - machines: 所有机器信息
-                - current_time: 当前时间
-                
-        Returns:
-            包含5个全局指标的特征张量
+        用于决定是否触发新的调度方案
+        特征包含:
+        1. q_new: 新到达作业比例
+        2. sigma_mach_t: 机器负载不平衡程度
+        3. urgency_ratio: 紧急程度
+        4. schedule_age: 当前调度方案的年龄
+        5. system_pressure: 系统压力指标
         """
         current_time = state['current_time']
         jobs = state['jobs']
         machines = state['machines']
+        last_schedule_time = state.get('last_schedule_time', 0)
         
-        # 1. 计算平均作业数量
-        q_t = len(jobs) / self.config['max_jobs']
+        # 1. 新到达作业比例
+        new_jobs = [j for j in jobs if j['arrival_time'] > last_schedule_time]
+        q_new = len(new_jobs) / max(1, len(jobs))
         
-        # 2. 计算机器负载不平衡指标
-        remaining_times = [m['remaining_time'] for m in machines]
-        sigma_mach_t = torch.tensor(remaining_times).std().item() / self.config['max_time']
+        # 2. 机器负载不平衡度
+        remaining_times = [float(m['remaining_time']) for m in machines]
+        sigma_mach_t = torch.tensor(remaining_times, dtype=torch.float32).std().item() / self.config.problem.max_processing_time
         
-        # 3. 计算平均时间裕度
-        due_times = []
-        for job in jobs:
-            time_to_due = job['due_date'] - current_time
-            due_times.append(max(0, time_to_due))
-        s_due_t = (sum(due_times) / len(jobs)) / self.config['max_time'] if jobs else 0
+        # 3. 紧急程度
+        urgent_threshold = self.config.problem.urgent_threshold
+        all_urgency = [
+            max(0, (job['due_date'] - current_time) / urgent_threshold)
+            for job in jobs
+        ]
+        urgency_ratio = sum(1 for u in all_urgency if u < 1) / max(1, len(jobs))
         
-        # 4. 计算紧急作业比例
-        urgent_threshold = self.config['urgent_time_threshold']
-        urgent_jobs = sum(1 for job in jobs if (job['due_date'] - current_time) <= urgent_threshold)
-        rho_urg_t = urgent_jobs / len(jobs) if jobs else 0
+        # 4. 当前调度方案的年龄
+        schedule_age = self.normalize_time(current_time - last_schedule_time)
         
-        # 5. 计算估计加工负载
-        total_load = 0
-        for job in jobs:
-            # 考虑剩余工序的加工时间
-            remaining_time = sum(op['processing_time'] for op in job['remaining_operations'])
-            # 加权考虑作业优先级
-            weighted_load = remaining_time * (1 + job['priority'] / self.config['max_priority'])
-            total_load += weighted_load
-        mu_load_t = total_load / self.config['max_load']
+        # 5. 系统压力指标
+        # 考虑剩余加工容量与待加工工作量的比例
+        total_remaining_work = sum(
+            sum(op['processing_time'] for op in job['remaining_operations'])
+            for job in jobs
+        )
+        total_machine_capacity = sum(
+            max(0, self.config.problem.max_processing_time - m['remaining_time'])
+            for m in machines
+        )
+        system_pressure = min(1.0, total_remaining_work / max(1, total_machine_capacity))
         
-        # 构造特征张量
         meta_features = torch.tensor([
-            q_t,
-            sigma_mach_t,
-            s_due_t,
-            rho_urg_t,
-            mu_load_t
+            q_new,           # 新作业比例
+            sigma_mach_t,    # 负载不平衡度
+            urgency_ratio,   # 紧急程度
+            schedule_age,    # 调度方案年龄
+            system_pressure  # 系统压力
         ], dtype=torch.float32)
         
         return {'meta_features': meta_features}
-    
-    def _normalize_meta_features(self, features: torch.Tensor) -> torch.Tensor:
-        """归一化元控制器特征
-        
-        使用配置中的最大值进行归一化，确保特征值在[0,1]范围内
-        """
-        max_values = torch.tensor([
-            1.0,                    # q_t 已经归一化
-            1.0,                    # sigma_mach_t 已经归一化
-            1.0,                    # s_due_t 已经归一化
-            1.0,                    # rho_urg_t 是比例值
-            1.0                     # mu_load_t 已经归一化
-        ], dtype=torch.float32)
-        
-        return torch.clip(features / max_values, 0, 1)
 
-
-    def create_dispatching_features(
-        self,
-        state: Dict[str, Any]
-    ) -> Dict[str, torch.Tensor]:
-        """创建配送决策的输入特征
-        
-        Args:
-            state: 系统当前状态，包含:
-                - jobs: 待分配的作业列表
-                - batches: 配送批次列表
-                - current_time: 当前时间
-                
-        Returns:
-            Dict 包含:
-                - job_features: 作业特征矩阵 [n_jobs, feat_dim]
-                - batch_features: 批次特征矩阵 [n_batches, feat_dim]
-                - valid_mask: 有效分配掩码 [n_jobs, n_batches]
-        """
-        jobs = state['jobs']
-        batches = state['batches']
-        current_time = state['current_time']
-        
-        # 1. 提取作业特征
-        job_features = []
-        distributor_ids = []
-        
-        for job in jobs:
-            features = self.job_extractor.get_dispatching_features(job, current_time)
-            job_features.append(features)
-            distributor_ids.append(job['distributor_id'])
-        
-        # 2. 提取批次特征
-        batch_features = []
-        for batch in batches:
-            features = self.batch_extractor.get_features(batch, current_time)
-            batch_features.append(features)
-        
-        # 3. 创建有效分配掩码
-        valid_mask = self.create_valid_mask(jobs, batches, current_time)
-        
-        return {
-            'job_features': torch.tensor(job_features, dtype=torch.float32),
-            'batch_features': torch.tensor(batch_features, dtype=torch.float32),
-            'distributor_ids': torch.tensor(distributor_ids, dtype=torch.long),
-            'valid_mask': valid_mask
-        }
-
-
-    def create_scheduling_features(
-        self,
-        state: Dict[str, Any]
-    ) -> Dict[str, torch.Tensor]:
-        """创建调度决策的输入特征
-        
-        Args:
-            state: 系统当前状态，包含:
-                - jobs: 待调度的作业列表
-                - machines: 机器状态列表
-                - current_time: 当前时间
-                
-        Returns:
-            Dict 包含:
-                - job_features: 作业特征矩阵 [n_jobs, feat_dim]
-                - machine_features: 机器特征矩阵 [n_machines, feat_dim]
-                - job_adj: 作业邻接矩阵 [n_jobs, n_jobs]
-                - machine_adj: 机器邻接矩阵 [n_machines, n_machines]
-        """
+    def _build_scheduling_features(self, state: Dict[str, Any]) -> Dict[str, torch.Tensor]:
+        """构建调度决策特征"""
         jobs = state['jobs']
         machines = state['machines']
-        current_time = state['current_time']
         
-        # 1. 提取特征
-        job_features = []
-        machine_features = []
+        # 提取节点特征
+        job_features = torch.tensor([
+            self.job_extractor.get_scheduling_features(job) for job in jobs
+        ], dtype=torch.float32)
         
-        # 作业特征
-        for job in jobs:
-            features = self.job_extractor.get_scheduling_features(job)
-            job_features.append(features)
+        machine_features = torch.tensor([
+            self.machine_extractor.get_features(machine) for machine in machines
+        ], dtype=torch.float32)
         
-        # 机器特征    
-        for machine in machines:
-            features = self.machine_extractor.get_features(machine)
-            machine_features.append(features)
-        
-        # 2. 构建邻接矩阵
-        n_jobs = len(jobs)
-        n_machines = len(machines)
-        
-        # 作业邻接矩阵：基于工序相似度和时间窗口重叠
-        job_adj = torch.zeros((n_jobs, n_jobs))
-        for i in range(n_jobs):
-            for j in range(n_jobs):
-                if i != j:
-                    # 计算工序相似度
-                    ops_similarity = len(
-                        set(jobs[i]['machine_compatibility']) & 
-                        set(jobs[j]['machine_compatibility'])
-                    ) / len(set(jobs[i]['machine_compatibility']))
-                    
-                    # 计算时间窗口重叠
-                    time_overlap = min(
-                        jobs[i]['due_date'], 
-                        jobs[j]['due_date']
-                    ) - max(
-                        current_time + jobs[i]['processing_time'],
-                        current_time + jobs[j]['processing_time']
-                    )
-                    
-                    # 综合评分
-                    job_adj[i, j] = ops_similarity if time_overlap > 0 else 0
-        
-        # 机器邻接矩阵：基于工作负载和物理布局
-        machine_adj = torch.zeros((n_machines, n_machines))
-        for i in range(n_machines):
-            for j in range(n_machines):
-                if i != j:
-                    # 计算负载相似度
-                    load_diff = abs(
-                        machines[i]['utilization'] - 
-                        machines[j]['utilization']
-                    )
-                    
-                    # 考虑物理布局（如果有）
-                    layout_dist = machines[i].get('location', {}).get(
-                        'distance_to', {}
-                    ).get(str(machines[j]['id']), float('inf'))
-                    
-                    # 综合评分
-                    machine_adj[i, j] = 1.0 / (1.0 + load_diff) if layout_dist < float('inf') else 0
+        # 构建邻接矩阵
+        job_adj = self._build_job_adjacency(jobs)
+        machine_adj = self._build_machine_adjacency(machines)
         
         return {
-            'job_features': torch.tensor(job_features, dtype=torch.float32),
-            'machine_features': torch.tensor(machine_features, dtype=torch.float32),
+            'job_features': job_features,
+            'machine_features': machine_features,
             'job_adj': job_adj,
             'machine_adj': machine_adj
         }
 
+    def _build_dispatching_features(self, state: Dict[str, Any]) -> Dict[str, torch.Tensor]:
+        """构建配送决策特征"""
+        jobs = state['jobs']
+        batches = state['batches']
+        current_time = state['current_time']
+        
+        # 提取节点特征
+        job_features = torch.tensor([
+            self.job_extractor.get_dispatching_features(job, current_time) 
+            for job in jobs
+        ], dtype=torch.float32)
+        
+        batch_features = torch.tensor([
+            self.batch_extractor.get_features(batch, current_time) 
+            for batch in batches
+        ], dtype=torch.float32)
+        
+        # 构建有效性掩码
+        valid_mask = self._build_valid_mask(jobs, batches, current_time)
+        
+        return {
+            'job_features': job_features,
+            'batch_features': batch_features,
+            'valid_mask': valid_mask
+        }
 
-    def create_valid_mask(
-        self,
-        jobs: List[Dict],
-        batches: List[Dict],
-        current_time: float
-    ) -> torch.Tensor:
-        """创建有效分配掩码"""
+    def _build_job_adjacency(self, jobs: List[Dict]) -> torch.Tensor:
+        """构建作业邻接矩阵"""
         n_jobs = len(jobs)
-        n_batches = len(batches)
-        mask = torch.zeros((n_jobs, n_batches), dtype=torch.bool)
+        adj = torch.zeros((n_jobs, n_jobs))
+        
+        for i, job1 in enumerate(jobs):
+            for j, job2 in enumerate(jobs):
+                if i != j:
+                    # 计算工序相似度
+                    common_machines = set(job1['machine_compatibility']) & set(job2['machine_compatibility'])
+                    similarity = len(common_machines) / len(set(job1['machine_compatibility']))
+                    adj[i, j] = similarity
+                    
+        return adj
+
+    def _build_machine_adjacency(self, machines: List[Dict]) -> torch.Tensor:
+        """构建机器邻接矩阵"""
+        n_machines = len(machines)
+        adj = torch.zeros((n_machines, n_machines))
+        
+        for i, m1 in enumerate(machines):
+            for j, m2 in enumerate(machines):
+                if i != j:
+                    # 基于负载差异构建连接强度
+                    load_diff = abs(m1['utilization'] - m2['utilization'])
+                    adj[i, j] = 1.0 / (1.0 + load_diff)
+                    
+        return adj
+
+    def _build_valid_mask(self, jobs: List[Dict], batches: List[Dict], current_time: float) -> torch.Tensor:
+        """构建有效分配掩码"""
+        mask = torch.ones((len(jobs), len(batches)), dtype=torch.bool)
         
         for j, job in enumerate(jobs):
             for b, batch in enumerate(batches):
-                if self._check_assignment_validity(job, batch, current_time):
-                    mask[j, b] = True
-        
+                # 检查时间窗口约束
+                if job['completion_time'] > batch['latest_start']:
+                    mask[j, b] = False
+                    continue
+                    
+                # 检查容量约束
+                current_load = sum(j['weight'] for j in batch['assigned_jobs'])
+                if current_load + job['weight'] > batch['max_capacity']:
+                    mask[j, b] = False
+                    continue
+                    
+                # 检查配送商匹配
+                if job['distributor_id'] != batch['distributor_id']:
+                    mask[j, b] = False
+                    
         return mask
-    
-    def _check_assignment_validity(
-        self,
-        job: Dict,
-        batch: Dict,
-        current_time: float
-    ) -> bool:
-        """检查分配是否有效"""
-        # 检查配送商匹配
-        if job['distributor_id'] != batch['distributor_id']:
-            return False
-            
-        # 检查容量约束
-        current_load = sum(j['weight'] for j in batch['assigned_jobs'])
-        if current_load + job['weight'] > batch['max_capacity']:
-            return False
-            
-        # 检查时间窗口约束
-        n_jobs = len(batch['assigned_jobs']) + 1
-        processing_time = self.config['base_processing_time'] + n_jobs * self.config['per_job_time']
-        completion_time = current_time + processing_time
-        if completion_time > batch['latest_start']:
-            return False
-            
-        return True

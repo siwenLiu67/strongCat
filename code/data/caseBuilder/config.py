@@ -54,6 +54,9 @@ class DispatchingNetConfig:
     lstm_layers: int = 2       # LSTM层数
     dropout: float = 0.1       # Dropout比率
     activation: ActivationType = ActivationType.GELU
+    transformer_layers: int = 2  # Transformer层数
+    transformer_heads: int = 4   # 注意力头数
+    use_layer_norm: bool = True   # 是否使用层归一化
 
 @dataclass
 class NetworkConfig:
@@ -105,6 +108,8 @@ class SchedulingTrainConfig(BaseTrainingConfig):
     dueling_network: bool = True    # 是否使用Dueling网络结构
     double_q: bool = True          # 是否使用Double DQN
     policy_update_freq: int = 5           # 策略更新频率
+    value_loss_coef: float = 0.5   # 价值损失系数
+    entropy_coef: float = 0.01     # 熵正则化系数
 
 @dataclass
 class DispatchingTrainConfig(BaseTrainingConfig):
@@ -114,6 +119,7 @@ class DispatchingTrainConfig(BaseTrainingConfig):
     reward_scale: float = 1.0       # 奖励缩放因子
     q_update_steps: int = 1         # Q网络更新步数
     policy_update_freq: int = 2     # 策略更新频率
+    
 
 @dataclass
 class TrainingConfig:
@@ -187,6 +193,24 @@ class ProblemConfig:
     item_loading_time: int = 2        # 单件装载时间
     max_jobs_per_batch: int = 5       # 每个批次最大作业数
     min_load_ratio: float = 0.3       # 最小装载率
+
+    # 新增参数
+    max_weight: float = 1000.0     # 最大重量限制
+    max_priority: int = 10         # 最大优先级
+    urgent_threshold: int = 50     # 紧急阈值(分钟)
+    max_machine_queue: int = 20    # 机器最大队列长度
+    base_processing_time: int = 5  # 基础处理时间
+    per_job_time: int = 2         # 每个作业增加的处理时间
+
+     # 动态到达相关参数
+    arrival_probability: float = 0.3    # 每个时间步新作业到达的概率
+    arrival_batch_size: float = 1.5     # 每次到达的作业数量参数(泊松分布均值)
+    min_operations: int = 2             # 最小工序数
+    max_operations: int = 5             # 最大工序数
+    min_processing_time: int = 2        # 最小加工时间
+    max_processing_time: int = 10       # 最大加工时间
+    due_window: int = 50               # 交期时间窗口
+    max_priority: int = 10             # 最大优先级
 
 @dataclass
 class RewardConfig:

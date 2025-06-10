@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from dataclasses import dataclass
 from typing import Dict, List, Optional
-from code.data.caseBuilder.config import Config
+from data.caseBuilder.config import Config
 
 @dataclass
 class FlexibleJobShopScenario:

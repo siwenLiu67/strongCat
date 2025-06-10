@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from entity.environment import WarehouseEnvironment
+from entity.dynamic_fjsp_env import WarehouseEnvironment
 from data.caseBuilder.config import Config
 from data.caseBuilder.jobshop_case_generator import FlexibleJobShopScenario
 

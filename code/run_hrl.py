@@ -11,7 +11,7 @@ from algo.meta_controller import MetaController
 from algo.scheduling_policy import SchedulingPolicy
 from algo.dispatching_policy import DispatchingPolicy
 from algo.feature_builder import FeatureBuilder
-from entity.environment import WarehouseEnvironment
+from strongCat.code.entity.dynamic_fjsp_env import WarehouseEnvironment
 from data.caseBuilder.config import Config
 from data.caseBuilder.jobshop_case_generator import FlexibleJobShopScenario
 
@@ -77,7 +77,7 @@ def main():
     
     # 5. 初始化环境和特征构建器
     env = WarehouseEnvironment(config, case)
-    feature_builder = FeatureBuilder(config.to_dict())
+    feature_builder = FeatureBuilder(config)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # 6. 初始化策略网络
@@ -107,7 +107,7 @@ def main():
         
         while not done:
             # 元控制器决策
-            meta_features = feature_builder.create_meta_features(state)
+            meta_features = feature_builder._build_meta_features(state)
             meta_features = torch.FloatTensor(meta_features).unsqueeze(0).to(device)
             
             meta_action, meta_log_prob = meta_controller.act(meta_features)
@@ -115,7 +115,7 @@ def main():
             # 根据元动作选择子策略
             if meta_action == 0:  # 调度决策
                 job_features, job_adj, machine_features, machine_adj = (
-                    feature_builder.create_scheduling_features(state)
+                    feature_builder._build_scheduling_features(state)
                 )
                 scheduling_action, sched_log_prob = scheduling_policy.act(
                     job_features, job_adj, machine_features, machine_adj
@@ -123,7 +123,7 @@ def main():
                 action = {'type': 'scheduling', 'action': scheduling_action}
             else:  # 配送决策
                 job_features, batch_features, valid_mask = (
-                    feature_builder.create_dispatching_features(state)
+                    feature_builder._build_dispatching_features(state)
                 )
                 dispatching_action, disp_log_prob = dispatching_policy.act(
                     job_features, batch_features, valid_mask
