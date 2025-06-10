@@ -1,8 +1,8 @@
-PWD /Volumes/SIWEN LIU/research/research/code/paper/v4_amount
+PWD /Users/siwenliu/Desktop/hrl/strongCat/paper
 INPUT /usr/local/texlive/2025/texmf.cnf
 INPUT /usr/local/texlive/2025/texmf-dist/web2c/texmf.cnf
 INPUT /usr/local/texlive/2025/texmf-var/web2c/pdftex/pdflatex.fmt
-INPUT /Volumes/SIWEN LIU/research/research/code/paper/v4_amount/v4.tex
+INPUT /Users/siwenliu/Desktop/hrl/strongCat/paper/v4.tex
 OUTPUT v4.log
 INPUT /usr/local/texlive/2025/texmf-dist/tex/latex/base/article.cls
 INPUT /usr/local/texlive/2025/texmf-dist/tex/latex/base/article.cls

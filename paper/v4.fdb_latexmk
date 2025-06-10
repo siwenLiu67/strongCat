@@ -1,6 +1,6 @@
 # Fdb version 4
-["pdflatex"] 1749453835.92458 "/Volumes/SIWEN LIU/research/research/code/paper/v4_amount/v4.tex" "v4.pdf" "v4" 1749453838.82676 0
-  "/Volumes/SIWEN LIU/research/research/code/paper/v4_amount/v4.tex" 1749453834 31490 a38f85490bc8d8770943f12d258515f0 ""
+["pdflatex"] 1749537055.30119 "/Users/siwenliu/Desktop/hrl/strongCat/paper/v4.tex" "v4.pdf" "v4" 1749537056.70504 0
+  "/Users/siwenliu/Desktop/hrl/strongCat/paper/v4.tex" 1749536863.58444 31490 a38f85490bc8d8770943f12d258515f0 ""
   "/usr/local/texlive/2025/texmf-dist/fonts/enc/dvips/base/8r.enc" 1165713224 4850 80dc9bab7f31fb78a000ccfed0e27cab ""
   "/usr/local/texlive/2025/texmf-dist/fonts/enc/dvips/cm-super/cm-super-t1.enc" 1136849721 2971 def0b6c1f0b107b3b936def894055589 ""
   "/usr/local/texlive/2025/texmf-dist/fonts/map/fontname/texfonts.map" 1577235249 3524 cb3e574dea2d1052e39280babc910dc8 ""
@@ -122,10 +122,10 @@
   "/usr/local/texlive/2025/texmf-var/fonts/map/pdftex/updmap/pdftex.map" 1746001105 5467155 19efa205003f9ecad95fbbaa6ff24da1 ""
   "/usr/local/texlive/2025/texmf-var/web2c/pdftex/pdflatex.fmt" 1746001003 3345739 c792df0cbf8c18005aab84689e0eb590 ""
   "/usr/local/texlive/2025/texmf.cnf" 1741450484 577 418a7058ec8e006d8704f60ecd22c938 ""
-  "arxiv.sty" 1749116592 7490 a96b0cef0e35ec8e90b092792e37a0b7 ""
-  "v4.aux" 1749453838 3389 a970add35653ae2cf72fa0cbfc49803c "pdflatex"
-  "v4.out" 1749453838 1574 59b80bbc2ea43d373198c1ca6b767d85 "pdflatex"
-  "v4.tex" 1749453834 31490 a38f85490bc8d8770943f12d258515f0 ""
+  "arxiv.sty" 1749536863.62846 7490 a96b0cef0e35ec8e90b092792e37a0b7 ""
+  "v4.aux" 1749537056.54886 3389 a970add35653ae2cf72fa0cbfc49803c "pdflatex"
+  "v4.out" 1749537056.54992 1574 59b80bbc2ea43d373198c1ca6b767d85 "pdflatex"
+  "v4.tex" 1749536863.58444 31490 a38f85490bc8d8770943f12d258515f0 ""
   (generated)
   "v4.aux"
   "v4.log"
