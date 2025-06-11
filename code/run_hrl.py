@@ -7,12 +7,12 @@ from collections import deque
 import random
 from typing import Dict, List
 from data.outputPrinter.training_period import TrainingVisualizer
-from algo.meta_controller import MetaController
+from algo.high_level_agent import HighLevelAgent
 from algo.scheduling_policy import SchedulingPolicy
 from algo.dispatching_policy import DispatchingPolicy
 from algo.feature_builder import FeatureBuilder
-from strongCat.code.entity.dynamic_fjsp_env import WarehouseEnvironment
-from data.caseBuilder.config import Config
+from entity.dynamic_fjsp_env import WarehouseEnvironment
+from entity.config import Config
 from data.caseBuilder.jobshop_case_generator import FlexibleJobShopScenario
 
 def setup_logger(exp_dir: str) -> logging.Logger:
@@ -71,17 +71,17 @@ def main():
     random.seed(config.random_seed)
 
     # 生成算例
-    case = FlexibleJobShopScenario(config=config)
+    case = FlexibleJobShopScenario(config)
     logger.info(f"生成算例: {case.summary()}")
     logger.info("算例生成完成")
     
     # 5. 初始化环境和特征构建器
-    env = WarehouseEnvironment(config, case)
+    env = WarehouseEnvironment(config, case.get_case_info())
     feature_builder = FeatureBuilder(config)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # 6. 初始化策略网络
-    meta_controller = MetaController(config).to(device)
+    meta_controller = HighLevelAgent(config).to(device)
     scheduling_policy = SchedulingPolicy(config).to(device)
     dispatching_policy = DispatchingPolicy(config).to(device)
     
@@ -107,10 +107,14 @@ def main():
         
         while not done:
             # 元控制器决策
-            meta_features = feature_builder._build_meta_features(state)
+            meta_features = feature_builder._build_meta_features(state)['meta_features']
+        
+            # 将特征转换为张量并移动到设备
             meta_features = torch.FloatTensor(meta_features).unsqueeze(0).to(device)
-            
-            meta_action, meta_log_prob = meta_controller.act(meta_features)
+            #action_mask = meta_controller.get_action_mask(meta_features)
+            action_mask = [True, np.random.rand() > 0.5, True]
+
+            meta_action = meta_controller.act(meta_features, action_mask)
             
             # 根据元动作选择子策略
             if meta_action == 0:  # 调度决策
@@ -170,7 +174,7 @@ def main():
                     batch = meta_buffer.sample(config.training.meta_controller.batch_size)
                     # Convert list of dicts to dict of tensors
                     batch_dict = {k: torch.tensor([d[k] for d in batch]) if not isinstance(batch[0][k], torch.Tensor) else torch.stack([d[k] for d in batch]) for k in batch[0]}
-                    meta_info = meta_controller.update(batch_dict)
+                    meta_info = meta_controller.update_from_batch(batch_dict)
                     training_stats['meta_losses'].append(meta_info)
             
             if total_steps % config.training.scheduling.policy_update_freq == 0:

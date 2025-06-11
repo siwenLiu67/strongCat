@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from entity.dynamic_fjsp_env import WarehouseEnvironment
-from data.caseBuilder.config import Config
+from strongCat.code.entity.config import Config
 from data.caseBuilder.jobshop_case_generator import FlexibleJobShopScenario
 
 class EnvironmentTester:
@@ -11,7 +11,7 @@ class EnvironmentTester:
         # 创建小规模测试用例
         self.config = self._create_test_config()
         self.case = FlexibleJobShopScenario(self.config)
-        self.env = WarehouseEnvironment(self.config, self.case)
+        self.env = WarehouseEnvironment(self.config, self.case.get_case_info())
         
     def _create_test_config(self):
         """创建测试配置"""

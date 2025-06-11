@@ -30,6 +30,11 @@ class MetaControllerNetConfig:
     max_load: float = 5000.0       # 最大加工负载
     urgent_time_threshold: float = 50.0  # 紧急作业时间阈值
 
+    lr: float = 1e-4              # 学习率
+    gamma: float = 0.99           # 折扣因子
+    tau: float = 0.005            # 目标网络软更新系数
+    
+
 
 @dataclass
 class SchedulingNetConfig:

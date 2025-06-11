@@ -2,7 +2,9 @@ from typing import Any, Dict, List, Tuple
 import torch
 from dataclasses import dataclass, field
 from collections import defaultdict
-from data.caseBuilder.config import Config
+from entity.config import Config
+from entity.dynamic_fjsp_env import EnvironmentState
+from entity.job_shop_entities import Job, Machine, DeliveryRequirement, DistributorAssignment
 
 class FeatureExtractor:
     """特征提取器基类"""
@@ -101,7 +103,7 @@ class FeatureBuilder(FeatureExtractor):
             
         return feature_builders[feature_type](state)
 
-    def _build_meta_features(self, state: Dict[str, Any]) -> Dict[str, torch.Tensor]:
+    def _build_meta_features(self, state: EnvironmentState) -> Dict[str, torch.Tensor]:
         """构建元控制器特征
         
         用于决定是否触发新的调度方案
@@ -112,42 +114,35 @@ class FeatureBuilder(FeatureExtractor):
         4. schedule_age: 当前调度方案的年龄
         5. system_pressure: 系统压力指标
         """
-        current_time = state['current_time']
-        jobs = state['jobs']
-        machines = state['machines']
-        last_schedule_time = state.get('last_schedule_time', 0)
+        current_time = state.current_time
+        jobs = state.jobs
+        machines = state.machines
+        last_schedule_time = getattr(state, 'last_schedule_time', 0)
         
         # 1. 新到达作业比例
-        new_jobs = [j for j in jobs if j['arrival_time'] > last_schedule_time]
+        new_jobs = [j for j in jobs if getattr(j, 'arrival_time', None) is not None and j.arrival_time is not None and j.arrival_time > last_schedule_time]
         q_new = len(new_jobs) / max(1, len(jobs))
         
         # 2. 机器负载不平衡度
-        remaining_times = [float(m['remaining_time']) for m in machines]
+        remaining_times = [float(m.remaining_time) for m in machines]
         sigma_mach_t = torch.tensor(remaining_times, dtype=torch.float32).std().item() / self.config.problem.max_processing_time
         
         # 3. 紧急程度
         urgent_threshold = self.config.problem.urgent_threshold
-        all_urgency = [
-            max(0, (job['due_date'] - current_time) / urgent_threshold)
-            for job in jobs
-        ]
-        urgency_ratio = sum(1 for u in all_urgency if u < 1) / max(1, len(jobs))
+        urgency_ratio = 0
         
         # 4. 当前调度方案的年龄
         schedule_age = self.normalize_time(current_time - last_schedule_time)
         
         # 5. 系统压力指标
         # 考虑剩余加工容量与待加工工作量的比例
-        total_remaining_work = sum(
-            sum(op['processing_time'] for op in job['remaining_operations'])
-            for job in jobs
-        )
-        total_machine_capacity = sum(
-            max(0, self.config.problem.max_processing_time - m['remaining_time'])
-            for m in machines
-        )
-        system_pressure = min(1.0, total_remaining_work / max(1, total_machine_capacity))
         
+        system_pressure = self._calculate_system_pressure(
+        jobs=state.jobs,
+        machines=state.machines,
+        current_time=state.current_time
+        )
+
         meta_features = torch.tensor([
             q_new,           # 新作业比例
             sigma_mach_t,    # 负载不平衡度
@@ -157,6 +152,49 @@ class FeatureBuilder(FeatureExtractor):
         ], dtype=torch.float32)
         
         return {'meta_features': meta_features}
+
+    def _calculate_system_pressure(self, jobs: List[Job], machines: List[Machine], current_time: float) -> float:
+        """计算系统压力指标
+        
+        Args:
+            jobs: 当前所有作业列表
+            machines: 所有机器列表
+            current_time: 当前时间
+        
+        Returns:
+            float: 系统压力指标 [0,1]，值越大表示系统压力越大
+        """
+        # 1. 计算待加工工作量
+        total_remaining_work = 0
+        for job in jobs:
+            for op in job.operations:
+                if op.status != 'waiting':
+                    continue
+                # 获取该工序在所有可用机器上的平均加工时间
+                avg_processing_time = sum(op.processing_times.values()) / len(op.processing_times)
+                # 考虑作业优先级
+                weighted_processing_time = avg_processing_time 
+                total_remaining_work += weighted_processing_time
+
+        # 2. 计算系统加工能力
+        total_machine_capacity = 0
+        for machine in machines:
+            # 计算当前时间窗口内的可用时间
+            available_time = self.config.problem.due_window - current_time
+            # 减去当前正在处理的工作剩余时间
+            if machine.status == 'busy':
+                available_time = max(0, available_time - machine.remaining_time)
+            # 考虑机器效率
+            machine_efficiency = getattr(machine, 'efficiency', 1.0)
+            total_machine_capacity += available_time * machine_efficiency
+
+        # 3. 计算压力指标
+        if total_machine_capacity <= 0:
+            return 1.0  # 如果没有可用产能，返回最大压力
+        
+        # 计算比值并限制在[0,1]范围内
+        pressure = total_remaining_work / total_machine_capacity
+        return min(1.0, pressure)
 
     def _build_scheduling_features(self, state: Dict[str, Any]) -> Dict[str, torch.Tensor]:
         """构建调度决策特征"""
