@@ -6,7 +6,7 @@ import pandas as pd
 import logging
 from entity.config import Config
 from .utils import EnvUtils
-from entity.job_shop_entities import Job, Operation, Machine, DeliveryRequirement, DistributorAssignment
+from entity.job_shop_entities import Job, MachineStatus, Operation, Machine, DeliveryRequirement, DistributorAssignment
 
 @dataclass
 class EnvironmentState:
@@ -82,7 +82,7 @@ class WarehouseEnvironment:
             Machine(
                 machine_id=m,
                 capabilities=[],
-                status='idle',  # 显式设置初始状态
+                status=MachineStatus.IDLE,  # 显式设置初始状态
                 total_processing_time=0.0,
                 total_idle_time=0.0,
                 total_setup_time=0.0

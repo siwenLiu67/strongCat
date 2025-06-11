@@ -196,10 +196,10 @@ class FeatureBuilder(FeatureExtractor):
         pressure = total_remaining_work / total_machine_capacity
         return min(1.0, pressure)
 
-    def _build_scheduling_features(self, state: Dict[str, Any]) -> Dict[str, torch.Tensor]:
+    def _build_scheduling_features(self, state: EnvironmentState) -> Dict[str, torch.Tensor]:
         """构建调度决策特征"""
-        jobs = state['jobs']
-        machines = state['machines']
+        jobs = state.jobs
+        machines = state.machines
         
         # 提取节点特征
         job_features = torch.tensor([
