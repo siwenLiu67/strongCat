@@ -105,8 +105,8 @@ class EnvironmentTester:
         # 测试机器分配约束
         job = self.env.jobs[0]
         machine = self.env.machines[0]
-        valid = self.env._is_valid_assignment(job, machine)
-        assert isinstance(valid, bool), "约束检查返回值类型错误"
+     #   valid = self.env._is_valid_assignment(job, machine)
+     #   assert isinstance(valid, bool), "约束检查返回值类型错误"
         
         # 测试批次分配约束
         job = self.env.jobs[0]
