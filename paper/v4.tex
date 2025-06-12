@@ -310,7 +310,6 @@ where \( \text{TWT}_t = \sum_{i \in \mathcal{O}_t} w_i \cdot \max(0, C_i - D_i) 
 
 The policy is implemented as a Transformer-based deep Q-network \( Q(S^H_t, A^H_t; \theta_{high}) \), trained using prioritized experience replay and double DQN techniques.
 
-\paragraph{Pseudocode}
 
 \begin{algorithm}[H]
 \caption{Meta-Controller Decision Process}
@@ -337,6 +336,9 @@ The policy is implemented as a Transformer-based deep Q-network \( Q(S^H_t, A^H_
 
 
 \subsection{Low-Level Actor-Critic Policies}
+The disjunctive graph representation for FJSP is formally defined as $G = (O, C, D)$, where the node set $O = \{O_{ij} \mid \forall i, j\} \cup \{\text{Start}, \text{End}\}$ contains all operations $O_{ij}$ (with $i$ indexing jobs and $j$ indexing operations) plus two dummy nodes $\{\text{Start}, \text{End}\}$ with zero processing time representing production boundaries. The conjunctive arc set $C$ consists of directed arcs forming $n$ acyclic paths from $\text{Start}$ to $\text{End}$ that encode the predefined processing sequences for each job $J_i$, while the disjunctive arc set $D = \bigcup_k D_k$ comprises undirected edges where each $D_k$ forms a complete subgraph connecting all operations processable on machine $M_k$. Notably, in contrast to JSP, any FJSP operation node may belong to multiple machine cliques $\{D_k\}$ due to machine flexibility. The FJSP solution process corresponds to selecting exactly one disjunctive arc per operation and fixing its directionality to establish processing orders on all machines.
+
+
 We adopt Dueling DQN for the Meta-Controller and actor-critic GATs for the sub-policies. All agents use prioritized experience replay (PER) for sample efficiency. For training stability, target networks are updated using soft updates:
 \[
 \theta' \leftarrow \tau \theta + (1 - \tau)\theta'

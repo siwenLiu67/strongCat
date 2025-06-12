@@ -21,22 +21,20 @@ class FeatureExtractor:
 
 class JobFeatures(FeatureExtractor):
     """作业特征提取器"""
-    def get_basic_features(self, job: Dict) -> List[float]:
+    def get_basic_features(self, job: Job) -> List[float]:
         """获取基础特征"""
         return [
-            self.normalize_time(job['due_date']),                     # 截止日期
-            job['priority'] / self.config.problem.max_priority,       # 优先级
-            self.normalize_weight(job['weight']),                     # 重量
-            len(job.get('operations', [])) / self.config.problem.max_operations  # 工序数
+            self.normalize_time(job.distributor_id),                     # 截止日期
+            len(job.operations)  # 工序数
         ]
     
-    def get_scheduling_features(self, job: Dict) -> List[float]:
+    def get_scheduling_features(self, job: Job) -> List[float]:
         """获取调度相关特征"""
         basic_features = self.get_basic_features(job)
         scheduling_features = [
-            len(job['remaining_operations']) / len(job['operations']),  # 剩余工序比例
-            self.normalize_time(job['processing_time']),                # 加工时间
-            len(job['machine_compatibility']) / self.config.problem.num_machines  # 机器兼容性
+            (len(job.operations) - job.current_op)/ len(job.operations),  # 剩余工序比例
+            # 加工工序的总时间 归一化
+            self.normalize_time(job.operations[job.current_op].processing_times.get(job.operations[job.current_op].available_machines[0], 0)),  # 当前工序的加工时间            
         ]
         return basic_features + scheduling_features
     
@@ -197,28 +195,39 @@ class FeatureBuilder(FeatureExtractor):
         return min(1.0, pressure)
 
     def _build_scheduling_features(self, state: EnvironmentState) -> Dict[str, torch.Tensor]:
-        """构建调度决策特征"""
+        """
+        构建调度决策特征
+
+        返回内容包括：
+        - job_features: 作业节点特征 (N_jobs, F_job)
+        - machine_features: 机器节点特征 (N_machines, F_machine)
+        - job_adj: 作业间邻接矩阵 (N_jobs, N_jobs)
+        - machine_adj: 机器间邻接矩阵 (N_machines, N_machines)
+        """
         jobs = state.jobs
         machines = state.machines
-        
-        # 提取节点特征
+
+        # 提取每个作业的调度相关特征，组成特征矩阵
         job_features = torch.tensor([
             self.job_extractor.get_scheduling_features(job) for job in jobs
         ], dtype=torch.float32)
-        
+
+        # 提取每台机器的特征，组成特征矩阵
         machine_features = torch.tensor([
             self.machine_extractor.get_features(machine) for machine in machines
         ], dtype=torch.float32)
-        
-        # 构建邻接矩阵
+
+        # 构建作业之间的邻接矩阵，反映作业间的相似性或相关性
         job_adj = self._build_job_adjacency(jobs)
+
+        # 构建机器之间的邻接矩阵，反映机器间的负载或能力相关性
         machine_adj = self._build_machine_adjacency(machines)
-        
+
         return {
-            'job_features': job_features,
-            'machine_features': machine_features,
-            'job_adj': job_adj,
-            'machine_adj': machine_adj
+            'job_features': job_features,           # 作业特征矩阵
+            'machine_features': machine_features,   # 机器特征矩阵
+            'job_adj': job_adj,                     # 作业邻接矩阵
+            'machine_adj': machine_adj              # 机器邻接矩阵
         }
 
     def _build_dispatching_features(self, state: Dict[str, Any]) -> Dict[str, torch.Tensor]:
