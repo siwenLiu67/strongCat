@@ -143,6 +143,47 @@ class SchedulingPolicy(nn.Module):
         
         return action_log_probs, state_values, entropy
 
+    def forward(self, job_features, job_adj, machine_features, machine_adj):
+        """前向传播
+        
+        Args:
+            job_features: 作业特征 [batch_size, n_jobs, job_feat_dim]
+            job_adj: 作业邻接矩阵 [batch_size, n_jobs, n_jobs]
+            machine_features: 机器特征 [batch_size, n_machines, machine_feat_dim]
+            machine_adj: 机器邻接矩阵 [batch_size, n_machines, n_machines]
+            
+        Returns:
+            probs: 动作概率分布 [batch_size, n_jobs, action_dim]
+            values: 状态价值 [batch_size, 1]
+        """
+        # 1. 确保输入是Tensor类型
+        if not isinstance(job_features, torch.Tensor):
+            job_features = torch.tensor(job_features, dtype=torch.float32)
+        if not isinstance(machine_features, torch.Tensor):
+            machine_features = torch.tensor(machine_features, dtype=torch.float32)
+            
+        # 2. 特征编码
+        device = next(self.parameters()).device
+        job_emb = self.encoders['job'](job_features.to(device))
+        machine_emb = self.encoders['machine'](machine_features.to(device))
+        
+        # 2. 图注意力处理
+        for gat_layer in self.gat_layers:
+            job_emb = gat_layer(job_emb, job_adj)
+            machine_emb = gat_layer(machine_emb, machine_adj)
+            
+        # 3. 交叉注意力
+        cross_out, _ = self.cross_attention(job_emb, machine_emb)
+        
+        # 4. 拼接特征
+        combined = torch.cat([job_emb, cross_out], dim=-1)
+        
+        # 5. 输出头
+        probs = torch.softmax(self.heads['policy'](combined), dim=-1)
+        values = self.heads['value'](combined).squeeze(-1)
+        
+        return probs, values
+
     def update(self, batch: Dict[str, torch.Tensor]) -> Dict[str, float]:
         """更新策略网络
         

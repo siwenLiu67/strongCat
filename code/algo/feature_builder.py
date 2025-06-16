@@ -1,10 +1,10 @@
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Union
 import torch
 from dataclasses import dataclass, field
 from collections import defaultdict
 from entity.config import Config
 from entity.dynamic_fjsp_env import EnvironmentState
-from entity.job_shop_entities import Job, Machine, DeliveryRequirement, DistributorAssignment
+from entity.job_shop_entities import Job, Machine, DeliveryRequirement, DistributorAssignment, MachineStatus
 
 class FeatureExtractor:
     """特征提取器基类"""
@@ -21,42 +21,105 @@ class FeatureExtractor:
 
 class JobFeatures(FeatureExtractor):
     """作业特征提取器"""
-    def get_basic_features(self, job: Job) -> List[float]:
+    def get_basic_features(self, job: Union[Job, Dict]) -> List[float]:
         """获取基础特征"""
+        if isinstance(job, Job):
+            distributor_id = int(job.distributor_id)  # 确保是整数
+            op_count = len(job.operations)
+        else:
+            distributor_id = int(job.get('distributor_id', 0))  # 确保是整数
+            op_count = int(job.get('operation_count', len(job.get('operations', []))))
+            
         return [
-            self.normalize_time(job.distributor_id),                     # 截止日期
-            len(job.operations)  # 工序数
+            self.normalize_time(float(distributor_id)),  # 确保是float
+            float(op_count)  # 确保是float
         ]
     
     def get_scheduling_features(self, job: Job) -> List[float]:
         """获取调度相关特征"""
-        basic_features = self.get_basic_features(job)
+        # 验证并转换基础特征
+        basic_features = [float(x) for x in self.get_basic_features(job)]
+        
+        # 验证并计算当前工序加工时间
+        current_op = job.operations[job.current_op]
+        processing_time = 0.0
+        if current_op.available_machines:
+            # 确保processing_times中的值是数值类型
+            processing_time = float(current_op.processing_times.get(
+                current_op.available_machines[0], 0))
+        
         scheduling_features = [
-            (len(job.operations) - job.current_op)/ len(job.operations),  # 剩余工序比例
-            # 加工工序的总时间 归一化
-            self.normalize_time(job.operations[job.current_op].processing_times.get(job.operations[job.current_op].available_machines[0], 0)),  # 当前工序的加工时间            
+            float(len(job.operations) - job.current_op) / float(len(job.operations)),  # 剩余工序比例
+            self.normalize_time(processing_time)  # 当前工序的加工时间            
         ]
-        return basic_features + scheduling_features
+        
+        # 最终验证所有特征值都是float
+        return [float(x) for x in (basic_features + scheduling_features)]
     
-    def get_dispatching_features(self, job: Dict, current_time: float) -> List[float]:
+    def get_dispatching_features(self, job: Union[Job, Dict], current_time: float) -> List[float]:
         """获取配送相关特征"""
+        if isinstance(job, Job):
+            # 使用作业的 due_date 或默认值
+            completion_time = getattr(job, 'due_date', current_time + self.config.problem.max_processing_time)
+            job_info = {
+                'completion_time': completion_time,
+                'distributor_id': job.distributor_id,
+                'tardiness': max(0, current_time - completion_time)
+            }
+        else:
+            job_info = {
+                'completion_time': job.get('completion_time', current_time + self.config.problem.max_processing_time),
+                'distributor_id': job.get('distributor_id', 0),
+                'tardiness': job.get('tardiness', 0)
+            }
+            
         basic_features = self.get_basic_features(job)
         dispatching_features = [
-            self.normalize_time(max(0, job['completion_time'] - current_time)),  # 剩余完工时间
-            job['distributor_id'] / self.config.problem.num_distributors,       # 配送商ID
-            self.normalize_time(job.get('tardiness', 0))                        # 延迟时间
+            self.normalize_time(max(0, job_info['completion_time'] - current_time)),  # 剩余完工时间
+            job_info['distributor_id'] / self.config.problem.num_distributors,       # 配送商ID
+            self.normalize_time(job_info['tardiness'])                              # 延迟时间
         ]
         return basic_features + dispatching_features
 
 class MachineFeatures(FeatureExtractor):
     """机器特征提取器"""
-    def get_features(self, machine: Dict) -> List[float]:
-        return [
-            len(machine['queue']) / self.config.problem.max_machine_queue,  # 队列长度
-            machine['utilization'],                                        # 利用率
-            self.normalize_time(machine['remaining_time']),                # 剩余时间
-            float(machine['status'] == 'idle')                            # 是否空闲
+    def get_features(self, machine: Machine) -> List[float]:
+        # 基础特征
+        features = [
+            machine.utilization,                                   # 利用率
+            self.normalize_time(machine.remaining_time),           # 剩余时间
+            float(machine.status == MachineStatus.IDLE),           # 是否空闲
+            float(machine.status == MachineStatus.BUSY),           # 是否忙碌
+            float(machine.status == MachineStatus.SETUP)           # 是否在设置
         ]
+        
+        # 能力特征 (one-hot编码)
+        max_op_types = getattr(self.config.problem, 'max_operation_types', 10)
+        capabilities = [0.0] * max_op_types
+        for op_type in machine.capabilities:
+            if op_type < max_op_types:
+                capabilities[op_type] = 1.0
+        features.extend(capabilities)
+        
+        # 时间统计特征
+        total_time = max(1e-6, 
+            machine.total_busy_time + 
+            machine.total_idle_time + 
+            machine.total_setup_time)
+            
+        features.extend([
+            machine.total_busy_time / total_time,  # 忙碌时间占比
+            machine.total_idle_time / total_time,   # 空闲时间占比
+            machine.total_setup_time / total_time   # 设置时间占比
+        ])
+        
+        # 历史作业特征
+        features.extend([
+            len(machine.job_history),  # 历史作业数量
+            sum(job.get('processing_time', 0) for job in machine.job_history) / max(1, len(machine.job_history))  # 平均处理时间
+        ])
+        
+        return features
 
 class BatchFeatures(FeatureExtractor):
     """批次特征提取器"""
@@ -207,20 +270,42 @@ class FeatureBuilder(FeatureExtractor):
         jobs = state.jobs
         machines = state.machines
 
-        # 提取每个作业的调度相关特征，组成特征矩阵
-        job_features = torch.tensor([
-            self.job_extractor.get_scheduling_features(job) for job in jobs
-        ], dtype=torch.float32)
+        # 1. 提取并验证作业特征
+        job_feature_list = []
+        for job in jobs:
+            features = self.job_extractor.get_scheduling_features(job)
+            # 确保所有特征都是数值类型
+            validated_features = []
+            for f in features:
+                if isinstance(f, str):
+                    try:
+                        f = float(f)
+                    except ValueError:
+                        f = 0.0  # 默认值
+                validated_features.append(float(f))
+            job_feature_list.append(validated_features)
+        
+        job_features = torch.tensor(job_feature_list, dtype=torch.float32)
 
-        # 提取每台机器的特征，组成特征矩阵
-        machine_features = torch.tensor([
-            self.machine_extractor.get_features(machine) for machine in machines
-        ], dtype=torch.float32)
+        # 2. 提取并验证机器特征
+        machine_feature_list = []
+        for machine in machines:
+            features = self.machine_extractor.get_features(machine)
+            # 确保所有特征都是数值类型
+            validated_features = []
+            for f in features:
+                if isinstance(f, str):
+                    try:
+                        f = float(f)
+                    except ValueError:
+                        f = 0.0  # 默认值
+                validated_features.append(float(f))
+            machine_feature_list.append(validated_features)
+        
+        machine_features = torch.tensor(machine_feature_list, dtype=torch.float32)
 
-        # 构建作业之间的邻接矩阵，反映作业间的相似性或相关性
+        # 3. 构建邻接矩阵
         job_adj = self._build_job_adjacency(jobs)
-
-        # 构建机器之间的邻接矩阵，反映机器间的负载或能力相关性
         machine_adj = self._build_machine_adjacency(machines)
 
         return {
@@ -256,7 +341,7 @@ class FeatureBuilder(FeatureExtractor):
             'valid_mask': valid_mask
         }
 
-    def _build_job_adjacency(self, jobs: List[Dict]) -> torch.Tensor:
+    def _build_job_adjacency(self, jobs: Union[List[Job], List[Dict]]) -> torch.Tensor:
         """构建作业邻接矩阵"""
         n_jobs = len(jobs)
         adj = torch.zeros((n_jobs, n_jobs))
@@ -264,14 +349,30 @@ class FeatureBuilder(FeatureExtractor):
         for i, job1 in enumerate(jobs):
             for j, job2 in enumerate(jobs):
                 if i != j:
+                    # 获取机器兼容性列表
+                    if isinstance(job1, Job):
+                        # 假设通过 operations 获取机器兼容性
+                        compat1 = set()
+                        for op in job1.operations:
+                            compat1.update(op.available_machines)
+                    else:
+                        compat1 = set(job1.get('machine_compatibility', []))
+                        
+                    if isinstance(job2, Job):
+                        compat2 = set()
+                        for op in job2.operations:
+                            compat2.update(op.available_machines)
+                    else:
+                        compat2 = set(job2.get('machine_compatibility', []))
+                    
                     # 计算工序相似度
-                    common_machines = set(job1['machine_compatibility']) & set(job2['machine_compatibility'])
-                    similarity = len(common_machines) / len(set(job1['machine_compatibility']))
+                    common_machines = compat1 & compat2
+                    similarity = len(common_machines) / max(1, len(compat1))
                     adj[i, j] = similarity
                     
         return adj
 
-    def _build_machine_adjacency(self, machines: List[Dict]) -> torch.Tensor:
+    def _build_machine_adjacency(self, machines: Union[List[Machine], List[Dict]]) -> torch.Tensor:
         """构建机器邻接矩阵"""
         n_machines = len(machines)
         adj = torch.zeros((n_machines, n_machines))
@@ -279,8 +380,12 @@ class FeatureBuilder(FeatureExtractor):
         for i, m1 in enumerate(machines):
             for j, m2 in enumerate(machines):
                 if i != j:
+                    # 获取利用率
+                    util1 = m1.utilization if isinstance(m1, Machine) else m1['utilization']
+                    util2 = m2.utilization if isinstance(m2, Machine) else m2['utilization']
+                    
                     # 基于负载差异构建连接强度
-                    load_diff = abs(m1['utilization'] - m2['utilization'])
+                    load_diff = abs(util1 - util2)
                     adj[i, j] = 1.0 / (1.0 + load_diff)
                     
         return adj

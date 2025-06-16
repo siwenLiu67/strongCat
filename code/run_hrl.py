@@ -111,23 +111,42 @@ def main():
         
             # 将特征转换为张量并移动到设备
             meta_features = torch.FloatTensor(meta_features).unsqueeze(0).to(device)
-            #action_mask = meta_controller.get_action_mask(meta_features)
             action_mask = [True, np.random.rand() > 0.5, True]
 
-            meta_action = meta_controller.act(meta_features, action_mask)
+            meta_output = meta_controller.act(meta_features, action_mask)
+            meta_action = meta_output[0] if isinstance(meta_output, (list, tuple)) else meta_output
+            meta_log_prob = meta_output[1] if isinstance(meta_output, (list, tuple)) else 0.0
             
             # 根据元动作选择子策略
             if meta_action == 0:  # 调度决策
-                job_features, job_adj, machine_features, machine_adj = (
-                    feature_builder._build_scheduling_features(state)
-                )
-                scheduling_action, sched_log_prob = scheduling_policy.act(
-                    job_features, job_adj, machine_features, machine_adj
-                )
-                action = {'type': 'scheduling', 'action': scheduling_action}
+                # 确保state包含必要的属性
+                if not hasattr(state, 'jobs') or not hasattr(state, 'machines'):
+                    raise ValueError("Invalid state: missing jobs or machines")
+                
+                # 构建特征前验证数据
+                try:
+                    features = feature_builder._build_scheduling_features(state)
+                    job_features = features['job_features']
+                    job_adj = features['job_adj']
+                    machine_features = features['machine_features']
+                    machine_adj = features['machine_adj']
+                    
+                    scheduling_action, sched_log_prob = scheduling_policy.act(
+                        job_features, job_adj, machine_features, machine_adj
+                    )
+                    action = {'type': 'scheduling', 'action': scheduling_action}
+                except Exception as e:
+                    logger.error(f"Error building scheduling features: {str(e)}")
+                    raise
             else:  # 配送决策
+                # 将环境状态转换为字典格式
+                state_dict = {
+                    'jobs': state.jobs,
+                    'batches': state.batches,
+                    'current_time': state.current_time
+                }
                 job_features, batch_features, valid_mask = (
-                    feature_builder._build_dispatching_features(state)
+                    feature_builder._build_dispatching_features(state_dict)
                 )
                 dispatching_action, disp_log_prob = dispatching_policy.act(
                     job_features, batch_features, valid_mask
