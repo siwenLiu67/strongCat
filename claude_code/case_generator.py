@@ -32,9 +32,9 @@ class FlexibleJobShopScenario:
     
     def __post_init__(self):
         """初始化后自动生成算例"""
-        self.num_jobs = self.config.problem.num_jobs
-        self.num_machines = self.config.problem.num_machines
-        self.num_distributors = self.config.problem.num_distributors
+        self.num_jobs = self.config.num_jobs
+        self.num_machines = self.config.num_machines
+        self.num_distributors = self.config.num_distributors
     
         # 生成算例
         self._generate_machines()
@@ -56,13 +56,11 @@ class FlexibleJobShopScenario:
             ) for m in range(self.num_machines)
         ]
     
-    def _generate_jobs(self):
-        """生成工件及其工序"""
-        for j in range(self.num_jobs):
-            # 生成工序数量
+    def _generate_one_job(self, j):
+        # 生成工序数量
             num_ops = np.random.randint(
-                self.config.problem.min_operations,
-                self.config.problem.max_operations + 1
+                self.config.min_operations,
+                self.config.max_operations + 1
             )
             
             # 生成工序
@@ -70,8 +68,8 @@ class FlexibleJobShopScenario:
             for o in range(num_ops):
                 # 为工序分配机器
                 n_machines = np.random.randint(
-                    self.config.problem.min_machines_per_op,
-                    min(self.config.problem.max_machines_per_op, self.num_machines) + 1
+                    self.config.min_machines_per_op,
+                    min(self.config.max_machines_per_op, self.num_machines) + 1
                 )
                 available_machines = sorted(
                     np.random.choice(range(self.num_machines), n_machines, replace=False)
@@ -80,8 +78,8 @@ class FlexibleJobShopScenario:
                 # 生成加工时间
                 processing_times = {
                     m: np.random.randint(
-                        self.config.problem.min_processing_time,
-                        self.config.problem.max_processing_time + 1
+                        self.config.min_processing_time,
+                        self.config.max_processing_time + 1
                     )
                     for m in available_machines
                 }
@@ -102,6 +100,13 @@ class FlexibleJobShopScenario:
                 distributor_id=np.random.randint(0, self.num_distributors)
             )
 
+            return job
+    
+
+    def _generate_jobs(self):
+        """生成工件及其工序"""
+        for j in range(self.num_jobs):
+            job = self._generate_one_job(j)
             self.jobs.append(job)
     
     
@@ -113,18 +118,18 @@ class FlexibleJobShopScenario:
                 continue
             """为指定配送商生成交付要求"""
             """生成交付要求"""
-            min_time = self.config.problem.earliest_delivery_time
-            max_time = self.config.problem.latest_delivery_time
+            min_time = self.config.earliest_delivery_time
+            max_time = self.config.latest_delivery_time
             
             n_req = np.random.randint(
-                    self.config.problem.min_delivery_requirements,
-                    self.config.problem.max_delivery_requirements + 1
+                    self.config.min_delivery_requirements,
+                    self.config.max_delivery_requirements + 1
             )
                 
             ratios = np.linspace(1/n_req, 1, n_req)
             due_times = np.linspace(min_time, max_time, n_req).astype(int)
             weigts = np.random.uniform(
-                self.config.problem.min_load_ratio,
+                self.config.min_load_ratio,
                 1.0,
                 n_req
             )
@@ -138,9 +143,9 @@ class FlexibleJobShopScenario:
                 distributor_id=d,
                 delivery_requirements=delivery_requirements,
                 assigned_jobs=assigned_jobs,
-                batches={},  # 初始化批次列表
-                status={},  # 初始状态为等待
-                completed_batches=[],
+                completed_batches={},  # 初始化批次列表
+                status='waiting',  # 初始状态为等待
+                
                 completed_times={},
                 overdue_times={}
             )

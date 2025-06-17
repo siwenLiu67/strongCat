@@ -20,8 +20,9 @@ class Job:
     operations: List[Operation]
     distributor_id: int
     current_operation: int = 0  # 当前工序索引
-    status: str = "waiting"  # 状态: waiting, in_progress, completed
+    status: str = "waiting"  # 状态: waiting, processing, completed, dispatched
     completed_time: float = 0.0  # 完成时间
+    dispatched_time: float = 0.0 # 完成配送时间
 
 
 @dataclass
@@ -66,10 +67,8 @@ class Distributor:
     assigned_jobs: List[int] # 属于这个配送商的作业ID列表
 
     # 和配送相关的属性
-    batches: Dict[int, List[Job]]
-    status: Dict[int, str]  # batchID到状态的映射
-
-    # 配送相关的时间
-    completed_batches: List[int]
+    completed_batches: Dict[int, List[Job]]
     completed_times: Dict[int, float]  # batchID到完成时间的映射
-    overdue_times: Dict[int, float]  # batchID到逾期时间的映射
+    overdue_times: Dict[int, int]  # batchID到逾期数量的映射
+
+    status: str = "waiting"  # 状态: waiting, completed
