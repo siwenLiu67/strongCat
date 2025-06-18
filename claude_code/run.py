@@ -19,20 +19,39 @@ def main():
 
 
     # 预定义测试动作序列
+    # 预定义复杂测试动作序列
     test_actions = [
-        # 第0步：分配第一道工序到机器0
-        {'schedule': {0: 0}},
-         # 等待配送完成
+        # 第0步：分配两个作业的第一道工序
+        {'schedule': {0: 0, 1: 1}},  # 作业0->机器0, 作业1->机器2
+        {'wait': True},  # 等待加工
         {'wait': True},
-        # 第1步：分配第二道工序到机器1
-        {'schedule': {0: 1}},
         
-        # 第2步：创建配送批次
-        {'dispatch': {0: [0]}},
-         # 等待配送完成
+        # 第3步：分配作业2的第一道工序
+        {'schedule': {2: 1}},  # 作业2->机器1
+        {'wait': True},
+        {'wait': True},
+        
+        # 第6步：第一批作业完成后分配第二道工序
+        {'schedule': {0: 1, 1: 0}},  # 作业0->机器2, 作业1->机器0
+        {'wait': True},
+        {'wait': True},
+        
+        # 第9步：创建第一个配送批次
+        {'dispatch': {0: [0, 1]}},  # 批次0包含作业0,1
+        {'wait': True},
+        {'wait': True},
+        
+        # 第12步：分配作业2的最后工序
+        {'schedule': {2: 1}},  # 作业2->机器2
+        {'wait': True},
+        {'wait': True},
+        
+        # 第15步：创建第二个配送批次
+        {'dispatch': {1: [2]}},  # 批次1包含作业2
+        {'wait': True},
         {'wait': True}
-         ]
-        
+    ]
+
     # 3. 执行循环
     # 测试environment
     env = WarehouseEnvironment(config, case)

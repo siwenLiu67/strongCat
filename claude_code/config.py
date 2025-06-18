@@ -1,9 +1,9 @@
 class Config:
-    num_jobs = 1
+    num_jobs = 3
     num_machines = 2
-    num_distributors = 1
+    num_distributors = 2
     min_operations = 2
-    max_operations = 2
+    max_operations = 3
     min_machines_per_op = 1
     max_machines_per_op = num_machines
     min_processing_time = 1

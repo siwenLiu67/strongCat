@@ -304,7 +304,7 @@ class WarehouseEnvironment:
                 job.status = 'waiting'
                 
             # 重置机器状态
-            machine.status = 'idle'
+            machine.status = 'waiting'
             machine.current_job = -1
             machine.remaining_time = 0
 
