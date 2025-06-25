@@ -1,4 +1,5 @@
-
+import torch.nn as nn
+import torch.nn.functional as F
 from typing import Dict, Tuple
 import torch
 from environment import WarehouseEnvironment
@@ -40,20 +41,20 @@ class HighLevelAgent:
         """
 
         current_time = state['current_time']
-        jobs = state['jobs']
+        jobs = state['available_jobs']
         machines = state['machines']
         last_schedule_time = state.get('last_schedule_time', 0)
         
         # 1. 新到达作业比例
-        new_jobs = len(state['jobs']) - len(state['completed_jobs'])
+        new_jobs = len(state['available_jobs']) - len(state['completed_jobs'])
         q_new = new_jobs / max(1, len(jobs))
         
         # 2. 机器负载不平衡度
         remaining_times = [float(m.remaining_time) for m in machines]
-        sigma_mach_t = torch.tensor(remaining_times, dtype=torch.float32).std().item() / self.config.problem.max_processing_time
+        sigma_mach_t = torch.tensor(remaining_times, dtype=torch.float32).std().item() / self.config.max_processing_time
         
         # 3. 紧急程度
-        urgent_threshold = self.config.problem.urgent_threshold
+        urgent_threshold = self.config.urgent_threshold
         urgency_ratio = 0
         
         # 4. 当前调度方案的年龄
@@ -78,14 +79,23 @@ class HighLevelAgent:
 
     def normalize_time(self, time_value):
         """归一化时间值到[0, 1]区间"""
-        max_time = getattr(self.config.problem, 'max_time', 1)
+        max_time = self.config.max_processing_time
         return float(time_value) / max(1, max_time)
 
     def _build_network(self):
-        pass
+        """构建简单的MLP策略网络"""
+        input_dim = 5  # 特征数量，和_build_features输出一致
+        hidden_dim = 32
+        output_dim = 3  # 动作数：调度、配送、等待
+        self.policy_net = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, output_dim)
+        )
 
     def _setup_training(self):
-        pass
+        """设置优化器等训练参数"""
+        self.optimizer = torch.optim.Adam(self.policy_net.parameters(), lr=1e-3)
 
 
     def select_action(self, state: Dict):
@@ -98,8 +108,14 @@ class HighLevelAgent:
             action: 选择的动作
             log_prob: 动作的对数概率
         """
-        # TODO: 实现动作选择逻辑
-        pass
+        # 提取特征
+        features = self._build_features(state)
+        logits = self.policy_net(features)
+        probs = F.softmax(logits, dim=-1)
+        m = torch.distributions.Categorical(probs)
+        action = m.sample()
+        log_prob = m.log_prob(action)
+        return action.item(), log_prob
         
     def update(self, batch: Dict):
         """更新策略网络

@@ -88,7 +88,7 @@ class WarehouseEnvironment:
             # 泊松分布决定到达数量
             num_arrivals = np.random.poisson(self.config.arrival_batch_size)
             for _ in range(num_arrivals):
-                new_job = self.case._generate_one_job(_+self.config.num_jobs)
+                new_job = self.case._generate_one_job(len(self.available_jobs))
                 self.available_jobs.append(new_job)
                 # 记录到达事件
                 self.arrival_events.append({
