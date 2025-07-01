@@ -5,6 +5,7 @@ from case_generator import FlexibleJobShopScenario
 from data_structures import Machine, Job, Operation, DeliveryRequirement
 from environment import WarehouseEnvironment
 from high_level_agent import HighLevelAgent
+from schedule_agent import ScheduleAgent
 def main():
     """主函数"""
     # 1. 读取配置
@@ -74,10 +75,12 @@ def main():
         if meta_action == 0:
             # 简单调度规则：将所有waiting作业分配到空闲机器
             action = {'schedule': {}}
+            # 根据schedule_agent 进行动作选择
+            scheduling_agent = ScheduleAgent(config)
             for job in state['available_jobs']:
                 if hasattr(job, 'status') and job.status == 'waiting':
                     for machine in state['machines']:
-                        if machine.status == 'idle':
+                        if machine.status == 'waiting':
                             action['schedule'][job.job_id] = machine.machine_id
                             break
             if not action['schedule']:
