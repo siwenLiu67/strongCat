@@ -233,7 +233,7 @@ class WarehouseEnvironment:
                     tardy = max(0, required - completed)
                     reward -= weight * tardy
                     if tardy == 0 and required > 0:
-                        reward += 2.0
+                        reward += 10.0
 
                 # 最终截止时间惩罚
                 if total_jobs > 0 and len(jobs) == total_jobs:
