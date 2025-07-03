@@ -6,9 +6,10 @@ from data_structures import Machine, Job, Operation, DeliveryRequirement
 from environment import WarehouseEnvironment
 from high_level_agent import HighLevelAgent
 from schedule_agent import ScheduleAgent
+from dispatch_agent import DispatchAgent
 
 
-def run_episode(env, meta_agent, scheduling_agent, verbose=True):
+def run_episode(env, meta_agent, scheduling_agent, dispatching_agent, verbose=True):
     """运行单个episode，返回累计奖励"""
     state = env.reset()
     done = False
@@ -24,7 +25,7 @@ def run_episode(env, meta_agent, scheduling_agent, verbose=True):
         elif meta_action == 1:
             completed = [job.job_id for job in state['completed_jobs'] if hasattr(job, 'status') and job.status == 'completed']
             if completed:
-                action = {'dispatch': {step: completed}}
+                action = {'dispatch': dispatching_agent.select_action(state, completed_jobs=completed)}
             else:
                 action = {'wait': True}
         else:
@@ -58,14 +59,18 @@ def main():
 
     meta_agent = HighLevelAgent(config)
     scheduling_agent = ScheduleAgent(config)
+    dispatching_agent = DispatchAgent(config)
 
-    num_episodes = 5
+    num_episodes =2
     all_rewards = []
 
     for ep in range(num_episodes):
         print(f"\n========== Episode {ep+1} ==========")
+
+        case = FlexibleJobShopScenario(config)  # 每次新建
         env = WarehouseEnvironment(config, case)
-        ep_reward = run_episode(env, meta_agent, scheduling_agent, verbose=True)
+        ep_reward = run_episode(env, meta_agent, scheduling_agent, dispatching_agent,
+                                 verbose=True)
         print(f"Episode {ep+1} 总奖励: {ep_reward:.2f}")
         all_rewards.append(ep_reward)
 
