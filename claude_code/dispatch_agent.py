@@ -56,7 +56,7 @@ class DispatchAgent:
 
     def select_action(self, state: Dict) -> Dict[int, List[int]]:
         """
-        选择配送动作：GNN输出每个可配送作业分数，选分数高的组成一个批次
+        选择配送动作：GNN输出每个可配送作业分数，按配送商可配送范围分批
         返回格式：{distributor_id: [job_id1, job_id2, ...]}
         """
         data, job_indices = self.build_graph(state)
@@ -64,15 +64,21 @@ class DispatchAgent:
             return {}
 
         scores = self.policy_net(data.x, data.edge_index)
-        # 简单规则：选分数最高的若干作业组成一个批次（可按容量、优先级等扩展）
         sorted_idx = torch.argsort(scores, descending=True)
-        batch_jobs = [job_indices[i] for i in sorted_idx.tolist()]
+        sorted_jobs = [job_indices[i] for i in sorted_idx.tolist()]
 
-        # 分配给第一个可用配送商
         distributors = state.get('distributors', [])
         if not distributors:
             return {}
-        distributor_id = distributors[0].distributor_id if hasattr(distributors[0], 'distributor_id') else 0
 
-        # 可扩展：按配送商容量分批
-        return {distributor_id: batch_jobs}
+        # 构建配送商可配送作业映射
+        distributor_batches = {}
+        for distributor in distributors:
+            # 假设每个配送商有 can_deliver_job_ids 属性
+            can_deliver = set(getattr(distributor, 'assigned_jobs', []))
+            batch = [job_id for job_id in sorted_jobs if job_id in can_deliver]
+            if batch:
+                distributor_id = getattr(distributor, 'distributor_id', 0)
+                distributor_batches[distributor_id] = batch
+
+        return distributor_batches

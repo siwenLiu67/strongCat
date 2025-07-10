@@ -16,7 +16,7 @@ class Config:
     min_load_ratio = 1
 
 
-    max_time_steps = 5
+    max_time_steps = 15
     arrival_probability = 0
     arrival_batch_size = 2
 

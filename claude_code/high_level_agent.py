@@ -67,7 +67,12 @@ class HighLevelAgent:
 
     def _get_action_mask(self, state: Dict) -> torch.Tensor:
         mask = torch.ones(3, dtype=torch.bool)
-        if sum(state.get('inventory_levels', [])) == 0:
+        # 只有当没有已完成工件时，才禁用dispatch（动作1）
+        completed_jobs = state.get('completed_jobs', [])
+        dispatched_jobs = state.get('dispatched_jobs', [])
+        if not completed_jobs:
+            mask[1] = False
+        if completed_jobs == dispatched_jobs:
             mask[1] = False
         if all(m.remaining_time > 0 for m in state['machines']):
             mask[0] = False
@@ -101,6 +106,7 @@ class HighLevelAgent:
         attn_out, _ = self.attn(x, x, x)
         x = attn_out.squeeze(1)
         logits = self.fc2(x)
+        # 应用动作掩码
         logits = logits.masked_fill(~mask, float('-inf'))
         probs = F.softmax(logits, dim=-1)
         dist = torch.distributions.Categorical(probs)

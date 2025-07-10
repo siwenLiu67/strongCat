@@ -98,9 +98,9 @@ class WarehouseEnvironment:
 
     def _log_state_transition(self, action: Dict, reward: float):
         """记录状态转换"""
-        print(f"\n{'='*50}")
+        print(f"\n{'='*20}")
         print(f"时间步 {self.t}")
-        print(f"{'='*50}\n")
+        
         
         # 1. 作业状态
         processing_jobs = [j for j in self.available_jobs if j.status == 'processing']
@@ -144,7 +144,7 @@ class WarehouseEnvironment:
                 if event['time'] == self.t:
                     print(f"- 作业{event['job_id']}")
                     
-        print(f"\n{'='*50}\n")
+        
 
     def step(self, action: Dict) -> Tuple[Dict, float, bool, Dict]:
         """执行环境步进"""
