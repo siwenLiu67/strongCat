@@ -18,6 +18,7 @@ class Config:
 
     max_time_steps = 15
     arrival_probability = 0
+    max_job_num_limit = 5
     arrival_batch_size = 2
 
     urgent_threshold = 0

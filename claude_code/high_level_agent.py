@@ -106,7 +106,6 @@ class HighLevelAgent:
         attn_out, _ = self.attn(x, x, x)
         x = attn_out.squeeze(1)
         logits = self.fc2(x)
-        # 应用动作掩码
         logits = logits.masked_fill(~mask, float('-inf'))
         probs = F.softmax(logits, dim=-1)
         dist = torch.distributions.Categorical(probs)

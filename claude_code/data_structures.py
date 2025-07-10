@@ -20,7 +20,7 @@ class Job:
     operations: List[Operation]
     distributor_id: int
     current_operation: int = 0  # 当前工序索引
-    status: str = "waiting"  # 状态: waiting, processing, completed, dispatched
+    status: str = "waiting"  # 状态: waiting, processing, completed,dispatching, dispatched
     completed_time: float = 0.0  # 完成时间
     dispatched_time: float = 0.0 # 完成配送时间
 

@@ -3,7 +3,7 @@ from typing import Dict, Tuple
 from data_structures import Job, Operation,Machine,Distributor,DeliveryRequirement
 from case_generator import FlexibleJobShopScenario
 import numpy as np
-
+from itertools import chain
 
 class WarehouseEnvironment:
     """仓储-配送环境"""
@@ -82,11 +82,16 @@ class WarehouseEnvironment:
         """处理动态作业到达"""
         if self.t == 0:  # t=0时不生成新作业
             return
+        
+        if len(self.available_jobs) == self.config.max_job_num_limit:
+            # 如果当前作业数已达到限制，则不生成新作业
+            return  
             
         # 基于概率生成新作业
         if np.random.random() < self.config.arrival_probability:
             # 泊松分布决定到达数量
-            num_arrivals = np.random.poisson(self.config.arrival_batch_size)
+            max_remaining_jobs = self.config.max_job_num_limit - len(self.available_jobs)
+            num_arrivals = max(max_remaining_jobs, np.random.poisson(self.config.arrival_batch_size))
             for _ in range(num_arrivals):
                 new_job = self.case._generate_one_job(len(self.available_jobs))
                 self.available_jobs.append(new_job)
@@ -151,6 +156,7 @@ class WarehouseEnvironment:
         # 1. 时间步开始时的状态更新
         self._update_machine_states()     # 首先更新机器状态
         self._update_job_states()         # 更新作业状态
+        self._update_dispatching_jobs()  # 更新配送状态
         
         
         # 2. 处理动态到达
@@ -204,7 +210,7 @@ class WarehouseEnvironment:
             load_balance = self.calculate_machine_load_variance()
 
             reward += 2.0 * utilization
-            reward += 1.0 * job_progress
+            reward += 2.0 * job_progress
             reward -= 1.0 * load_balance
 
         if 'dispatch' in action:
@@ -277,6 +283,7 @@ class WarehouseEnvironment:
                 if job not in self.completed_jobs:
                     self.completed_jobs.append(job)
                     self.completion_times[job.job_id] = self.t
+                    job.completed_time = self.t
 
 
     def _update_machine_states(self):
@@ -344,24 +351,42 @@ class WarehouseEnvironment:
 
     def _process_dispatching(self, dispatch_action: Dict):
         """处理配送决策"""
+        BASE_DELIVERY_TIME = 1  # 基础配送时间
+        PER_JOB_TIME = 0        # 每多一个工件增加的配送时间
         for batch_id, job_ids in dispatch_action.items():
-            # 只处理已完成加工的作业
+            # 只处理已完成加工的作
+            flat_job_ids = list(chain.from_iterable(job_ids)) if job_ids and isinstance(job_ids[0], list) else job_ids
+
             dispatch_jobs = [j for j in self.completed_jobs 
-                            if j.job_id in job_ids and j.status == 'completed']
-            self.dispatched_jobs.extend(dispatch_jobs)
+                            if j.job_id in flat_job_ids]
+           
             if dispatch_jobs:
                 # 创建新批次,设置配送时间
+                batch_size = len(dispatch_jobs)
+                delivery_time = BASE_DELIVERY_TIME + PER_JOB_TIME * batch_size
+
                 self.batches.append({
                     'batch_id': batch_id,
                     'jobs': dispatch_jobs,
-                    'dispatch_time': self.t,
-                    'status': 'dispatched'
+                    'dispatch_start_time': self.t,
+                    'status': 'dispatching'
                 })
                 
                 # 更新作业状态
                 for job in dispatch_jobs:
-                    job.status = 'dispatched'  
+                    job.status = 'dispatching'  
+                    job.dispatch_remaining_time = delivery_time  # 设置配送时间
 
+    def _update_dispatching_jobs(self):
+        """推进所有配送中的作业，配送完成后更新状态和时间"""
+        for job in self.completed_jobs:
+            if getattr(job, 'status', None) == 'dispatching':
+                job.dispatch_remaining_time -= 1
+                if job.dispatch_remaining_time <= 0:
+                    job.status = 'dispatched'
+                    job.dispatch_time = self.t  # 配送完成时间
+                    if job not in self.dispatched_jobs:
+                        self.dispatched_jobs.append(job)
 
     def _process_waiting(self, wait_action):
         """
