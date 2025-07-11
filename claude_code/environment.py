@@ -201,7 +201,7 @@ class WarehouseEnvironment:
 
         if 'wait' in action:
             # 等待惩罚，鼓励主动调度
-            reward -= 1.0
+            reward -= 0.5
 
         if 'schedule' in action:
             # 奖励高资源利用率、作业推进和负载均衡
@@ -209,8 +209,8 @@ class WarehouseEnvironment:
             job_progress = self.calculate_operation_progress_ratio()
             load_balance = self.calculate_machine_load_variance()
 
-            reward += 2.0 * utilization
-            reward += 2.0 * job_progress
+            reward += 10.0 * utilization
+            reward += 20.0 * job_progress
             reward -= 1.0 * load_balance
 
         if 'dispatch' in action:
@@ -237,18 +237,18 @@ class WarehouseEnvironment:
                     )
                     required = int(np.ceil(ratio * total_jobs))
                     tardy = max(0, required - completed)
-                    reward -= weight * tardy
+                    reward -= 0.2*weight * tardy
                     if tardy == 0 and required > 0:
-                        reward += 10.0
+                        reward += 200.0
 
                 # 最终截止时间惩罚
                 if total_jobs > 0 and len(jobs) == total_jobs:
                     latest_dispatch = max(getattr(j, 'dispatch_time', 0) for j in jobs)
                     final_due = max(delivery_req.due_times)
                     tardiness_time = max(0, latest_dispatch - final_due)
-                    reward -= 5.0 * tardiness_time
+                    reward -= 1.0 * tardiness_time
                     if tardiness_time == 0:
-                        reward += 5.0
+                        reward += 200.0
 
         return float(reward)
 

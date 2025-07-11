@@ -1,5 +1,7 @@
 class Config:
-    num_jobs = 3
+    train_mode = True
+
+    num_jobs = 8
     num_machines = 2
     num_distributors = 2
     min_operations = 2
@@ -7,12 +9,12 @@ class Config:
     min_machines_per_op = 1
     max_machines_per_op = num_machines
     min_processing_time = 1
-    max_processing_time = 1
+    max_processing_time = 5
     
     earliest_delivery_time = 1
-    latest_delivery_time = 2
+    latest_delivery_time = 10
     min_delivery_requirements = 1
-    max_delivery_requirements = 1
+    max_delivery_requirements = 3
     min_load_ratio = 1
 
 
