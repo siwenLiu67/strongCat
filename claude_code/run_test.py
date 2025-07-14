@@ -2,6 +2,7 @@ from typing import List, Dict, Any, Tuple
 import pickle
 import torch
 from dataclasses import dataclass, field
+import random
 
 # Local imports
 from config import Config
@@ -9,7 +10,7 @@ from case_generator import FlexibleJobShopScenario
 from data_structures import Machine, Job, Operation, DeliveryRequirement
 from environment import WarehouseEnvironment
 from high_level_agent import HighLevelAgent
-from schedule_agent import ScheduleAgent
+from schedule_agent import ImprovedScheduleAgent
 from dispatch_heuristic import DispatchHeuristic
 from improved_schedule_agent import ImprovedScheduleAgent
 
@@ -183,26 +184,44 @@ def train_agents(
         'log_probs': ep_result['schedule_log_probs'],
         'returns': ep_result['schedule_returns'],
     }
-    scheduling_agent.update()
+    scheduling_agent.store_experience(schedule_batch)
+    # 只有经验池够大时才训练
+    if len(scheduling_agent.replay_buffer) >= scheduling_agent.batch_size:
+        batch = random.sample(scheduling_agent.replay_buffer, scheduling_agent.batch_size)
+        # 合并所有步的数据
+        states = []
+        old_log_probs = []
+        returns = []
+        for b in batch:
+            states.extend(b['states'])
+            old_log_probs.extend(b['log_probs'])
+            returns.extend(b['returns'])
+        batch_data = {
+            'states': states,
+            'log_probs': old_log_probs,
+            'returns': returns,
+        }
+        scheduling_agent.update(batch_data)
 
 def main():
     """主训练流程"""
     config = Config()
-    num_episodes = 20
+    num_episodes = 50
     
     # 初始化统计容器
     (all_rewards, all_steps, all_dispatch_counts, 
      all_schedule_counts, all_rewards_per_episode,
      all_makespans, all_total_late_jobs, 
      all_total_late_time) = collect_episode_stats()
+    meta_agent = HighLevelAgent(config)
+    scheduling_agent = ImprovedScheduleAgent(config)
+    dispatching_agent = DispatchHeuristic()
 
     for ep in range(num_episodes):
         print(f"\n================ Episode {ep+1} ================")
         case = FlexibleJobShopScenario(config)
         env = WarehouseEnvironment(config, case)
-        meta_agent = HighLevelAgent(config)
-        scheduling_agent = ImprovedScheduleAgent(config)
-        dispatching_agent = DispatchHeuristic()
+        
 
         ep_result = run_episode(
             env, meta_agent, scheduling_agent, dispatching_agent, verbose=False

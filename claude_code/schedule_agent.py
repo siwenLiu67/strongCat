@@ -29,7 +29,7 @@ class GNNPolicy(nn.Module):
         x = self.dropout(x)
         return self.head(x).squeeze(-1)  # [num_nodes]  
      
-class ScheduleAgent:
+class ImprovedScheduleAgent:
     """
     基于GNN+规则分配的FJSP调度智能体
     """
@@ -186,6 +186,12 @@ class ScheduleAgent:
         else:
             return action
     
+    def store_experience(self, batch: Dict[str, Any]):
+        """
+        存储经验到回放缓冲区
+        """
+        if len(self.replay_buffer) >= self.buffer_size:
+            self.replay_buffer.pop(0)
     
     def update(self, batch):
         # 将新经验存入回放缓冲区

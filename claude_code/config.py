@@ -17,7 +17,7 @@ class Config:
     min_machines_per_op = 1
     max_machines_per_op = num_machines
     min_processing_time = 1
-    max_processing_time = 5
+    max_processing_time = 4
     
     earliest_delivery_time = 1
     latest_delivery_time = 10
@@ -26,7 +26,7 @@ class Config:
     min_load_ratio = 1
 
 
-    max_time_steps = 15
+    max_time_steps = 5
     arrival_probability = 0
     max_job_num_limit = 5
     arrival_batch_size = 2

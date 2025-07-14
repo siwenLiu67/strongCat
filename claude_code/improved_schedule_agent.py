@@ -48,10 +48,10 @@ class ImprovedScheduleAgent:
         # 优先级经验回放
         self.replay_buffer = deque(maxlen=2000)
         self.batch_size = 64
-        self.gamma = 0.99
-        self.gae_lambda = 0.95
-        self.ppo_epochs = 4
-        self.clip_param = 0.2
+        self.gamma = 0.01
+        self.gae_lambda = 0.01
+        self.ppo_epochs = 8
+        self.clip_param = 0.15
         
     def build_graph(self, state: Dict) -> tuple[Data, list, int]:
         """构建调度图结构（从原schedule_agent.py复制完整实现）"""
@@ -185,55 +185,67 @@ class ImprovedScheduleAgent:
     def store_experience(self, batch):
         """存储经验到回放缓冲区"""
         self.replay_buffer.append(batch)
-        
-    def update(self):
-        """PPO更新策略"""
+
+    def update(self, batch_data):
+        """PPO更新策略（批量处理，动作索引与log_prob严格对应）"""
+        print("Updating policy with batch size:", len(batch_data['states']))
+        print("Replay buffer size:", len(self.replay_buffer))
         if len(self.replay_buffer) < self.batch_size:
             return 0.0
-            
+
         losses = []
         for _ in range(self.ppo_epochs):
-            batch = random.sample(self.replay_buffer, self.batch_size)
-            
-            # 计算优势
-            states = [item for b in batch for item in b['states']]
-            old_log_probs = torch.cat([b['log_probs'] for b in batch])
-            returns = torch.cat([b['returns'] for b in batch])
-            values = torch.cat([b['values'] for b in batch])
-            
-            advantages = returns - values
-            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
-            
-            # 计算新策略的概率
-            new_log_probs = []
+            # 采集所有 step 的数据
+            states = batch_data['states']
+            old_log_probs = torch.tensor(batch_data['log_probs'], dtype=torch.float32)
+            returns = torch.tensor(batch_data['returns'], dtype=torch.float32)
+            values = returns  # 如果没有单独的 value
+            selected_idx_list = batch_data['selected_idx_list']  # 新增：采集时保存的动作索引
+
+            # 构建批量图
+            data_list = []
+            op_indices = []
             for state in states:
-                _, log_prob = self.select_action(state, return_log_prob=True)
+                data, op_node_indices, num_ops = self.build_graph(state)
+                data_list.append(data)
+                op_indices.append(op_node_indices)
+            from torch_geometric.data import Batch
+            batch_graph = Batch.from_data_list(data_list)
+            scores = self.policy_net(batch_graph.x, batch_graph.edge_index)
+
+            # 计算 new_log_probs（严格用采集时的动作索引）
+            new_log_probs = []
+            idx = 0
+            for i, op_node_indices in enumerate(op_indices):
+                num_ops = len(op_node_indices)
+                op_scores = scores[idx:idx+num_ops]
+                probs = F.softmax(op_scores, dim=0)
+                dist = torch.distributions.Categorical(probs)
+                # 用采集时的动作索引 selected_idx_list[i]
+                log_prob = dist.log_prob(torch.tensor(selected_idx_list[i]))
                 new_log_probs.append(log_prob)
+                idx += num_ops
             new_log_probs = torch.stack(new_log_probs)
-            
+
+    
             # PPO损失
+            advantages = returns - values
             ratio = torch.exp(new_log_probs - old_log_probs)
             surr1 = ratio * advantages
             surr2 = torch.clamp(ratio, 1.0 - self.clip_param, 1.0 + self.clip_param) * advantages
             policy_loss = -torch.min(surr1, surr2).mean()
-            
-            # 价值函数损失
+
             value_loss = F.mse_loss(returns, values)
-            
-            # 熵奖励
             entropy_loss = -torch.mean(new_log_probs)
-            
-            # 总损失
             loss = policy_loss + 0.5 * value_loss + 0.01 * entropy_loss
-            
-            # 优化步骤
+
             self.optimizer.zero_grad()
             loss.backward()
             nn.utils.clip_grad_norm_(self.policy_net.parameters(), 0.5)
             self.optimizer.step()
             losses.append(loss.item())
-            
+
         self.scheduler.step()
         self.old_policy_net.load_state_dict(self.policy_net.state_dict())
-        
+
         return np.mean(losses)
