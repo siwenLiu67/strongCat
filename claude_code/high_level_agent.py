@@ -4,8 +4,9 @@ import torch.nn.functional as F
 from typing import Dict, Tuple, List
 from environment import WarehouseEnvironment
 
-class HighLevelAgent:
+class HighLevelAgent(nn.Module):
     def __init__(self, config):
+        super().__init__()
         self.config = config
         self._build_network()
         self._setup_training()
@@ -49,6 +50,11 @@ class HighLevelAgent:
             avg_util,
             avg_wait
         ], dtype=torch.float32)
+        
+        # 检查特征值是否有效
+        if torch.isnan(feats).any() or torch.isinf(feats).any():
+            feats = torch.nan_to_num(feats, nan=0.0, posinf=1.0, neginf=-1.0)
+            
         return feats.unsqueeze(0)
 
     def _get_action_mask(self, state: Dict) -> torch.Tensor:
@@ -80,21 +86,44 @@ class HighLevelAgent:
             list(self.fc2.parameters()) +
             list(self.fc3.parameters()), lr=1e-3)
 
-    def select_action(self, state: Dict) -> Tuple[int, torch.Tensor]:
+    def select_action(self, state: Dict) -> Tuple[int, torch.Tensor, torch.Tensor]:
         feats = self._build_features(state)
         x = F.gelu(self.bn1(self.fc1(feats)))
         x = self.dropout(x)
         x = F.gelu(self.fc2(x))
         logits = self.fc3(x)
         mask = self._get_action_mask(state)
-        logits = logits.masked_fill(~mask, float('-inf'))
+        
+        # 限制logits值范围防止数值不稳定
+        logits = torch.clamp(logits, min=-10, max=10)
+        
+        # UCB探索
+        if not hasattr(self, 'action_counts'):
+            self.action_counts = torch.zeros_like(logits)
+        ucb_scores = logits + self.config.ucb_exploration * torch.sqrt(
+            torch.log(torch.sum(self.action_counts)) / (self.action_counts + 1e-6))
+        logits = ucb_scores.masked_fill(~mask, float('-inf'))
+        
+        # 添加数值稳定性检查
+        if torch.isnan(logits).any() or torch.isinf(logits).any():
+            logits = torch.nan_to_num(logits, nan=0.0, posinf=1.0, neginf=-1.0)
+        
         probs = F.softmax(logits, dim=-1)
         dist = torch.distributions.Categorical(probs)
         action = dist.sample()
         log_prob = dist.log_prob(action)
+        entropy = dist.entropy()
+        
+        # 更新动作计数
+        self.action_counts[0, action] += 1
         self.last_action = int(action.item())
-        return int(action.item()), log_prob
+        return int(action.item()), log_prob, entropy
 
+
+    def parameters(self):
+        return list(self.fc1.parameters()) + \
+               list(self.fc2.parameters()) + \
+               list(self.fc3.parameters())
 
     def update(self, batch: Dict):
         states: List[Dict] = batch['states']
@@ -102,12 +131,24 @@ class HighLevelAgent:
         old_log_probs = torch.stack(batch['log_probs'])
         returns = batch['returns']
         new_log_probs = []
+        entropies = []
         for state, action in zip(states, actions):
-            _, log_prob = self.select_action(state)
+            _, log_prob, entropy = self.select_action(state)
             new_log_probs.append(log_prob)
+            entropies.append(entropy)
         new_log_probs = torch.stack(new_log_probs)
-        loss = -torch.sum(new_log_probs * returns)
+        entropies = torch.stack(entropies)
+        
+        # 策略损失 + 熵正则化
+        policy_loss = -torch.sum(new_log_probs * returns)
+        entropy_loss = -torch.sum(entropies) * self.config.entropy_coef
+        loss = policy_loss + entropy_loss
+        
         self.optimizer.zero_grad()
         loss.backward()
+        
+        # 添加梯度裁剪
+        torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=1.0)
+        
         self.optimizer.step()
         return loss.item()

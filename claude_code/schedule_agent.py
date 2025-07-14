@@ -1,3 +1,4 @@
+import random
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -16,10 +17,10 @@ class GNNPolicy(nn.Module):
     """图神经网络策略网络，输出每个工序的调度优先级分数（GAT+Dropout）"""
     def __init__(self, node_feat_dim, hidden_dim):
         super().__init__()
-        self.conv1 = GATConv(node_feat_dim, hidden_dim, heads=2, concat=True)
-        self.conv2 = GATConv(hidden_dim * 2, hidden_dim, heads=2, concat=True)
-        self.dropout = nn.Dropout(0.3)
-        self.head = nn.Linear(hidden_dim * 2, 1)
+        self.conv1 = GATConv(node_feat_dim, hidden_dim, heads=4, concat=True)
+        self.conv2 = GATConv(hidden_dim * 4, hidden_dim, heads=4, concat=True)
+        self.dropout = nn.Dropout(0.2)
+        self.head = nn.Linear(hidden_dim * 4, 1)
 
     def forward(self, x, edge_index):
         x = F.elu(self.conv1(x, edge_index))
@@ -35,9 +36,13 @@ class ScheduleAgent:
     def __init__(self, config):
         self.config = config
         self.node_feat_dim = 10  # 包含优先级等特征
-        self.hidden_dim = 32
+        self.hidden_dim = 64  # 增大隐藏层维度
         self.policy_net = GNNPolicy(self.node_feat_dim, self.hidden_dim)
-        self.optimizer = torch.optim.Adam(self.policy_net.parameters(), lr=1e-3)
+        self.optimizer = torch.optim.Adam(self.policy_net.parameters(), lr=5e-4)
+        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=100, gamma=0.9)
+        self.replay_buffer = []  # 经验回放缓冲区
+        self.buffer_size = 1000
+        self.batch_size = 32
 
     def build_graph(self, state: Dict) -> tuple[Data, list, int]:
         """
@@ -183,17 +188,35 @@ class ScheduleAgent:
     
     
     def update(self, batch):
-        states = batch['states']
-        actions = batch['actions']
-        log_probs = batch['log_probs']
-        returns = batch['returns']
+        # 将新经验存入回放缓冲区
+        self.replay_buffer.append(batch)
+        if len(self.replay_buffer) > self.buffer_size:
+            self.replay_buffer.pop(0)
+            
+        # 从缓冲区采样batch
+        if len(self.replay_buffer) >= self.batch_size:
+            batch = random.sample(self.replay_buffer, self.batch_size)
+            states = [item for b in batch for item in b['states']]
+            returns = torch.cat([b['returns'] for b in batch])
+        else:
+            states = batch['states']
+            returns = batch['returns']
+            
+        # 计算损失
         new_log_probs = []
         for state in states:
-            _, log_prob = self.select_action(state, return_log_prob=True)  # 一定要加 return_log_prob=True
+            _, log_prob = self.select_action(state, return_log_prob=True)
             new_log_probs.append(log_prob)
         new_log_probs = torch.stack(new_log_probs)
         loss = -torch.mean(new_log_probs * returns)
+        
+        # 优化步骤
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-        return loss.item()       
+        self.scheduler.step()
+        
+        # 打印训练信息
+        if hasattr(self.config, 'verbose') and self.config.verbose:
+            print(f"Training loss: {loss.item():.4f}, LR: {self.scheduler.get_last_lr()[0]:.6f}")
+        return loss.item()

@@ -1,7 +1,15 @@
 class Config:
     train_mode = True
-
-    num_jobs = 8
+    
+    # RL training parameters
+    entropy_coef = 0.01  # Entropy regularization coefficient
+    replay_buffer_size = 10000  # Experience replay buffer size
+    batch_size = 64  # Training batch size
+    gamma = 0.99  # Discount factor
+    n_step = 3  # N-step TD learning
+    ucb_exploration = 0.5  # UCB exploration coefficient
+    
+    num_jobs = 20
     num_machines = 2
     num_distributors = 2
     min_operations = 2

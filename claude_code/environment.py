@@ -196,25 +196,34 @@ class WarehouseEnvironment:
     def _calculate_reward(self, action) -> float:
         """
         计算奖励函数，综合考虑等待、调度和配送三类动作的效果。
+        奖励值范围限制在[-10, 10]之间
         """
         reward = 0.0
 
+        # 1. 基础动作奖励
         if 'wait' in action:
-            # 等待惩罚，鼓励主动调度
-            reward -= 0.5
+            reward -= 0.5  # 等待惩罚
+        elif 'schedule' in action:
+            reward += 1.0  # 调度基础奖励
+        elif 'dispatch' in action:
+            reward += 1.0  # 配送基础奖励
 
+        # 2. 调度质量奖励
         if 'schedule' in action:
-            # 奖励高资源利用率、作业推进和负载均衡
+            # 计算机器利用率奖励 (0-1)
             utilization = self.calculate_machine_utilization()
+            reward += 2.0 * utilization
+            
+            # 作业进度奖励 (0-1)
             job_progress = self.calculate_operation_progress_ratio()
+            reward += 2.0 * job_progress
+            
+            # 负载均衡惩罚 (越小越好)
             load_balance = self.calculate_machine_load_variance()
+            reward -= 0.5 * load_balance
 
-            reward += 10.0 * utilization
-            reward += 20.0 * job_progress
-            reward -= 1.0 * load_balance
-
+        # 3. 配送质量奖励
         if 'dispatch' in action:
-            # 奖励及时配送，惩罚延迟和未满足配送需求
             dispatched_jobs = self.dispatched_jobs
             distributor_map = {}
             for job in dispatched_jobs:
@@ -230,16 +239,15 @@ class WarehouseEnvironment:
                     delivery_req.ratios,
                     delivery_req.weights
                 ):
-                    # 满足截止时间的作业数
                     completed = sum(
                         1 for j in jobs
                         if getattr(j, 'dispatch_time', None) is not None and j.dispatch_time <= due_time
                     )
                     required = int(np.ceil(ratio * total_jobs))
                     tardy = max(0, required - completed)
-                    reward -= 0.2*weight * tardy
+                    reward -= 0.5 * weight * tardy
                     if tardy == 0 and required > 0:
-                        reward += 200.0
+                        reward += 5.0  # 满足配送需求奖励
 
                 # 最终截止时间惩罚
                 if total_jobs > 0 and len(jobs) == total_jobs:
@@ -248,9 +256,26 @@ class WarehouseEnvironment:
                     tardiness_time = max(0, latest_dispatch - final_due)
                     reward -= 1.0 * tardiness_time
                     if tardiness_time == 0:
-                        reward += 200.0
+                        reward += 5.0  # 准时完成奖励
 
-        return float(reward)
+        # 4. 即时操作奖励
+        if self._check_operation_completion():
+            reward += 0.5  # 工序完成奖励
+            
+        if self._check_job_completion():
+            reward += 1.0  # 作业完成奖励
+
+        # 限制奖励范围在[-10, 10]
+        return float(np.clip(reward, -10, 10))
+
+    def _check_operation_completion(self) -> bool:
+        """检查是否有工序在本时间步完成"""
+        return any(m.remaining_time == 0 for m in self.machines if m.status == 'busy')
+
+    def _check_job_completion(self) -> bool:
+        """检查是否有作业在本时间步完成"""
+        return any(job.status == 'completed' and job not in self.completed_jobs 
+                 for job in self.available_jobs)
 
     def calculate_machine_utilization(self) -> float:
         """计算机器利用率"""

@@ -11,11 +11,12 @@ from environment import WarehouseEnvironment
 from high_level_agent import HighLevelAgent
 from schedule_agent import ScheduleAgent
 from dispatch_heuristic import DispatchHeuristic
+from improved_schedule_agent import ImprovedScheduleAgent
 
 def run_episode(
     env: WarehouseEnvironment,
     meta_agent: HighLevelAgent,
-    scheduling_agent: ScheduleAgent,
+    scheduling_agent: ImprovedScheduleAgent,
     dispatching_agent: DispatchHeuristic,
     verbose: bool = True
 ) -> Dict[str, Any]:
@@ -49,24 +50,20 @@ def run_episode(
     schedule_rewards = []
 
     while not done:
-        meta_action, log_prob = meta_agent.select_action(state)
+        # 固定使用调度动作(meta_action=0)
+        meta_action = 0
         actions.append(meta_action)
-        log_probs.append(log_prob)
+        log_probs.append(torch.tensor(0.0))  # 占位符
         states.append(state)
-        if meta_action == 0:
-            # 调度动作采集
-            schedule_action, schedule_log_prob = scheduling_agent.select_action(state, return_log_prob=True)
-            action = {'schedule': schedule_action} if schedule_action else {'wait': True}
-            schedule_count += 1
-            # 记录调度数据
-            schedule_states.append(state)
-            schedule_actions.append(schedule_action)
-            schedule_log_probs.append(schedule_log_prob)
-        elif meta_action == 1:
-            action = {'dispatch': dispatching_agent.select_action(state)}
-            dispatch_count += 1
-        else:
-            action = {'wait': True}
+        
+        # 调度动作采集
+        schedule_action, schedule_log_prob = scheduling_agent.select_action(state, return_log_prob=True)
+        action = {'schedule': schedule_action} if schedule_action else {'wait': True}
+        schedule_count += 1
+        # 记录调度数据
+        schedule_states.append(state)
+        schedule_actions.append(schedule_action)
+        schedule_log_probs.append(schedule_log_prob)
 
         next_state, reward, done, info = env.step(action)
         episode_reward += reward
@@ -169,26 +166,16 @@ def save_results(results: Dict[str, Any], filename: str = 'results.pkl') -> None
         pickle.dump(results, f)
 
 def train_agents(
-    meta_agent: HighLevelAgent,
-    scheduling_agent: ScheduleAgent,
-    ep_result: Dict[str, Any]
+    scheduling_agent: ImprovedScheduleAgent,
+    ep_result: Dict[str, Any],
+    ep: int
 ) -> None:
-    """训练智能体
+    """训练调度智能体
     
     Args:
-        meta_agent: 高层决策智能体
         scheduling_agent: 调度智能体
         ep_result: 包含训练数据的episode结果
     """
-    # 训练meta_agent
-    batch = {
-        'states': ep_result['states'],
-        'actions': ep_result['actions'],
-        'log_probs': ep_result['log_probs'],
-        'returns': ep_result['returns'],
-    }
-    meta_agent.update(batch)
-
     # 训练scheduling_agent
     schedule_batch = {
         'states': ep_result['schedule_states'],
@@ -196,7 +183,7 @@ def train_agents(
         'log_probs': ep_result['schedule_log_probs'],
         'returns': ep_result['schedule_returns'],
     }
-    scheduling_agent.update(schedule_batch)
+    scheduling_agent.update()
 
 def main():
     """主训练流程"""
@@ -214,7 +201,7 @@ def main():
         case = FlexibleJobShopScenario(config)
         env = WarehouseEnvironment(config, case)
         meta_agent = HighLevelAgent(config)
-        scheduling_agent = ScheduleAgent(config)
+        scheduling_agent = ImprovedScheduleAgent(config)
         dispatching_agent = DispatchHeuristic()
 
         ep_result = run_episode(
@@ -223,7 +210,7 @@ def main():
 
 
         # 训练智能体
-        train_agents(meta_agent, scheduling_agent, ep_result)
+        train_agents(scheduling_agent, ep_result, ep)
 
         print(f"Episode {ep+1} 总奖励: {ep_result['episode_reward']:.2f}")
         all_rewards.append(ep_result['episode_reward'])
