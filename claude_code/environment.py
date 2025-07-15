@@ -218,8 +218,8 @@ class WarehouseEnvironment:
         # 2. 调度质量奖励
         if 'schedule' in action:
             utilization = self.calculate_machine_utilization()
-            reward += 2.0 * utilization
-            debug_info['utilization'] = 2.0 * utilization
+            reward += 5.0 * utilization
+            debug_info['utilization'] = 5.0 * utilization
 
             job_progress = self.calculate_operation_progress_ratio()
             reward += 2.0 * job_progress

@@ -1,8 +1,8 @@
 from typing import List, Dict, Any, Tuple
 import pickle
 import torch
-from dataclasses import dataclass, field
 import random
+import numpy as np
 
 # Local imports
 from config import Config
@@ -10,14 +10,13 @@ from case_generator import FlexibleJobShopScenario
 from data_structures import Machine, Job, Operation, DeliveryRequirement
 from environment import WarehouseEnvironment
 from high_level_agent import HighLevelAgent
-from schedule_agent import ImprovedScheduleAgent
+from rule_based_agent import RuleBasedDQNAgent
 from dispatch_heuristic import DispatchHeuristic
-from improved_schedule_agent import ImprovedScheduleAgent
 
 def run_episode(
     env: WarehouseEnvironment,
     meta_agent: HighLevelAgent,
-    scheduling_agent: ImprovedScheduleAgent,
+    scheduling_agent: RuleBasedDQNAgent,
     dispatching_agent: DispatchHeuristic,
     verbose: bool = True
 ) -> Dict[str, Any]:
@@ -26,7 +25,7 @@ def run_episode(
     Args:
         env: 仓库环境实例
         meta_agent: 高层决策智能体
-        scheduling_agent: 调度智能体 
+        scheduling_agent: 基于规则的DQN调度智能体
         dispatching_agent: 分派启发式算法
         verbose: 是否打印详细信息
         
@@ -38,54 +37,49 @@ def run_episode(
     step = 0
     episode_reward = 0
     rewards = []
-    actions = []
-    log_probs = []
     states = []
+    next_states = []
+    actions = []
+    dones = []
     dispatch_count = 0
     schedule_count = 0
-
-    # 新增：调度相关采集
-    schedule_states = []
-    schedule_actions = []
-    schedule_log_probs = []
-    schedule_rewards = []
-    schedule_selected_idx = []
 
     while not done:
         # 固定使用调度动作(meta_action=0)
         meta_action = 0
         actions.append(meta_action)
-        log_probs.append(torch.tensor(0.0))  # 占位符
         states.append(state)
         
-        # 调度动作采集
-        schedule_action, schedule_log_prob = scheduling_agent.select_action(state, return_log_prob=True)
-        action = {'schedule': schedule_action} if schedule_action else {'wait': True}
+        # DQN选择调度规则
+        schedule_action = scheduling_agent.select_action(state)
+        action = schedule_action if schedule_action else {'wait': True}
         schedule_count += 1
-        # 记录调度数据
-        schedule_states.append(state)
-        schedule_actions.append(schedule_action)
-        schedule_log_probs.append(schedule_log_prob)
 
         next_state, reward, done, info = env.step(action)
         episode_reward += reward
         rewards.append(reward)
-        # 新增：调度奖励采集（可用主reward或自定义）
-        if meta_action == 0:
-            schedule_rewards.append(reward)
+        next_states.append(next_state)
+        dones.append(done)
+        
+        # 存储DQN经验
+        # 处理schedule_action可能为空或没有'schedule'键的情况
+        action_value = 0
+        if schedule_action and 'schedule' in schedule_action and schedule_action['schedule']:
+            action_value = list(schedule_action['schedule'].values())[0]
+            
+        transition = {
+            'state': scheduling_agent._get_state(state),
+            'action': action_value,
+            'reward': reward,
+            'next_state': scheduling_agent._get_state(next_state),
+            'done': done
+        }
+        scheduling_agent.replay_buffer.push(**transition)
+        
         state = next_state
         step += 1
 
-    # 计算 schedule_returns（折扣累计奖励）
-    schedule_returns = []
-    G = 0
-    gamma = 0.99
-    for r in reversed(schedule_rewards):
-        G = r + gamma * G
-        schedule_returns.insert(0, G)
-    schedule_returns = torch.tensor(schedule_returns, dtype=torch.float32)
-
-    # 其他统计...
+    # 统计信息
     completed_jobs = getattr(env, 'completed_jobs', []) or state.get('completed_jobs', [])
     finish_times = [getattr(job, 'completed_time', 0) for job in completed_jobs]
     due_times = [getattr(job, 'due_time', 0) for job in completed_jobs]
@@ -98,24 +92,16 @@ def run_episode(
         "episode_reward": episode_reward,
         "rewards": rewards,
         "actions": actions,
-        "log_probs": log_probs,
-        "returns": torch.tensor(rewards, dtype=torch.float32),
         "states": states,
+        "next_states": next_states,
+        "dones": dones,
         "dispatch_count": dispatch_count,
         "schedule_count": schedule_count,
         "steps": step,
         "makespan": makespan,
         "total_late_jobs": total_late_jobs,
         "total_late_time": total_late_time,
-        # 新增调度相关
-        "schedule_states": schedule_states,
-        "schedule_actions": schedule_actions,
-        "schedule_log_probs": schedule_log_probs,
-        "schedule_rewards": schedule_rewards,
-        "schedule_returns": schedule_returns,
     }
-
-
 
 def collect_episode_stats() -> Tuple[
     List[float], List[int], List[int], List[int], 
@@ -167,54 +153,40 @@ def save_results(results: Dict[str, Any], filename: str = 'results.pkl') -> None
     with open(filename, 'wb') as f:
         pickle.dump(results, f)
 
-def train_agents(
-    scheduling_agent: ImprovedScheduleAgent,
-    ep_result: Dict[str, Any],
-    ep: int
+def train_dqn_agent(
+    agent: RuleBasedDQNAgent,
+    batch_size: int = 32
 ) -> None:
-    """训练调度智能体
+    """训练DQN智能体
     
     Args:
-        scheduling_agent: 调度智能体
-        ep_result: 包含训练数据的episode结果
+        agent: DQN智能体实例
+        batch_size: 训练batch大小
     """
-    # 训练scheduling_agent
-    schedule_batch = {
-        'states': ep_result['schedule_states'],
-        'log_probs': ep_result['schedule_log_probs'],
-        'returns': ep_result['schedule_returns']
-    }
-    scheduling_agent.store_experience(schedule_batch)
-    # 只有经验池够大时才训练
-    if len(scheduling_agent.replay_buffer) >= scheduling_agent.batch_size:
-        batch = random.sample(scheduling_agent.replay_buffer, scheduling_agent.batch_size)
-        # 合并所有步的数据
-        states = []
-        old_log_probs = []
-        returns = []
-        for b in batch:
-            states.extend(b['states'])
-            old_log_probs.extend(b['log_probs'])
-            returns.extend(b['returns'])
-        batch_data = {
+    if len(agent.replay_buffer) >= batch_size:
+        states, actions, rewards, next_states, dones = agent.replay_buffer.sample(batch_size)
+        transition_dict = {
             'states': states,
-            'log_probs': old_log_probs,
-            'returns': returns,
+            'actions': actions,
+            'rewards': rewards,
+            'next_states': next_states,
+            'dones': dones
         }
-        scheduling_agent.update(batch_data)
+        agent.update(transition_dict)
 
 def main():
     """主训练流程"""
     config = Config()
-    num_episodes = 500
+    num_episodes = 100
     
     # 初始化统计容器
     (all_rewards, all_steps, all_dispatch_counts, 
      all_schedule_counts, all_rewards_per_episode,
      all_makespans, all_total_late_jobs, 
      all_total_late_time) = collect_episode_stats()
+    
     meta_agent = HighLevelAgent(config)
-    scheduling_agent = ImprovedScheduleAgent(config)
+    scheduling_agent = RuleBasedDQNAgent(config)
     dispatching_agent = DispatchHeuristic()
 
     for ep in range(num_episodes):
@@ -222,14 +194,12 @@ def main():
         case = FlexibleJobShopScenario(config)
         env = WarehouseEnvironment(config, case)
         
-
         ep_result = run_episode(
             env, meta_agent, scheduling_agent, dispatching_agent, verbose=False
         )
 
-
-        # 训练智能体
-        train_agents(scheduling_agent, ep_result, ep)
+        # 训练DQN智能体
+        train_dqn_agent(scheduling_agent)
 
         print(f"Episode {ep+1} 总奖励: {ep_result['episode_reward']:.2f}")
         all_rewards.append(ep_result['episode_reward'])

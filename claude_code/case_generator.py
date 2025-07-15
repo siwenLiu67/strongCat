@@ -98,6 +98,13 @@ class FlexibleJobShopScenario:
                 operations=operations,
                 distributor_id=np.random.randint(0, self.num_distributors)
             )
+            # 根据对应配送商的deliveryrequirements设置交付截止时间
+            if self.distributors:
+                distributor = self.distributors[job.distributor_id]
+                if distributor.delivery_requirements:
+                    job.due_date = max(distributor.delivery_requirements.due_times)
+                    job.earliest_due_date = min(distributor.delivery_requirements.due_times)
+
 
             return job
     

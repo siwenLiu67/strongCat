@@ -25,6 +25,9 @@ class Job:
     status: str = "waiting"  # 状态: waiting, processing, completed,dispatching, dispatched
     completed_time: float = 0.0  # 完成时间
     dispatched_time: float = 0.0 # 完成配送时间
+    due_date: int = 0 # 最终交付截止时间
+    earliest_due_date: int = 0 # 最早交付截止时间
+    delivery_requirements: List[Dict[str, Any]] = field(default_factory=list)  # 交付要求列表
 
 
 @dataclass
@@ -74,27 +77,3 @@ class Distributor:
 
     status: str = "waiting"  # 状态: waiting, completed
 
-
-class ReplayBuffer:
-    """经验回放缓冲区"""
-    def __init__(self, buffer_size: int):
-        self.buffer_size = buffer_size
-        self.buffer = []
-        self.position = 0
-        
-    def add(self, state: Any, action: Any, reward: float, next_state: Any, done: bool):
-        """添加经验到缓冲区"""
-        if len(self.buffer) < self.buffer_size:
-            self.buffer.append(None)
-        self.buffer[self.position] = (state, action, reward, next_state, done)
-        self.position = (self.position + 1) % self.buffer_size
-        
-    def sample(self, batch_size: int) -> Tuple:
-        """从缓冲区随机采样一个batch"""
-        batch = random.sample(self.buffer, min(batch_size, len(self.buffer)))
-        states, actions, rewards, next_states, dones = zip(*batch)
-        return np.array(states), np.array(actions), np.array(rewards), np.array(next_states), np.array(dones)
-        
-    def __len__(self) -> int:
-        """返回当前缓冲区大小"""
-        return len(self.buffer)

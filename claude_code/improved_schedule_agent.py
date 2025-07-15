@@ -133,12 +133,13 @@ class ImprovedScheduleAgent:
         edge_index = torch.tensor(edge_index, dtype=torch.long)
         return Data(x=x, edge_index=edge_index), op_node_indices, num_ops
         
-    def select_action(self, state: Dict, return_log_prob: bool = False):
+    def select_action(self, state: Dict, return_log_prob: bool = True):
         """选择动作（基于Transformer策略）"""
         data, op_node_indices, num_ops = self.build_graph(state)
+        
         if num_ops == 0:
             if return_log_prob:
-                return {}, torch.tensor(0.0)
+                return {}, torch.tensor(0.0), {}
             return {}
             
         scores = self.policy_net(data.x, data.edge_index)
@@ -169,9 +170,9 @@ class ImprovedScheduleAgent:
         best_machine = self._select_machine(state['machines'], best_op)
         
         action = {best_job_id: best_machine} if best_machine is not None else {}
-        
+        idx = int(selected_idx.item())
         if return_log_prob:
-            return action, log_prob
+            return action, log_prob  # 返回动作、log_prob和索引
         return action
         
     def _select_machine(self, machines, op):
@@ -200,7 +201,6 @@ class ImprovedScheduleAgent:
             old_log_probs = torch.tensor(batch_data['log_probs'], dtype=torch.float32)
             returns = torch.tensor(batch_data['returns'], dtype=torch.float32)
             values = returns  # 如果没有单独的 value
-            selected_idx_list = batch_data['selected_idx_list']  # 新增：采集时保存的动作索引
 
             # 构建批量图
             data_list = []
@@ -213,7 +213,6 @@ class ImprovedScheduleAgent:
             batch_graph = Batch.from_data_list(data_list)
             scores = self.policy_net(batch_graph.x, batch_graph.edge_index)
 
-            # 计算 new_log_probs（严格用采集时的动作索引）
             new_log_probs = []
             idx = 0
             for i, op_node_indices in enumerate(op_indices):
@@ -221,9 +220,7 @@ class ImprovedScheduleAgent:
                 op_scores = scores[idx:idx+num_ops]
                 probs = F.softmax(op_scores, dim=0)
                 dist = torch.distributions.Categorical(probs)
-                # 用采集时的动作索引 selected_idx_list[i]
-                log_prob = dist.log_prob(torch.tensor(selected_idx_list[i]))
-                new_log_probs.append(log_prob)
+                new_log_probs.append(probs)
                 idx += num_ops
             new_log_probs = torch.stack(new_log_probs)
 
