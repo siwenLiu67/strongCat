@@ -27,7 +27,7 @@ def main():
     dispatch_agent = DispatchHeuristic()
     
     # 训练参数
-    episodes = 50  # 默认训练10个episode
+    episodes = 1  # 默认训练10个episode
     stats = defaultdict(list)
     batch_size = 32  # 批量更新大小
     

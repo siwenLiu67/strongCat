@@ -18,7 +18,9 @@ class Config:
     max_machines_per_op = num_machines
     min_processing_time = 1
     max_processing_time = 1
-    
+    max_job_amount = 100
+    min_job_amount = 50
+
     earliest_delivery_time = 1
     latest_delivery_time = 20
     min_delivery_requirements = 1

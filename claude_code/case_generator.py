@@ -56,7 +56,13 @@ class FlexibleJobShopScenario:
         ]
     
     def _generate_one_job(self, j):
-        # 生成工序数量
+            # 生成数量
+            job_amount = np.random.randint(
+                self.config.min_job_amount,
+                self.config.max_job_amount + 1
+            )
+
+            # 生成工序数量
             num_ops = np.random.randint(
                 self.config.min_operations,
                 self.config.max_operations + 1
@@ -95,6 +101,7 @@ class FlexibleJobShopScenario:
 
             job = Job(
                 job_id=j,
+                amount=job_amount,
                 operations=operations,
                 distributor_id=np.random.randint(0, self.num_distributors)
             )
@@ -145,10 +152,12 @@ class FlexibleJobShopScenario:
                 ratios= [round(r, 2) for r in ratios],
                 weights=weigts.tolist()   
             )
+            total_amount = sum(self.jobs[j].amount for j in assigned_jobs)
             distributor = Distributor(
                 distributor_id=d,
                 delivery_requirements=delivery_requirements,
                 assigned_jobs=assigned_jobs,
+                total_amount=total_amount,
                 completed_batches={},  # 初始化批次列表
                 status='waiting',  # 初始状态为等待
                 

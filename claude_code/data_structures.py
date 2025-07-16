@@ -20,6 +20,7 @@ class Job:
     """工件实体类"""
     job_id: int
     operations: List[Operation]
+    amount: int  # 工件数量
     distributor_id: int
     current_operation: int = 0  # 当前工序索引
     status: str = "waiting"  # 状态: waiting, processing, completed, dispatching, dispatched
@@ -69,6 +70,7 @@ class Distributor:
     distributor_id: int
     delivery_requirements: DeliveryRequirement
     assigned_jobs: List[int] # 属于这个配送商的作业ID列表
+    total_amount: int  # 总配送数量
 
     # 和配送相关的属性
     completed_batches: Dict[int, List[Job]]
