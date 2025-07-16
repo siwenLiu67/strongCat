@@ -27,7 +27,7 @@ def main():
     dispatch_agent = DispatchHeuristic()
     
     # 训练参数
-    episodes = 1  # 默认训练10个episode
+    episodes = 800  # 默认训练10个episode
     stats = defaultdict(list)
     batch_size = 32  # 批量更新大小
     
@@ -144,8 +144,11 @@ def main():
     print(f"平均奖励: {np.mean(stats['episode_rewards']):.2f}")
     print(f"平均makespan: {np.mean(stats['makespans']):.2f}")
 
+
     # 打印每次迭代的rewards
     print(f"Reward = {stats['episode_rewards']}")
+    print(f"Makespan = {stats['makespans']}")
+    print(f"Loss = {meta_loss:.4f}")
 
 
 if __name__ == '__main__':

@@ -39,6 +39,7 @@ class FlexibleJobShopScenario:
         self._generate_machines()
         self._generate_jobs()
         self._generate_distributors()
+        self._update_job_distributor_mapping()
     
     
     def _generate_machines(self):
@@ -103,15 +104,9 @@ class FlexibleJobShopScenario:
                 job_id=j,
                 amount=job_amount,
                 operations=operations,
+                # 分配给的配送商ID,注意区间范围
                 distributor_id=np.random.randint(0, self.num_distributors)
             )
-            # 根据对应配送商的deliveryrequirements设置交付截止时间
-            if self.distributors:
-                distributor = self.distributors[job.distributor_id]
-                if distributor.delivery_requirements:
-                    job.due_date = max(distributor.delivery_requirements.due_times)
-                    job.earliest_due_date = min(distributor.delivery_requirements.due_times)
-
 
             return job
     
@@ -122,6 +117,15 @@ class FlexibleJobShopScenario:
             job = self._generate_one_job(j)
             self.jobs.append(job)
     
+    def _update_job_distributor_mapping(self):
+        for job in self.jobs:
+            # 根据对应配送商的deliveryrequirements设置交付截止时间
+            if self.distributors:
+                distributor = self.distributors[job.distributor_id]
+                if distributor.delivery_requirements:
+                    job.due_date = max(distributor.delivery_requirements.due_times)
+                    job.earliest_due_date = min(distributor.delivery_requirements.due_times)
+
     
     def _generate_distributors(self):
         """生成配送商分配"""
