@@ -107,7 +107,7 @@ class RuleBasedDQNAgent:
         
         if not jobs or not machines:
             return {}
-            
+        
         # 根据规则对作业排序
         if rule_idx == 0:   # EDD
             jobs.sort(key=lambda j: j.due_date)
@@ -132,15 +132,20 @@ class RuleBasedDQNAgent:
         
         # 分配作业到最早空闲机器
         schedule = {}
+        assigned_machines = set()  # 记录已分配作业的机器ID
+    
         for job in jobs:
             op = job.operations[job.current_operation]
             for m_id in op.available_machine_ids:
-                if machines[m_id].status == 'waiting':
+                if machines[m_id].status == 'waiting' and m_id not in assigned_machines:
                     schedule[job.job_id] = m_id
-                    break
+                    assigned_machines.add(m_id)  # 标记该机器已分配
+                    break  # 跳出当前作业的机器分配循环，继续分配下一个作业
+                else:
+                    # 如果当前机器已分配作业，跳过该机器
+                    print(f"Machine {m_id} is already assigned, skipping.")
         
         return {'schedule': schedule}
-
     def update(self, transition_dict: Dict):
         """更新DQN网络"""
         states = torch.FloatTensor([self._get_state(state) for state in transition_dict['states']])

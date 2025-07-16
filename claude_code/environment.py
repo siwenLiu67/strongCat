@@ -63,6 +63,7 @@ class WarehouseEnvironment:
         # 重设作业状态
         for job in self.available_jobs:
             job.status = 'waiting'
+            job.current_operation = 0
         # 清空已完成和已配送的作业
         self.completed_jobs = []
         self.dispatched_jobs = []
@@ -336,7 +337,7 @@ class WarehouseEnvironment:
     def calculate_operation_progress_ratio(self):
         """计算作业生产推进进度比例（已完成工序数/总工序数）"""
         total_ops = sum(len(job.operations) for job in self.available_jobs)
-        finished_ops = sum(job.current_operation for job in self.available_jobs)
+        finished_ops = sum(job.current_operation + 1 for job in self.available_jobs)
         if total_ops == 0:
             return 0.0
         return finished_ops / total_ops

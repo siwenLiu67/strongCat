@@ -70,19 +70,19 @@ class HighLevelAgent(nn.Module):
         dispatched_job_ids = {getattr(j, 'job_id', i) for i, j in enumerate(dispatched_jobs)}
         
         # 如果没有未配送的已完成作业，禁用配送动作
-        if len(completed_job_ids - dispatched_job_ids) == 0:
+        if not completed_job_ids or len(completed_job_ids - dispatched_job_ids) == 0:
             mask[1] = False
 
         # 如果都在配送中状态，禁用配送动s作
-        if all(getattr(j, 'status') == 'dispatching' for j in state['available_jobs']):
+        if all(getattr(j, 'status') in ['dispatching', 'dispatched'] for j in state['available_jobs']):
             mask[1] = False
-        
+       
         # 如果没有可调度作业，禁用调度动作
-        if all(getattr(j, 'status') == 'processing' for j in state['available_jobs']):
+        if not state['available_jobs'] or not(getattr(j, 'status') in ['waiting'] for j in state['available_jobs']):
             mask[0] = False
         
         # 只要有空闲机器且有可调度作业，就允许schedule
-        if not any(m.remaining_time == 0 for m in state['machines']) or not state['available_jobs']:
+        if not state['machines'] or all(m.remaining_time > 0 for m in state['machines']):
             mask[0] = False
             
         # 打印调试信息
@@ -142,11 +142,14 @@ class HighLevelAgent(nn.Module):
         # 添加数值稳定性检查
         if torch.isnan(masked_scores).any() or torch.isinf(masked_scores).any():
             masked_scores = torch.nan_to_num(masked_scores, nan=0.0, posinf=1.0, neginf=-1.0)
-        
+        masked_scores = ucb_scores.masked_fill(~mask, float('-inf'))
+
         # 打印最终分数
         print(f"Final action scores after masking: {masked_scores}")
         
         probs = F.softmax(masked_scores, dim=-1)
+        probs = probs * mask  # 确保无效动作的概率为 0
+        probs = probs / probs.sum(dim=-1, keepdim=True)  # 重新
         print(f"Action probabilities: {probs}")
         
         dist = torch.distributions.Categorical(probs)

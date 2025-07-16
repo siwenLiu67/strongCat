@@ -27,7 +27,7 @@ def main():
     dispatch_agent = DispatchHeuristic()
     
     # 训练参数
-    episodes = 2  # 默认训练10个episode
+    episodes = 50  # 默认训练10个episode
     stats = defaultdict(list)
     batch_size = 32  # 批量更新大小
     
@@ -140,6 +140,12 @@ def main():
         pickle.dump(stats, f)
     
     print(f"训练完成，耗时: {time.time() - start_time:.2f}秒")
+    # 打印rewards
+    print(f"平均奖励: {np.mean(stats['episode_rewards']):.2f}")
+    print(f"平均makespan: {np.mean(stats['makespans']):.2f}")
+
+    # 打印每次迭代的rewards
+    print(f"Reward = {stats['episode_rewards']}")
 
 
 if __name__ == '__main__':
