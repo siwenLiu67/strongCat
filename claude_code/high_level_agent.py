@@ -11,6 +11,9 @@ class HighLevelAgent(nn.Module):
         self._build_network()
         self._setup_training()
         self.last_action = None
+        # 初始化持久化的动作计数
+        self.action_counts = torch.ones(1, 3)  # 初始为1，避免除零
+        self.total_steps = 0
 
     def _build_features(self, state: Dict) -> torch.Tensor:
         jobs = state['available_jobs']
@@ -61,12 +64,30 @@ class HighLevelAgent(nn.Module):
         mask = torch.ones(3, dtype=torch.bool)
         completed_jobs = state.get('completed_jobs', [])
         dispatched_jobs = state.get('dispatched_jobs', [])
-        # 只要有未配送的已完成作业，就允许dispatch
-        if not any(j for j in completed_jobs if j not in dispatched_jobs):
+        
+        # 修复：检查是否有未配送的已完成作业
+        completed_job_ids = {getattr(j, 'job_id', i) for i, j in enumerate(completed_jobs)}
+        dispatched_job_ids = {getattr(j, 'job_id', i) for i, j in enumerate(dispatched_jobs)}
+        
+        # 如果没有未配送的已完成作业，禁用配送动作
+        if len(completed_job_ids - dispatched_job_ids) == 0:
             mask[1] = False
+
+        # 如果都在配送中状态，禁用配送动s作
+        if all(getattr(j, 'status') == 'dispatching' for j in state['available_jobs']):
+            mask[1] = False
+        
+        # 如果没有可调度作业，禁用调度动作
+        if all(getattr(j, 'status') == 'processing' for j in state['available_jobs']):
+            mask[0] = False
+        
         # 只要有空闲机器且有可调度作业，就允许schedule
         if not any(m.remaining_time == 0 for m in state['machines']) or not state['available_jobs']:
             mask[0] = False
+            
+        # 打印调试信息
+        print(f"Action mask: {mask}, Completed jobs: {len(completed_jobs)}, Dispatched jobs: {len(dispatched_jobs)}")
+        
         return mask.unsqueeze(0)
 
     def _build_network(self):
@@ -86,29 +107,48 @@ class HighLevelAgent(nn.Module):
             list(self.fc2.parameters()) +
             list(self.fc3.parameters()), lr=1e-3)
 
+
     def select_action(self, state: Dict) -> Tuple[int, torch.Tensor, torch.Tensor]:
         feats = self._build_features(state)
         x = F.gelu(self.bn1(self.fc1(feats)))
         x = self.dropout(x)
         x = F.gelu(self.fc2(x))
         logits = self.fc3(x)
+        
+        # 获取动作掩码并打印
         mask = self._get_action_mask(state)
+        print(f"Raw logits before masking: {logits}")
         
         # 限制logits值范围防止数值不稳定
         logits = torch.clamp(logits, min=-10, max=10)
         
-        # UCB探索
-        if not hasattr(self, 'action_counts'):
-            self.action_counts = torch.zeros_like(logits)
-        ucb_scores = logits + self.config.ucb_exploration * torch.sqrt(
-            torch.log(torch.sum(self.action_counts)) / (self.action_counts + 1e-6))
-        logits = ucb_scores.masked_fill(~mask, float('-inf'))
+        # 统一的 UCB 探索逻辑
+        self.total_steps += 1
+        
+        # 打印原始动作概率和掩码情况
+        print(f"Action mask: {mask.squeeze()}")
+        print(f"Available actions: {[i for i, m in enumerate(mask.squeeze()) if m]}")
+        
+        # 应用UCB探索
+        exploration_bonus = self.config.ucb_exploration * torch.sqrt(
+            torch.log(torch.tensor(self.total_steps)) / (self.action_counts + 1e-6))
+        
+        ucb_scores = logits + exploration_bonus
+        print(f"UCB scores before masking: {ucb_scores}")
+        
+        # 应用动作掩码（只应用一次）
+        masked_scores = ucb_scores.masked_fill(~mask, float('-inf'))
         
         # 添加数值稳定性检查
-        if torch.isnan(logits).any() or torch.isinf(logits).any():
-            logits = torch.nan_to_num(logits, nan=0.0, posinf=1.0, neginf=-1.0)
+        if torch.isnan(masked_scores).any() or torch.isinf(masked_scores).any():
+            masked_scores = torch.nan_to_num(masked_scores, nan=0.0, posinf=1.0, neginf=-1.0)
         
-        probs = F.softmax(logits, dim=-1)
+        # 打印最终分数
+        print(f"Final action scores after masking: {masked_scores}")
+        
+        probs = F.softmax(masked_scores, dim=-1)
+        print(f"Action probabilities: {probs}")
+        
         dist = torch.distributions.Categorical(probs)
         action = dist.sample()
         log_prob = dist.log_prob(action)
@@ -116,8 +156,12 @@ class HighLevelAgent(nn.Module):
         
         # 更新动作计数
         self.action_counts[0, action] += 1
+        
+        # 打印选择的动作
         self.last_action = int(action.item())
-        return int(action.item()), log_prob, entropy
+        print(f"Selected action: {self.last_action}")
+        
+        return self.last_action, log_prob, entropy
 
 
     def parameters(self):
@@ -126,28 +170,40 @@ class HighLevelAgent(nn.Module):
                list(self.fc3.parameters())
 
     def update(self, batch: Dict):
+        """更新高层策略网络（批量处理）"""
         states: List[Dict] = batch['states']
         actions = torch.tensor(batch['actions'], dtype=torch.int64)
         old_log_probs = torch.stack(batch['log_probs'])
         returns = batch['returns']
-        new_log_probs = []
-        entropies = []
-        for state, action in zip(states, actions):
-            _, log_prob, entropy = self.select_action(state)
-            new_log_probs.append(log_prob)
-            entropies.append(entropy)
-        new_log_probs = torch.stack(new_log_probs)
-        entropies = torch.stack(entropies)
+
+        
+        # 批量构建特征
+        features = torch.cat([self._build_features(state) for state in states], dim=0)
+        
+        # 批量前向传播
+        x = F.gelu(self.bn1(self.fc1(features)))
+        x = self.dropout(x)
+        x = F.gelu(self.fc2(x))
+        logits = self.fc3(x)
+        
+        # 计算原始动作的新概率
+        probs = F.softmax(logits, dim=-1)
+        dist = torch.distributions.Categorical(probs)
+        new_log_probs = dist.log_prob(actions)
+        entropies = dist.entropy()
         
         # 策略损失 + 熵正则化
-        policy_loss = -torch.sum(new_log_probs * returns)
-        entropy_loss = -torch.sum(entropies) * self.config.entropy_coef
+        policy_loss = -torch.mean(new_log_probs * returns)  # 均值更稳定
+        entropy_loss = -torch.mean(entropies) * self.config.entropy_coef
         loss = policy_loss + entropy_loss
+        
+        # 打印调试信息
+        print(f"Policy loss: {policy_loss.item():.4f}, Entropy: {entropy_loss.item():.4f}")
         
         self.optimizer.zero_grad()
         loss.backward()
         
-        # 添加梯度裁剪
+        # 梯度裁剪
         torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=1.0)
         
         self.optimizer.step()

@@ -15,15 +15,18 @@ class RuleBasedDQNAgent:
         self.action_dim = 8  # 8种调度规则
         
         # DQN网络
-        self.q_net = DQNNetwork(self.state_dim, 64, self.action_dim)
-        self.target_q_net = DQNNetwork(self.state_dim, 64, self.action_dim)
-        self.optimizer = torch.optim.Adam(self.q_net.parameters(), lr=0.001)
+        self.q_net = DQNNetwork(self.state_dim, 128, self.action_dim)  # 增加网络宽度
+        self.target_q_net = DQNNetwork(self.state_dim, 128, self.action_dim)
+        self.optimizer = torch.optim.Adam(self.q_net.parameters(), lr=0.0001)  # 降低学习率
         
         # 训练参数
         self.gamma = 0.99
-        self.epsilon = 0.1
+        self.epsilon_start = 0.3  # 提高初始探索率
+        self.epsilon_end = 0.01   # 降低最终探索率
+        self.epsilon_decay = 10000 # 延长探索衰减周期
+        self.epsilon = self.epsilon_start
         self.batch_size = 32
-        self.target_update = 10
+        self.target_update = 100  # 减少目标网络更新频率
         self.count = 0
         
         # 经验回放
@@ -66,11 +69,15 @@ class RuleBasedDQNAgent:
         
         return state_vec
 
-    def select_action(self, state: Dict) -> Dict[str, Dict[int, int]]:
+    def select_action(self, state: Dict):
         """选择调度动作
-        返回格式: {'schedule': {job_id: machine_id}}
+        返回格式: ({'schedule': {job_id: machine_id}}, rule_idx)
         """
         state_vec = self._get_state(state)
+        
+        # 更新epsilon值(线性衰减)
+        self.epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * \
+                    np.exp(-1. * self.count / self.epsilon_decay)
         
         # epsilon-贪婪策略选择规则
         if np.random.random() < self.epsilon:
@@ -80,8 +87,16 @@ class RuleBasedDQNAgent:
                 q_values = self.q_net(torch.FloatTensor(state_vec))
                 rule_idx = q_values.argmax().item()
         
+        # 保存最后使用的规则索引，以便在update时使用
+        self.last_rule_idx = rule_idx
+        
         # 应用选中的调度规则
-        return self._apply_rule(rule_idx, state)
+        action = self._apply_rule(rule_idx, state)
+
+        if action is None:
+            action = {'wait': True}
+        
+        return action, rule_idx
 
     def _apply_rule(self, rule_idx: int, state: Dict) -> Dict[str, Dict[int, int]]:
         """应用指定的调度规则
@@ -128,10 +143,10 @@ class RuleBasedDQNAgent:
 
     def update(self, transition_dict: Dict):
         """更新DQN网络"""
-        states = torch.FloatTensor(transition_dict['states'])
+        states = torch.FloatTensor([self._get_state(state) for state in transition_dict['states']])
         actions = torch.LongTensor(transition_dict['actions']).view(-1, 1)
         rewards = torch.FloatTensor(transition_dict['rewards']).view(-1, 1)
-        next_states = torch.FloatTensor(transition_dict['next_states'])
+        next_states = torch.FloatTensor([self._get_state(state) for state in transition_dict['next_states']])
         dones = torch.FloatTensor(transition_dict['dones']).view(-1, 1)
         
         # 计算目标Q值

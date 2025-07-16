@@ -60,6 +60,10 @@ class WarehouseEnvironment:
         self.initial_jobs = self.case.jobs.copy()
         # 包括新到达的作业
         self.available_jobs = self.case.jobs.copy()
+        # 重设作业状态
+        for job in self.available_jobs:
+            job.status = 'waiting'
+        # 清空已完成和已配送的作业
         self.completed_jobs = []
         self.dispatched_jobs = []
 
@@ -190,7 +194,13 @@ class WarehouseEnvironment:
         
         return self._get_state(), reward, self.done, {}
     
-    
+    def _calculate_loss(self, action: Dict, reward: float) -> float:
+        """计算神经网络的损失值"""
+        # 这里可以根据具体的强化学习算法实现损失计算
+        # 例如DQN、PPO等
+        # 目前返回一个固定值作为示例
+        return 0.1
+
     def _check_termination(self) -> bool:
         """检查是否达到终止条件"""
         return (self.t >= self.config.max_time_steps or 
@@ -289,8 +299,8 @@ class WarehouseEnvironment:
             reward += 1.0
             debug_info['job_complete'] = 1.0
 
-        # 限制奖励范围在[-10, 10]
-        final_reward = float(np.clip(reward, -10, 10))
+        # 限制奖励范围在[-1, 1]
+        final_reward = float(np.clip(reward, -1, 1))
         debug_info['final_reward'] = final_reward
 
         # 打印每一项奖励组成
@@ -324,9 +334,9 @@ class WarehouseEnvironment:
         return total_busy_time / len(self.machines)
 
     def calculate_operation_progress_ratio(self):
-        """计算作业推进进度比例（已完成工序数/总工序数）"""
+        """计算作业生产推进进度比例（已完成工序数/总工序数）"""
         total_ops = sum(len(job.operations) for job in self.available_jobs)
-        finished_ops = 1+sum(job.current_operation for job in self.available_jobs)
+        finished_ops = sum(job.current_operation for job in self.available_jobs)
         if total_ops == 0:
             return 0.0
         return finished_ops / total_ops

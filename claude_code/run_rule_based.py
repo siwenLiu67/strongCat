@@ -104,7 +104,7 @@ def run_episode(
     }
 
 def collect_episode_stats() -> Tuple[
-    List[float], List[int], List[int], List[int], 
+    List[float], List[float], List[int], List[int], List[int], 
     List[List[float]], List[float], List[int], List[float]
 ]:
     """收集并初始化所有episode统计数据的容器
@@ -112,6 +112,7 @@ def collect_episode_stats() -> Tuple[
     Returns:
         包含所有统计容器的元组:
         - all_rewards: 每episode总奖励
+        - all_losses: 每episode损失
         - all_steps: 每episode步数
         - all_dispatch_counts: 每episode分派次数
         - all_schedule_counts: 每episode调度次数
@@ -120,10 +121,11 @@ def collect_episode_stats() -> Tuple[
         - all_total_late_jobs: 每episode延迟任务数
         - all_total_late_time: 每episode总延迟时间
     """
-    return [], [], [], [], [], [], [], []
+    return [], [], [], [], [], [], [], [], []
 
 def print_episode_stats(
     all_rewards: List[float],
+    all_losses: List[float],
     all_steps: List[int],
     all_dispatch_counts: List[int],
     all_schedule_counts: List[int]
@@ -132,12 +134,14 @@ def print_episode_stats(
     
     Args:
         all_rewards: 每episode总奖励列表
+        all_losses: 每episode损失列表
         all_steps: 每episode步数列表
         all_dispatch_counts: 每episode分派次数列表
         all_schedule_counts: 每episode调度次数列表
     """
     print("\n========== 统计 ==========")
     print(f"所有episode奖励: {all_rewards}")
+    print(f"所有episode的loss值: {all_losses}")
     print(f"平均奖励: {sum(all_rewards)/len(all_rewards):.2f}")
     print(f"平均步数: {sum(all_steps)/len(all_steps):.2f}")
     print(f"平均dispatch次数: {sum(all_dispatch_counts)/len(all_dispatch_counts):.2f}")
@@ -156,7 +160,7 @@ def save_results(results: Dict[str, Any], filename: str = 'results.pkl') -> None
 def train_dqn_agent(
     agent: RuleBasedDQNAgent,
     batch_size: int = 32
-) -> None:
+) -> float:
     """训练DQN智能体
     
     Args:
@@ -172,7 +176,9 @@ def train_dqn_agent(
             'next_states': next_states,
             'dones': dones
         }
-        agent.update(transition_dict)
+        return agent.update(transition_dict)
+    else:
+        return 0.0  # 如果经验不足，返回0损失
 
 def main():
     """主训练流程"""
@@ -180,7 +186,7 @@ def main():
     num_episodes = 100
     
     # 初始化统计容器
-    (all_rewards, all_steps, all_dispatch_counts, 
+    (all_rewards, all_losses, all_steps, all_dispatch_counts, 
      all_schedule_counts, all_rewards_per_episode,
      all_makespans, all_total_late_jobs, 
      all_total_late_time) = collect_episode_stats()
@@ -199,10 +205,11 @@ def main():
         )
 
         # 训练DQN智能体
-        train_dqn_agent(scheduling_agent)
+        loss = train_dqn_agent(scheduling_agent)
 
         print(f"Episode {ep+1} 总奖励: {ep_result['episode_reward']:.2f}")
         all_rewards.append(ep_result['episode_reward'])
+        all_losses.append(loss)
         all_steps.append(ep_result['steps'])
         all_dispatch_counts.append(ep_result['dispatch_count'])
         all_schedule_counts.append(ep_result['schedule_count'])
@@ -211,7 +218,7 @@ def main():
         all_total_late_jobs.append(ep_result['total_late_jobs'])
         all_total_late_time.append(ep_result['total_late_time'])
 
-    print_episode_stats(all_rewards, all_steps, all_dispatch_counts, all_schedule_counts)
+    print_episode_stats(all_rewards,all_losses, all_steps, all_dispatch_counts, all_schedule_counts)
 
     # 保存结果
     save_results({
