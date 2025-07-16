@@ -243,19 +243,28 @@ class WarehouseEnvironment:
             reward -= tardiness 
             debug_info[f'job_{job.job_id}_tardiness'] = -tardiness
 
-        # 计算分段配送时间要求延迟成本
-        for distributor in self.distributors:
-            requirement = distributor.delivery_requirements
-            for due_time, ratio, weight in zip(requirement.due_times, requirement.ratios, requirement.weights):
-                # 在这个due_time之前完成的作业
-                completed_jobs = [j for j in self.completed_jobs if j.dispatched_time <= due_time]
-                completed_amount = sum(j.amount for j in completed_jobs)
-                required_amount = ratio * distributor.total_amount
-                if completed_amount < required_amount:
-                    penalty = (required_amount - completed_amount) * weight
-                    reward -= penalty
-                    debug_info[f'distributor_{distributor.distributor_id}_due_time_{due_time}'] = -penalty
         
+        # 只有在已经过了最早的交付截止时间后才计算分段配送时间要求延迟成本
+        earliest_delivery_time = self.config.latest_delivery_time
+        for distributor in self.distributors:
+            min_due_time = min(distributor.delivery_requirements.due_times) if distributor.delivery_requirements else float('inf')
+            if earliest_delivery_time is None or min_due_time < earliest_delivery_time:
+                earliest_delivery_time = min_due_time
+
+        if self.t >= earliest_delivery_time:
+            # 计算分段配送时间要求延迟成本
+            for distributor in self.distributors:
+                requirement = distributor.delivery_requirements
+                for due_time, ratio, weight in zip(requirement.due_times, requirement.ratios, requirement.weights):
+                    # 在这个due_time之前完成的作业
+                    completed_jobs = [j for j in self.completed_jobs if j.dispatched_time <= due_time]
+                    completed_amount = sum(j.amount for j in completed_jobs)
+                    required_amount = ratio * distributor.total_amount
+                    if completed_amount < required_amount:
+                        penalty = (required_amount - completed_amount) * weight
+                        reward -= penalty
+                        debug_info[f'distributor_{distributor.distributor_id}_due_time_{due_time}'] = -penalty
+            
         # 即时操作奖励
         if self.operation_completed_this_step:
             reward += 1.0  # 增加工序完成奖励
