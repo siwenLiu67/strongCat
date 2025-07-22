@@ -27,7 +27,7 @@ def main():
     dispatch_agent = DispatchHeuristic()
     
     # 训练参数
-    episodes = 800  # 默认训练10个episode
+    episodes = 10  # 默认训练10个episode
     stats = defaultdict(list)
     batch_size = 32  # 批量更新大小
     
@@ -130,10 +130,12 @@ def main():
         # 记录每轮数据
         stats['episode_rewards'].append(episode_reward)
         stats['makespans'].append(env.t)
+        stats['running_times'].append(time.time() - start_time) 
+        stats['tardy_penalty'].append(env.tardy_penalty)
         
         # 打印进度
         if (episode + 1) % 10 == 0:
-            print(f"Episode {episode + 1}/{episodes}, Reward: {episode_reward:.2f}")
+            print(f"Episode {episode + 1}/{episodes}, time at: {env.t}, Reward: {episode_reward:.2f}")
     
     # 保存结果
     with open('results.pkl', 'wb') as f:

@@ -1,0 +1,7 @@
+{
+    "latex-workshop.formatting.latex": "latexindent",
+     "editor.wordWrap": "on",  // 全局启用自动换行
+  "[tex]": {                // 仅对 LaTeX 文件生效
+    "editor.wordWrap": "on"
+}
+}

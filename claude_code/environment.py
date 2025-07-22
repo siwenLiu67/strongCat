@@ -56,6 +56,7 @@ class WarehouseEnvironment:
 
     def reset(self) -> Dict:
         self.t = 0
+        self.tardy_penalty = 0
         self.done = False
 
         # 初始化作业
