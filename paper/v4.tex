@@ -4,6 +4,7 @@
 \usepackage{amssymb}
 \usepackage{amsfonts}
 \usepackage{array} % For better table control
+\usepackage{tabularx} % For full-width tables
 \usepackage{algorithm}
 \usepackage{amsthm}
 \newtheorem{lemma}{Lemma}
@@ -102,100 +103,79 @@ The objective of this study is to develop an integrated scheduling and dispatchi
 
 
 \subsection{Mathematical Model}
-This section details the mathematical model for the integrated flexible job shop scheduling and dispatching problem. The model aims to minimize the total weighted tardiness of deliveries by coordinating processing operations and dispatching activities.
+To address the dynamic job arrival characteristics of the Integrated Flexible Job Shop Scheduling and Dispatching Problem (IFJSSP-DP), we formulate a Mixed Integer Linear Programming (MILP) model that is solved repeatedly in a rolling horizon fashion. At each decision point \( t \), only the set of jobs that have arrived up to time \( t \) are included in the model.
 
-The indices and sets used in the model are defined in Table~\ref{tab:indices_sets}.
+This subsection summarizes the notation used in the proposed MILP model for the Integrated Flexible Job Shop Scheduling and Dispatching Problem (IFJSSP-DP). Let \( J_t \) denote the set of dynamically released jobs at the current decision epoch. Each job \( j \in J_t \) consists of a sequence of operations \( O_j \), where each operation must be assigned to one eligible machine \( m \in K_{jo} \). The model integrates production scheduling and batch-based dispatching under multiple delivery requirements \( R \), considering job arrival times, precedence constraints, machine assignment, delivery deadlines, and partial fulfillment targets.
 
-\begin{table}[htbp]
-\centering
-\caption{Indices and Sets}
-\label{tab:indices_sets}
-\begin{tabular}{>{\centering\arraybackslash}p{4.5cm} >{\centering\arraybackslash}p{9.5cm}}
-\hline
-\textbf{Set Notation} & \textbf{Description} \\
-\hline
-$J$  & Set of all jobs to be processed. \\
-$M$  & Set of all available machines. \\
-$O_j$  & Sequence of operations for job $j \in J$. Let $|O_j|$ be the number of operations for job $j$. \\
-$A_{j,o}$  & Set of available machines for operation $o$ of job $j$. \\
-$D$  & Set of all distributors. \\
-$I_d$  & Set of jobs to be dispatched to distributor $d \in D$. \\
-$B_d$  & Set of available dispatch batches for distributor $d \in D$. \\
-$R$  & Set of all delivery requirements. \\
-\hline
-\end{tabular}
+\vspace{-0.5\baselineskip}
+\begin{table}[H]
+\caption{Model Parameters and Decision Variables}
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+\textbf{Symbol} & \textbf{Description} \\
+\midrule
+\multicolumn{2}{l}{\textit{Indices and Sets}} \\
+$J_t$ & Set of all jobs released up to time $t$ \\
+$O_j$ & Set of operations for job $j$ \\
+$K_{jo}$ & Set of eligible machines for operation $o$ of job $j$ \\
+$\mathcal{B}$ & Set of dispatch batches \\
+$R$ & Set of delivery requirements \\
+\midrule
+\multicolumn{2}{l}{\textit{Parameters}} \\
+$a_j$ & Arrival time of job $j$ \\
+$\delta_j$ & Due date of job $j$ \\
+$p_{jom}$ & Processing time of operation $o$ of job $j$ on machine $m$ \\
+$B$ & A large constant for disjunctive constraints \\
+$q_{jr}$ & Quantity of job $j$ contributing to delivery requirement $r$ \\
+$Q_r$ & Total demand required by delivery requirement $r$ \\
+$\rho_r$ & Minimum fulfillment ratio for requirement $r$ \\
+$w_r$ & Penalty weight for delivery shortfall in requirement $r$ \\
+\midrule
+\multicolumn{2}{l}{\textit{Decision Variables}} \\
+$x_{jom}$ & Binary; 1 if operation $o$ of job $j$ is assigned to machine $m$ \\
+$s_{jo}$ & Start time of operation $o$ of job $j$ \\
+$C_j$ & Completion time of job $j$ \\
+$T_j$ & Tardiness of job $j$ \\
+$y_{jb}$ & Binary; 1 if job $j$ is assigned to batch $b$ \\
+$d_b$ & Dispatch time of batch $b$ \\
+$z_{br}$ & Binary; 1 if batch $b$ serves delivery requirement $r$ \\
+$w_{jbr}$ & Binary; 1 if job $j$ in batch $b$ contributes to requirement $r$ \\
+$y_{jokl}$ & Binary; 1 if operation $(j,o)$ precedes $(k,l)$ on the same machine \\
+$u_r$ & Delivery shortfall quantity for requirement $r$ \\
+\bottomrule
+\end{tabularx}
+\label{tab:variables_parameters}
 \end{table}
+\vspace{-0.5\baselineskip}
 
-The parameters used in the model are defined in Table~\ref{tab:parameters}.
-
-\begin{table}[htbp]
-\centering
-\caption{Parameters}
-\label{tab:parameters}
-\begin{tabular}{>{\centering\arraybackslash}p{2.5cm} >{\centering\arraybackslash}p{4cm} p{7cm}}
-\hline
-\textbf{Symbol} & \textbf{Stage} & \textbf{Description} \\
-\hline
-$P_{j,o,m}$ & Processing & Processing time of operation $o$ of job $j$ on machine $m$. \\
-$T_{\text{base}}$ & Dispatching & Base loading time for a dispatch batch. \\
-$T_{\text{item}}$ & Dispatching & Loading time per item in a dispatch batch. \\
-$\rho_r$ & Dispatching & For delivery requirement $r \in R$: required completion percentage (e.g., 0.9 for 90\%). \\
-$\delta_r$ & Dispatching & For delivery requirement $r \in R$: due date. \\
-$w_r$ & Dispatching & For delivery requirement $r \in R$: tardiness weight. \\
-\hline
-\end{tabular}
-\end{table}
-
-
-The decision variables used in the model are defined in Table~\ref{tab:decision_variables}.
-\begin{table}[htbp]
-\centering
-\caption{Decision Variables}
-\label{tab:decision_variables}
-\begin{tabular}{>{\centering\arraybackslash}p{2.5cm} >{\centering\arraybackslash}p{4cm} p{7cm}}
-\hline
-\textbf{Symbol} & \textbf{Type / Domain} & \textbf{Description} \\
-\hline
-\multicolumn{3}{l}{\textit{Processing Stage Variables}} \\
-$x_{j,o,m}$ & Binary $\in \{0,1\}$ & 1 if operation $o$ of job $j$ is assigned to machine $m$; 0 otherwise. \\
-$s_{j,o}$ & Continuous $\geq 0$ & Start time of operation $o$ of job $j$. \\
-$e_{j,o}$ & Continuous $\geq 0$ & End time of operation $o$ of job $j$. \\
-$z_{j,o,j',o',m}$ & Binary $\in \{0,1\}$ & (Implicit in notebook, for Big-M) 1 if operation $(j,o)$ precedes $(j',o')$ on machine $m$; 0 if $(j',o')$ precedes $(j,o)$ on machine $m$. \\
-\hline
-\multicolumn{3}{l}{\textit{Dispatching Stage Variables}} \\
-$y_{i,d,b}$ & Binary $\in \{0,1\}$ & 1 if job $i$ (assuming $i \in J$) is assigned to batch $b$ for distributor $d$; 0 otherwise. \\
-$t_{d,b}$ & Continuous $\geq 0$ & Dispatch time of batch $b$ for distributor $d$. \\
-$\tau_r$ & Continuous $\geq 0$ & Tardiness for delivery requirement $r$. \\
-$q_{r,b}$ & Binary $\in \{0,1\}$ & 1 if batch $b$ is used to fulfill delivery requirement $r$; 0 otherwise. \\
-\hline
-\end{tabular}
-\end{table}
-
-
-
-The objective is to minimize the total weighted tardiness of all delivery requirements:
+The formulation is as follows:
 \begin{align}
-\quad & \min \sum_{r \in R} w_r \tau_r \\
-\quad & e_{j,o} \leq s_{j,o+1} && \forall j \in J,\, o \in O_j \setminus \{|O_j|-1\} \\
-\quad & \sum_{m \in A_{j,o}} x_{j,o,m} = 1 && \forall j \in J,\, o \in O_j  \\
-\quad & e_{j,o} = s_{j,o} + \sum_{m \in A_{j,o}} P_{j,o,m} \cdot x_{j,o,m} && \forall j \in J,\, o \in O_j \\
-\quad & s_{j',o'} \geq e_{j,o} - K \cdot (3 - x_{j,o,m} - x_{j',o',m} - z_{j,o,j',o',m}) && \forall (j,o) \neq (j',o'),\, m  \\
-\quad & s_{j,o} \geq e_{j',o'} - K \cdot (2 - x_{j,o,m} - x_{j',o',m} + z_{j,o,j',o',m}) && \forall (j,o) \neq (j',o'),\, m  \\
-\quad & \sum_{b \in B_d} y_{i,d,b} = 1 && \forall d \in D,\, i \in I_d \\
-\quad & \sum_{k \in I_d} y_{k,d,b} \leq |I_d| \cdot u_{d,b} && \forall d \in D,\, b \in B_d \\
-\quad & u_{d,b} \leq \sum_{k \in I_d} y_{k,d,b} && \forall d \in D,\, b \in B_d \\
-\quad & t_{d,b} \geq e_{i, |O_i|-1} + T_{\text{base}} \cdot u_{d,b} + T_{\text{item}} \sum_{k \in I_d} y_{k,d,b} - K(1-y_{i,d,b}) && \forall d \in D,\, b \in B_d,\, i \in I_d  \\
-% 新增batch与delivery requirement的对应关系约束
-\quad & \sum_{b \in B_{d_r}} q_{r,b} = 1 && \forall r \in R \\
-\quad & q_{r,b} \leq u_{d_r,b} && \forall r \in R,\, b \in B_{d_r}  \\
-% 交付需求与批次派送时间的关联
-\quad & \tau_r \geq t_{d_r,b} - \delta_r - K(1-q_{r,b}) && \forall r \in R,\, b \in B_{d_r}  \\
-\quad & s_{j,o},\, e_{j,o} \geq 0 && \forall j \in J,\, o \in O_j \\
-\quad & t_{d,b} \geq 0 && \forall d \in D,\, b \in B_d \\
-\quad & \tau_r \geq 0 && \forall r \in R
+\min \quad & \sum_{j \in J_t} T_j + \sum_{r \in R} w_r \cdot u_r \\[4pt]
+\text{s.t.} \quad
+& \sum_{m \in K_{jo}} x_{jom} = 1 && \forall j \in J_t,\ \forall o \in O_j \quad \text{(operation assignment)} \\[4pt]
+& s_{j,o+1} \geq s_{jo} + \sum_{m \in K_{jo}} p_{jom} x_{jom} && \forall j \in J_t,\ o < |O_j| \quad \text{(precedence)} \\[4pt]
+& s_{jo} \geq a_j && \forall j \in J_t,\ \forall o \in O_j \quad \text{(arrival time)} \\[4pt]
+& s_{jo} \geq s_{kl} + \sum_{m \in M} p_{klm} x_{klm} - B (1 - y_{jokl}) && \forall (jo), (kl) \text{ on same } m \quad \text{(disjunctive 1)} \\[4pt]
+& s_{kl} \geq s_{jo} + \sum_{m \in M} p_{jom} x_{jom} - B y_{jokl} && \forall (jo), (kl) \text{ on same } m \quad \text{(disjunctive 2)} \\[4pt]
+& C_j \geq s_{j,o_j} + \sum_{m \in K_{j,o_j}} p_{j,o_j,m} x_{j,o_j,m} && \forall j \in J_t \quad \text{(completion time)} \\[4pt]
+& T_j \geq C_j - \delta_j && \forall j \in J_t \quad \text{(tardiness)} \\[4pt]
+& T_j \geq 0,\quad s_{jo} \geq 0,\quad C_j \geq 0 && \forall j,\ o \in O_j \quad \text{(non-negativity)} \\[4pt]
+%
+& \sum_{b \in \mathcal{B}} y_{jb} = 1 && \forall j \in J_t \quad \text{(job assigned to one batch)} \\[4pt]
+& d_b \geq C_j - M(1 - y_{jb}) && \forall j \in J_t,\ \forall b \in \mathcal{B} \quad \text{(dispatch after completion)} \\[4pt]
+%
+& w_{jbr} \leq y_{jb} && \forall j \in J_t,\ b \in \mathcal{B},\ r \in R \label{con:w1} \\[2pt]
+& w_{jbr} \leq z_{br} && \forall j \in J_t,\ b \in \mathcal{B},\ r \in R \label{con:w2} \\[2pt]
+& w_{jbr} \geq y_{jb} + z_{br} - 1 && \forall j \in J_t,\ b \in \mathcal{B},\ r \in R \label{con:w3} \\[4pt]
+& \sum_{j \in J_t} \sum_{b \in \mathcal{B}} q_{jr} \cdot w_{jbr} \geq \rho_r Q_r - u_r && \forall r \in R \quad \text{(delivery coverage)} \\[4pt]
+& z_{br} \geq w_{jbr} && \forall j \in J_t,\ b \in \mathcal{B},\ r \in R \quad \text{(batch activates delivery)} 
 \end{align}
-The meaning of each formula is as follows: The first formula is the objective function, which minimizes the total weighted tardiness of all delivery requirements. Constraint (2) ensures that the operations of each job are processed in the specified order, so that the start time of the next operation cannot be earlier than the end time of the previous one. Constraint (3) guarantees that each operation is assigned to exactly one available machine. Constraint (4) defines that the end time of each operation equals its start time plus the processing time on the assigned machine. Constraints (5) and (6) use the Big-M method to prevent any two operations from being processed simultaneously on the same machine, thus ensuring machine capacity. Constraint (7) requires that each job for a distributor is assigned to exactly one dispatch batch. Constraints (8) and (9) linearize the indicator variable for whether a batch is used. Constraint (10) ensures that the dispatch time of a batch is not earlier than the completion time of all jobs assigned to it plus the required loading time. Constraint (11) enforces that each delivery requirement is fulfilled by exactly one batch, and constraint (12) ensures that only used batches can be assigned to delivery requirements, thus establishing a one-to-one correspondence between batches and delivery times. Constraint (13) calculates the tardiness for each delivery requirement based on the dispatch time of the corresponding batch and the due date. Finally, constraints (14), (15), and (16) enforce the non-negativity of all time-related variables to ensure the physical feasibility of the model.
 
+The proposed MILP model aims to minimize the total job tardiness and delivery shortfall penalty in an integrated flexible job shop scheduling and batch dispatching environment with dynamic job arrivals. Constraint~1 ensures that each operation of every job is assigned to exactly one eligible machine, thereby respecting machine eligibility constraints. Constraint~2 preserves the technological precedence among operations within each job by enforcing that a subsequent operation starts only after the preceding one finishes. Constraint~3 incorporates the dynamic nature of job arrivals by restricting operation start times to be no earlier than the job's arrival time. Constraints~4 and~5 constitute the disjunctive constraints that prevent time overlaps between operations assigned to the same machine, using a binary sequencing variable to determine the execution order of operation pairs. Constraint~6 computes the completion time of each job as the end time of its last operation, taking into account the selected machine and processing time. Constraint~7 models job-level tardiness as the positive deviation of completion time from the job’s due date. Constraint~8 guarantees the non-negativity of all time-related decision variables. Constraint~9 requires that each job be assigned to exactly one dispatch batch, enabling its inclusion in a feasible delivery plan. Constraint~10 ensures that any dispatch batch is scheduled only after the completion of all jobs it contains. Constraints~11 through~13 define the binary indicator for whether a job assigned to a batch contributes to a particular delivery requirement, using standard linearization techniques to model logical conjunctions. Finally, Constraint~14 ensures that each delivery requirement is fulfilled at or above its specified threshold level, while allowing controlled violation through a slack variable that is penalized in the objective function. Together, the constraints collectively define a tightly integrated scheduling and dispatching optimization problem that captures job-shop flexibility, delivery deadlines, and batch-level coordination in a dynamic production environment.
+
+To handle dynamic arrivals, the model is executed periodically in a rolling horizon fashion. At each decision epoch, only the subset of jobs that have already arrived (\( a_j \leq t \)) are included in the optimization. This allows the model to remain computationally tractable while maintaining responsiveness to real-time job inflow.
+
+This formulation enables real-time responsiveness to job arrivals and system state changes, and serves as a near-optimal baseline for evaluating learning-based and heuristic scheduling methods.
 \subsection{Theoretical Support for Scheduling Policy Design}
 
 In this section, we present theoretical results that support the design of reward functions and prioritization strategies in the proposed HDRL scheduling framework. These lemmas are particularly relevant for Chapter 3, where the Integrated Flexible Job Shop Scheduling and Dispatching Problem (IFJSSP-DP) is formulated. The following results provide insights into task sequencing and batch dispatch strategies that help accelerate learning and improve system performance.
@@ -274,8 +254,7 @@ At the lower level, the framework integrates two distinct action modules. The sc
 
 Importantly, unlike conventional bi-level optimization frameworks (e.g., Feng, Che, and Lei 2024; Zhao et al. 2023) or embedded optimization-learning systems (Yan et al. 2024), this framework does not treat the lower-level as a black-box solver invoked by the upper agent. Instead, it models the lower level as an adaptive environment whose response dynamics are learned by the meta-agent over time. This allows the system to flexibly accommodate diverse scheduling and dispatching behaviors, as the upper-level agent implicitly captures the capabilities of lower-level modules through episodic feedback and long-term reward shaping (cf. Su et al. 2023). 
 
-Such a design enables dynamic policy switching in response to real-time workshop conditions, supports modularity in integrating domain heuristics and learning agents, and enhances the adaptability and robustness of the overall decision-making system.
-
+This design choice enhances the robustness and generalization of the overall scheduling framework, enabling it to adapt to varying production conditions and job characteristics without requiring explicit reconfiguration of lower-level policies.
 \subsection{High-Level Agent: Meta-Controller Design}
 \subsubsection{Markov Decision Process Formulation}
 
@@ -364,52 +343,47 @@ J(\theta) = \mathbb{E}_{\pi_\theta} \left[ \sum_{t=0}^{T} \gamma^t r_t \right]
 
 This MDP formulation allows the meta-controller to adaptively coordinate between scheduling, dispatching, and passive waiting, enabling responsive and globally aware decision-making in the hierarchical reinforcement learning system.
 
-\subsubsection{Network Architecture}  
-The meta-controller is implemented as a fully connected neural policy network with three hidden layers, designed to map a 9-dimensional global feature vector to a probability distribution over three discrete high-level actions: scheduling, dispatching, and waiting. Formally, let $s_t \in \mathbb{R}^9$ denote the input state vector at time $t$. The forward computation of the network is defined as:
+\subsubsection{Network Architecture}
+
+The meta-controller is implemented as a fully connected feedforward neural network consisting of three hidden layers. Its primary objective is to map a 9-dimensional global state vector $s_t \in \mathbb{R}^9$, observed at each decision step $t$, to a probability distribution over three discrete meta-actions: \textit{scheduling}, \textit{dispatching}, and \textit{waiting}. The network’s forward computation is given as follows:
 
 \begin{align}
-h_1 &= \text{GeLU}(\text{LayerNorm}(W_1 s_t + b_1)) \\
-h_1' &= \text{Dropout}(h_1, p=0.2) \\
-h_2 &= \text{GeLU}(W_2 h_1' + b_2) \\
-\text{logits} &= W_3 h_2 + b_3
+h_1 &= \mathrm{GeLU}(\mathrm{LayerNorm}(W_1 s_t + b_1)) \tag{24} \\
+h_1' &= \mathrm{Dropout}(h_1, p = 0.2) \tag{25} \\
+h_2 &= \mathrm{GeLU}(W_2 h_1' + b_2) \tag{26} \\
+\text{logits} &= W_3 h_2 + b_3 \tag{27}
 \end{align}
 
-where:
-- $W_1 \in \mathbb{R}^{32 \times 9}, W_2 \in \mathbb{R}^{32 \times 32}, W_3 \in \mathbb{R}^{3 \times 32}$ are weight matrices of each layer;
-- GeLU is the Gaussian Error Linear Unit activation;
-- LayerNorm is applied after the first layer to stabilize training;
-- Dropout with probability $p=0.2$ is used for regularization;
-- The final output logits correspond to the action preferences before masking and exploration adjustment.
+Here, $W_1 \in \mathbb{R}^{32 \times 9}$, $W_2 \in \mathbb{R}^{32 \times 32}$, and $W_3 \in \mathbb{R}^{3 \times 32}$ are learnable weight matrices, and $b_1, b_2, b_3$ are the corresponding bias terms. GeLU is used as the nonlinear activation function, and Layer Normalization is applied after the first layer to improve stability during training. A dropout layer with a probability of $p = 0.2$ is included to mitigate overfitting. The output of the final layer represents the unnormalized action preferences (logits) for each meta-action.
 
-To enforce feasibility constraints, an action mask $m_t \in \{0,1\}^3$ is applied to the logits to invalidate infeasible actions:
+To ensure that only feasible actions are selected during execution, an \textit{action mask} $m_t \in \{0, 1\}^3$ is introduced. This binary vector indicates the availability of each action at time $t$. Infeasible actions are effectively removed by assigning them a log-probability of negative infinity:
 
 \begin{equation}
-\text{masked\_logits}_t = \text{logits}_t + \log m_t, \quad \text{with } \log 0 = -\infty
+\text{masked\_logits}_t = \text{logits}_t + \log m_t, \quad \text{with} \quad \log 0 = -\infty \tag{28}
 \end{equation}
 
-\textbf{UCB-Based Exploration:}  
-To enhance exploration, a UCB-style bonus is added to the logits based on action visit counts $N_t(a)$:
+To promote exploration, a \textit{UCB-style bonus} is added to the logits. This bonus increases the likelihood of selecting less frequently explored actions:
 
 \begin{equation}
-\text{UCB}_t(a) = \text{logits}_t(a) + \lambda \cdot \sqrt{\frac{\log T_t}{N_t(a) + \epsilon}}, \quad a \in \{0,1,2\}
+\mathrm{UCB}_t(a) = \text{logits}_t(a) + \lambda \cdot \sqrt{\frac{\log T_t}{N_t(a) + \epsilon}}, \quad a \in \{0, 1, 2\} \tag{29}
 \end{equation}
 
-where $T_t$ is the total number of meta decisions so far, $\lambda$ is the exploration coefficient, and $\epsilon$ is a small constant for numerical stability.
+where $T_t$ denotes the total number of meta-decisions taken up to time $t$, $N_t(a)$ is the number of times action $a$ has been selected, $\lambda$ is the exploration coefficient, and $\epsilon$ is a small positive constant added for numerical stability.
 
-The final policy distribution is computed via a softmax over masked and UCB-adjusted logits:
+The resulting probability distribution over actions is computed using a softmax function over the masked and UCB-adjusted logits:
 
 \begin{equation}
-\pi_\theta(a_t | s_t) = \frac{\exp(\text{UCB}_t(a_t))}{\sum_{a \in \mathcal{A}} \exp(\text{UCB}_t(a) \cdot m_t(a))}
+\pi_\theta(a_t \mid s_t) = \frac{\exp(\mathrm{UCB}_t(a_t))}{\sum_{a \in \mathcal{A}} \exp(\mathrm{UCB}_t(a) \cdot m_t(a))} \tag{30}
 \end{equation}
 
-\textbf{Optimization:}  
-The meta-controller is trained using policy gradient with entropy regularization. The loss function is:
+Finally, the meta-controller is trained using a \textit{policy gradient method with entropy regularization} to improve exploration and avoid premature convergence. The objective function is defined as:
 
 \begin{equation}
-\mathcal{L}_{\text{meta}}(\theta) = -\mathbb{E}_{\pi_\theta} \left[ \log \pi_\theta(a_t | s_t) \cdot R_t \right] - \beta \cdot \mathbb{H}[\pi_\theta(\cdot | s_t)]
+\mathcal{L}_{\text{meta}}(\theta) = -\mathbb{E}_{\pi_\theta} \left[\log \pi_\theta(a_t \mid s_t) \cdot R_t\right] - \beta \cdot \mathbb{H}[\pi_\theta(\cdot \mid s_t)] \tag{31}
 \end{equation}
 
-where $R_t$ is the discounted return, $\beta$ is the entropy regularization coefficient, and $\mathbb{H}$ denotes the Shannon entropy to encourage exploration. Gradients are computed and optimized using Adam with learning rate $\eta=10^{-3}$ and gradient clipping to $\| \nabla \mathcal{L} \| \leq 1.0$.
+Here, $R_t$ denotes the discounted return received after executing action $a_t$, and $\mathbb{H}[\cdot]$ represents the Shannon entropy of the policy distribution. The entropy coefficient $\beta$ balances exploitation and exploration. The parameters $\theta$ are optimized using the Adam optimizer with a learning rate of $\eta = 10^{-3}$, and gradient clipping is applied to maintain numerical stability, ensuring $\|\nabla \mathcal{L}\| \leq 1.0$.
+
 
 
 \begin{algorithm}[H]
@@ -437,30 +411,68 @@ where $R_t$ is the discounted return, $\beta$ is the entropy regularization coef
 \end{algorithm}
 
 
-\subsection{Low-Level Actor-Critic Policies}
-To enhance the learning efficiency and performance robustness of the proposed HDRL framework, we integrate several prioritization heuristics and reward shaping techniques into the low-level policy modules. These heuristics are not arbitrarily chosen but are supported by theoretical insights derived from stochastic scheduling literature and performance-bound analysis.
+\subsection{Low-Level Scheduling Agent: Rule-DQN Hybrid Architecture}
 
-First, when job processing times are modeled as random variables, we follow the principle that sequencing jobs in ascending order of their expected processing times minimizes the total expected weighted waiting time. This result aligns with the classical SPT rule in deterministic scheduling and provides a theoretical justification for its inclusion in the rule-based action space of the Rule-DQN scheduling agent.
+The low-level scheduling agent employs a hybrid Rule-DQN architecture that combines the domain knowledge of classical scheduling rules with the adaptability of deep Q-learning. Rather than directly learning job-to-machine assignments, the agent learns to intelligently select from a portfolio of established dispatching rules based on the current system state, thereby leveraging both proven heuristics and data-driven optimization.
 
-Second, in the dispatching stage, we account for the urgency and density of delivery requirements. Specifically, we show that the penalty incurred for late deliveries increases monotonically with delivery density. Consequently, the scoring function used for dispatch prioritization assigns higher urgency to jobs associated with dense and high-penalty requirements. This design improves the system's responsiveness to critical deliveries under uncertainty.
+\subsubsection{Rule-Guided DQN Scheduling}
+The Rule-DQN agent adopts a two-tier hybrid architecture that integrates deep reinforcement learning with rule-based scheduling. At the upper level, a Deep Q-Network (DQN) is utilized to select an appropriate dispatching rule according to the current status of the job shop environment. The decision is based on a 10-dimensional state vector \( s_t \in \mathbb{R}^{10} \), which encapsulates core system characteristics. These include the number of available jobs \( n_{\text{jobs}} = |\mathcal{J}_{\text{avail}}| \) and the number of jobs in the waiting queue \( n_{\text{waiting}} = |\mathcal{J}_{\text{wait}}| \), as well as the average due date of all pending jobs \( \bar{d} = \frac{1}{|\mathcal{J}_{\text{avail}}|} \sum_{j \in \mathcal{J}_{\text{avail}}} d_j \) and the average processing time \( \bar{p} = \frac{1}{|\mathcal{J}_{\text{avail}}|} \sum_{j \in \mathcal{J}_{\text{avail}}} \bar{p}_j \). In addition, the machine utilization rate is given by \( u_m = \frac{1}{M} \sum_{m=1}^M \mathbb{I}[m\ \text{is busy}] \), and the current time is normalized by the maximum time horizon as \( t_{\text{norm}} = \frac{t}{T_{\max}} \). The state also tracks the number of completed jobs \( n_{\text{comp}} \), dispatched jobs \( n_{\text{disp}} \), and the normalized durations since the last scheduling and dispatching decisions, defined respectively as \( t_{\text{sched}} = \frac{t - t_{\text{last\_sched}}}{T_{\max}} \) and \( t_{\text{batch}} = \frac{t - t_{\text{last\_batch}}}{T_{\max}} \). Additionally, it tracks the number of completed and dispatched jobs, along with the time elapsed since the last scheduling and batching actions. This compact representation enables the DQN to approximate the action-value function \( Q(s_t, a; \theta) \), where each action corresponds to a specific dispatching rule.
 
-Third, under sparse reward conditions, we employ reward shaping strategies to accelerate the convergence of low-level policies. By tagging urgent jobs or vehicles with subgoals, we provide intermediate rewards that enhance gradient signals during temporal difference updates. This strategy has proven effective in accelerating policy learning and stabilizing convergence in HRL settings.
-
-These theoretical results collectively inform the construction of the reward functions, rule sets, and heuristic batching policies adopted in our framework. The proofs and derivations are included for completeness and to reinforce the rationality of our system's structural design.
-
-
-The disjunctive graph representation for FJSP is formally defined as $G = (O, C, D)$, where the node set $O = \{O_{ij} \mid \forall i, j\} \cup \{\text{Start}, \text{End}\}$ contains all operations $O_{ij}$ (with $i$ indexing jobs and $j$ indexing operations) plus two dummy nodes $\{\text{Start}, \text{End}\}$ with zero processing time representing production boundaries. The conjunctive arc set $C$ consists of directed arcs forming $n$ acyclic paths from $\text{Start}$ to $\text{End}$ that encode the predefined processing sequences for each job $J_i$, while the disjunctive arc set $D = \bigcup_k D_k$ comprises undirected edges where each $D_k$ forms a complete subgraph connecting all operations processable on machine $M_k$. Notably, in contrast to JSP, any FJSP operation node may belong to multiple machine cliques $\{D_k\}$ due to machine flexibility. The FJSP solution process corresponds to selecting exactly one disjunctive arc per operation and fixing its directionality to establish processing orders on all machines.
-
-
-We adopt Dueling DQN for the Meta-Controller and actor-critic GATs for the sub-policies. All agents use prioritized experience replay (PER) for sample efficiency. For training stability, target networks are updated using soft updates:
+Once a rule is selected, it is executed in the lower decision tier, where the corresponding heuristic logic is applied to construct job-to-machine assignments. The implemented rule set includes classical heuristics such as Earliest Due Date (EDD), Shortest Processing Time (SPT), Longest Processing Time (LPT), Critical Ratio (CR), First Come First Served (FCFS), Most Work Remaining (MWKR), Least Work Remaining (LWKR), and a randomized strategy (RAND) that encourages exploratory behavior. Among these, the Critical Ratio rule assigns dispatch priority to each job \( j \) based on the urgency-to-load ratio, calculated as follows:
 \[
-\theta' \leftarrow \tau \theta + (1 - \tau)\theta'
+\mathrm{CR}_j = \frac{d_j - t_{\text{current}}}{\sum_{k=c_j}^{|O_j|} \min_{m \in M_{jk}} p_{jkm}},
 \]
-where \( \tau \) is the soft update factor. The training loop proceeds episodically, where each episode simulates a full production-distribution horizon with dynamic job arrivals. At each time step, the Meta-Controller observes global state and issues priority and dispatch actions. The resulting sub-goals guide the warehousing and distribution agents, which schedule jobs and deliveries accordingly. All transitions and rewards are stored and sampled for learning using mini-batch TD loss.
-
-The complete training process is summarized in Algorithm~\ref{alg:hdr_training}.
+where \( d_j \) denotes the due date of job \( j \), \( t_{\text{current}} \) is the current system time, \( c_j \) is the index of the current operation, and \( p_{jkm} \) represents the processing time of operation \( k \) on machine \( m \). This hierarchical structure allows the agent to exploit domain knowledge through heuristic rules while adapting dynamically to the system’s evolving state via deep learning-based rule selection.
 
 
+To approximate the action-value function for rule selection, we employ a fully connected feedforward neural network with three layers. The network takes as input a 10-dimensional state vector \( s_t \in \mathbb{R}^{10} \), which captures the current status of the job shop environment. The forward computation proceeds as follows: the first hidden layer computes \( h_1 = \mathrm{ReLU}(W_1 s_t + b_1) \), followed by a second hidden layer \( h_2 = \mathrm{ReLU}(W_2 h_1 + b_2) \). The final output layer yields the Q-values for all available dispatching rules via \( Q(s_t, \cdot; \theta) = W_3 h_2 + b_3 \), where the symbol ``\(\cdot\)'' indicates a vector of Q-values over the action space. Here, \( W_1 \in \mathbb{R}^{128 \times 10} \), \( W_2 \in \mathbb{R}^{128 \times 128} \), and \( W_3 \in \mathbb{R}^{8 \times 128} \) denote the weight matrices of the respective layers, and \( b_1, b_2, b_3 \) are the corresponding bias terms. The network employs ReLU as the activation function and a hidden dimension of 128 to provide sufficient representational capacity while maintaining computational efficiency. This architecture enables the agent to learn a mapping from system states to expected rule performance, supporting adaptive dispatching decisions under dynamic operating conditions.
+
+\subsubsection{Training Strategy and Job Assignment}
+
+The training procedure follows the standard Deep Q-Network (DQN) framework, with several enhancements for learning stability and effectiveness. An $\epsilon$-greedy exploration strategy is adopted, where the exploration probability decays exponentially with time:
+
+\[
+\epsilon_t = \epsilon_{\text{end}} + (\epsilon_{\text{start}} - \epsilon_{\text{end}}) \cdot \exp\left(-\frac{t}{\tau_{\text{decay}}}\right),
+\]
+
+with $\epsilon_{\text{start}} = 0.3$, $\epsilon_{\text{end}} = 0.01$, and $\tau_{\text{decay}} = 10{,}000$. This formulation encourages extensive exploration in early training stages while gradually shifting toward policy exploitation.
+
+To stabilize training, a target network $Q(s, a; \theta^-)$ is used, where parameters $\theta^-$ are periodically updated from the main network via:
+
+\[
+\theta^- \leftarrow \theta,
+\]
+
+with synchronization performed every 100 steps. This technique mitigates instability caused by non-stationary learning targets.
+
+The network is trained by minimizing the temporal-difference loss using the mean squared error:
+
+\[
+\mathcal{L}(\theta) = \mathbb{E}_{(s,a,r,s',d) \sim \mathcal{D}} \left[\left(Q(s,a;\theta) - \left(r + \gamma \cdot \max_{a'} Q(s',a';\theta^-)(1 - d)\right)\right)^2\right],
+\]
+
+where $\mathcal{D}$ denotes the experience replay buffer, $\gamma = 0.99$ is the discount factor, and $d$ indicates whether the episode has terminated. A replay buffer of capacity 10{,}000 stores tuples $(s_t, a_t, r_t, s_{t+1}, d_t)$ and enables mini-batch training by breaking the temporal correlation among samples.
+
+After the rule is selected by the Q-network, job-to-machine assignment is performed using a greedy earliest-available strategy. For each prioritized job $j$, the agent selects the machine $m_j^*$ from its eligible set $M_j$ according to:
+
+\[
+m_j^* = \arg\min_{m \in M_j}
+\begin{cases}
+0 & \text{if machine } m \text{ is idle}, \\
+t_{\text{remaining}}^m & \text{otherwise},
+\end{cases}
+\]
+
+where $t_{\text{remaining}}^m$ represents the remaining processing time on machine $m$. Once a machine is assigned to a job, it is excluded from further consideration within the current decision epoch to avoid conflict and maintain one-to-one assignments. This ensures feasible, conflict-free scheduling within each time step.
+
+To prevent multiple jobs from being assigned to the same machine within a single scheduling decision, the agent maintains a set of assigned machines and excludes them from subsequent allocations during the same time step.
+
+This hybrid architecture enables the agent to benefit from established scheduling knowledge while adapting rule selection to specific operational contexts, combining interpretability with learning-based optimization in dynamic job shop environments.
+
+
+
+\subsection{Low-Level Dispatching Agent: Heuristic Batching Policy}
+The low-level dispatching agent is designed to manage the delivery of completed jobs to distributors, ensuring timely and efficient dispatching while adhering to delivery constraints. The agent employs a heuristic batching policy that prioritizes jobs based on urgency and delivery requirements, facilitating effective coordination between production and distribution.
 \begin{algorithm}
 \label{alg:hdr_training}
 \caption{HDRL Training Procedure for Warehousing and Distribution Coordination}
