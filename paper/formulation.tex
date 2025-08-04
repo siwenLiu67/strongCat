@@ -1,0 +1,138 @@
+\documentclass{article}
+\usepackage{arxiv}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{array} % For better table control
+\usepackage{algorithm}
+\usepackage{amsthm}
+\newtheorem{lemma}{Lemma}
+\newtheorem{proposition}{Proposition}
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{lipsum}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{array} % For better table control
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode} % For pseudocode
+\graphicspath{ {./images/} }
+
+
+\title{flexible job shop scheduling problem with time windows}
+\author{
+ Siwen Liu \\
+  School of Information Science and Technology\\
+  Sandau University\\
+  Shanghai \\
+  \texttt{siwenliu@sandau.edu.cn} \\
+  %% examples of more authors
+  %% \AND
+  %% Coauthor \\
+  %% Affiliation \\
+  %% Address \\
+  %% \texttt{email} \\
+  %% \And
+  %% Coauthor \\
+  %% Affiliation \\
+  %% Address \\
+  %% \texttt{email} \\
+  %% \And
+  %% Coauthor \\
+  %% Affiliation \\
+  %% Address \\
+  %% \texttt{email} \\
+}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+
+\end{abstract}
+
+\section{Mathematical Model with Rolling Horizon for Dynamic Job Arrivals}
+
+To address the dynamic job arrival characteristics of the Integrated Flexible Job Shop Scheduling and Dispatching Problem (IFJSSP-DP), we formulate a Mixed Integer Linear Programming (MILP) model that is solved repeatedly in a rolling horizon fashion. At each decision point \( t \), only the set of jobs that have arrived up to time \( t \) are included in the model.
+
+This subsection summarizes the notation used in the proposed MILP model for the Integrated Flexible Job Shop Scheduling and Dispatching Problem (IFJSSP-DP). Let \( J_t \) denote the set of dynamically released jobs at the current decision epoch. Each job \( j \in J_t \) consists of a sequence of operations \( O_j \), where each operation must be assigned to one eligible machine \( m \in K_{jo} \). The model integrates production scheduling and batch-based dispatching under multiple delivery requirements \( R \), considering job arrival times, precedence constraints, machine assignment, delivery deadlines, and partial fulfillment targets.
+
+The formulation is as follows:
+
+\begin{table}[H]
+\centering
+\caption{Model Parameters and Decision Variables}
+\begin{tabular}{ll}
+\toprule
+\textbf{Symbol} & \textbf{Description} \\
+\midrule
+\multicolumn{2}{l}{\textit{Indices and Sets}} \\
+$J_t$ & Set of all jobs released up to time $t$ \\
+$O_j$ & Set of operations for job $j$ \\
+$K_{jo}$ & Set of eligible machines for operation $o$ of job $j$ \\
+$\mathcal{B}$ & Set of dispatch batches \\
+$R$ & Set of delivery requirements \\
+\midrule
+\multicolumn{2}{l}{\textit{Parameters}} \\
+$a_j$ & Arrival time of job $j$ \\
+$\delta_j$ & Due date of job $j$ \\
+$p_{jom}$ & Processing time of operation $o$ of job $j$ on machine $m$ \\
+$B$ & A large constant for disjunctive constraints \\
+$q_{jr}$ & Quantity of job $j$ contributing to delivery requirement $r$ \\
+$Q_r$ & Total demand required by delivery requirement $r$ \\
+$\rho_r$ & Minimum fulfillment ratio for requirement $r$ \\
+$w_r$ & Penalty weight for delivery shortfall in requirement $r$ \\
+\midrule
+\multicolumn{2}{l}{\textit{Decision Variables}} \\
+$x_{jom}$ & Binary; 1 if operation $o$ of job $j$ is assigned to machine $m$ \\
+$s_{jo}$ & Start time of operation $o$ of job $j$ \\
+$C_j$ & Completion time of job $j$ \\
+$T_j$ & Tardiness of job $j$ \\
+$y_{jb}$ & Binary; 1 if job $j$ is assigned to batch $b$ \\
+$d_b$ & Dispatch time of batch $b$ \\
+$z_{br}$ & Binary; 1 if batch $b$ serves delivery requirement $r$ \\
+$w_{jbr}$ & Binary; 1 if job $j$ in batch $b$ contributes to requirement $r$ \\
+$y_{jokl}$ & Binary; 1 if operation $(j,o)$ precedes $(k,l)$ on the same machine \\
+$u_r$ & Delivery shortfall quantity for requirement $r$ \\
+\bottomrule
+\end{tabular}
+\label{tab:variables_parameters}
+\end{table}
+
+
+\begin{align}
+\min \quad & \sum_{j \in J_t} T_j + \sum_{r \in R} w_r \cdot u_r \\[4pt]
+\text{s.t.} \quad
+& \sum_{m \in K_{jo}} x_{jom} = 1 && \forall j \in J_t,\ \forall o \in O_j \quad \text{(operation assignment)} \\[4pt]
+& s_{j,o+1} \geq s_{jo} + \sum_{m \in K_{jo}} p_{jom} x_{jom} && \forall j \in J_t,\ o < |O_j| \quad \text{(precedence)} \\[4pt]
+& s_{jo} \geq a_j && \forall j \in J_t,\ \forall o \in O_j \quad \text{(arrival time)} \\[4pt]
+& s_{jo} \geq s_{kl} + \sum_{m \in M} p_{klm} x_{klm} - B (1 - y_{jokl}) && \forall (jo), (kl) \text{ on same } m \quad \text{(disjunctive 1)} \\[4pt]
+& s_{kl} \geq s_{jo} + \sum_{m \in M} p_{jom} x_{jom} - B y_{jokl} && \forall (jo), (kl) \text{ on same } m \quad \text{(disjunctive 2)} \\[4pt]
+& C_j \geq s_{j,o_j} + \sum_{m \in K_{j,o_j}} p_{j,o_j,m} x_{j,o_j,m} && \forall j \in J_t \quad \text{(completion time)} \\[4pt]
+& T_j \geq C_j - \delta_j && \forall j \in J_t \quad \text{(tardiness)} \\[4pt]
+& T_j \geq 0,\quad s_{jo} \geq 0,\quad C_j \geq 0 && \forall j,\ o \in O_j \quad \text{(non-negativity)} \\[4pt]
+%
+& \sum_{b \in \mathcal{B}} y_{jb} = 1 && \forall j \in J_t \quad \text{(job assigned to one batch)} \\[4pt]
+& d_b \geq C_j - M(1 - y_{jb}) && \forall j \in J_t,\ \forall b \in \mathcal{B} \quad \text{(dispatch after completion)} \\[4pt]
+%
+& w_{jbr} \leq y_{jb} && \forall j \in J_t,\ b \in \mathcal{B},\ r \in R \label{con:w1} \\[2pt]
+& w_{jbr} \leq z_{br} && \forall j \in J_t,\ b \in \mathcal{B},\ r \in R \label{con:w2} \\[2pt]
+& w_{jbr} \geq y_{jb} + z_{br} - 1 && \forall j \in J_t,\ b \in \mathcal{B},\ r \in R \label{con:w3} \\[4pt]
+& \sum_{j \in J_t} \sum_{b \in \mathcal{B}} q_{jr} \cdot w_{jbr} \geq \rho_r Q_r - u_r && \forall r \in R \quad \text{(delivery coverage)} \\[4pt]
+& z_{br} \geq w_{jbr} && \forall j \in J_t,\ b \in \mathcal{B},\ r \in R \quad \text{(batch activates delivery)} 
+\end{align}
+
+The proposed MILP model aims to minimize the total job tardiness and delivery shortfall penalty in an integrated flexible job shop scheduling and batch dispatching environment with dynamic job arrivals. Constraint~1 ensures that each operation of every job is assigned to exactly one eligible machine, thereby respecting machine eligibility constraints. Constraint~2 preserves the technological precedence among operations within each job by enforcing that a subsequent operation starts only after the preceding one finishes. Constraint~3 incorporates the dynamic nature of job arrivals by restricting operation start times to be no earlier than the job's arrival time. Constraints~4 and~5 constitute the disjunctive constraints that prevent time overlaps between operations assigned to the same machine, using a binary sequencing variable to determine the execution order of operation pairs. Constraint~6 computes the completion time of each job as the end time of its last operation, taking into account the selected machine and processing time. Constraint~7 models job-level tardiness as the positive deviation of completion time from the job’s due date. Constraint~8 guarantees the non-negativity of all time-related decision variables. Constraint~9 requires that each job be assigned to exactly one dispatch batch, enabling its inclusion in a feasible delivery plan. Constraint~10 ensures that any dispatch batch is scheduled only after the completion of all jobs it contains. Constraints~11 through~13 define the binary indicator for whether a job assigned to a batch contributes to a particular delivery requirement, using standard linearization techniques to model logical conjunctions. Finally, Constraint~14 ensures that each delivery requirement is fulfilled at or above its specified threshold level, while allowing controlled violation through a slack variable that is penalized in the objective function. Together, the constraints collectively define a tightly integrated scheduling and dispatching optimization problem that captures job-shop flexibility, delivery deadlines, and batch-level coordination in a dynamic production environment.
+
+To handle dynamic arrivals, the model is executed periodically in a rolling horizon fashion. At each decision epoch, only the subset of jobs that have already arrived (\( a_j \leq t \)) are included in the optimization. This allows the model to remain computationally tractable while maintaining responsiveness to real-time job inflow.
+
+This formulation enables real-time responsiveness to job arrivals and system state changes, and serves as a near-optimal baseline for evaluating learning-based and heuristic scheduling methods.
+
+\end{document}

@@ -1,10 +1,10 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2025.5.9)  23 JUL 2025 02:50
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2025.5.9)  4 AUG 2025 15:39
 entering extended mode
  \write18 enabled.
  file:line:error style messages enabled.
  %&-line parsing enabled.
-**f:/research_lsw/paper/v4
-(f:/research_lsw/paper/v4.tex
+**f:/research_lsw/paper/formulation
+(f:/research_lsw/paper/formulation.tex
 LaTeX2e <2024-11-01> patch level 2
 L3 programming layer <2025-01-18>
 (d:/texlive/2025/texmf-dist/tex/latex/base/article.cls
@@ -385,8 +385,9 @@ Document Style algorithmicx 1.2 - a greatly improved `algorithmic' style
 \ALG@tmplength=\skip82
 )
 Document Style - pseudocode environments for use with the `algorithmicx' style
-) (./v4.aux)
-\openout1 = `v4.aux'.
+)
+No file formulation.aux.
+\openout1 = `formulation.aux'.
 
 LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 55.
 LaTeX Font Info:    ... okay on input line 55.
@@ -406,7 +407,6 @@ LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 55.
 LaTeX Font Info:    ... okay on input line 55.
 LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 55.
 LaTeX Font Info:    ... okay on input line 55.
-
 *geometry* driver: auto-detecting
 *geometry* detected driver: pdftex
 *geometry* verbose mode - [ preamble ] result:
@@ -474,9 +474,8 @@ LaTeX Font Info:    ... okay on input line 55.
 * (1in=72.27pt=25.4mm, 1cm=28.453pt)
 
 Package hyperref Info: Link coloring OFF on input line 55.
-(./v4.out) (./v4.out)
 \@outlinefile=\write3
-\openout3 = `v4.out'.
+\openout3 = `formulation.out'.
 
 LaTeX Info: Redefining \microtypecontext on input line 55.
 Package microtype Info: Applying patch `item' on input line 55.
@@ -495,7 +494,7 @@ LaTeX Info: Redefining \showhyphens on input line 55.
 Package microtype Info: No adjustment of tracking.
 Package microtype Info: No adjustment of interword spacing.
 Package microtype Info: No adjustment of character kerning.
- (d:/texlive/2025/texmf-dist/tex/latex/microtype/mt-ptm.cfg
+(d:/texlive/2025/texmf-dist/tex/latex/microtype/mt-ptm.cfg
 File: mt-ptm.cfg 2006/04/20 v1.7 microtype config. file: Times (RS)
 ) (d:/texlive/2025/texmf-dist/tex/context/base/mkii/supp-pdf.mkii
 [Loading MPS to PDF converter (version 2006.09.02).]
@@ -541,81 +540,56 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
 
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+
 
 [1
 
 
 {d:/texlive/2025/texmf-var/fonts/map/pdftex/updmap/pdftex.map}{d:/texlive/2025/texmf-dist/fonts/enc/dvips/base/8r.enc}{d:/texlive/2025/texmf-dist/fonts/enc/dvips/cm-super/cm-super-t1.enc}]
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+
 
 [2]
-Underfull \vbox (badness 10000) has occurred while \output is active []
+Underfull \vbox (badness 7133) has occurred while \output is active []
 
 
 
 [3]
 
-[4]
-LaTeX Font Info:    Trying to load font information for TS1+ptm on input line 209.
- (d:/texlive/2025/texmf-dist/tex/latex/psnfss/ts1ptm.fd
-File: ts1ptm.fd 2001/06/04 font definitions for TS1/ptm.
-)
-
-[5]
-
-[6]
-
-[7]
-
-[8]
-Package hyperref Info: bookmark level for unknown algorithm defaults to 0 on input line 416.
-
-
-[9]
-
-[10]
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-
-
-[11]
-
-[12]
-
-LaTeX Warning: Reference `tab:baseline-comparison' on page 13 undefined on input line 577.
-
-
-LaTeX Warning: Reference `sec:analysis' on page 13 undefined on input line 577.
-
-
-
-[13] (./v4.aux)
+[4] (./formulation.aux)
  ***********
 LaTeX2e <2024-11-01> patch level 2
 L3 programming layer <2025-01-18>
  ***********
 
 
-LaTeX Warning: There were undefined references.
-
-
 LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
 
-Package rerunfilecheck Info: File `v4.out' has not changed.
-(rerunfilecheck)             Checksum: CFFB3520B6F6C1CEADD567936D10DBE4;2830.
+
+Package rerunfilecheck Warning: File `formulation.out' has changed.
+(rerunfilecheck)                Rerun to get outlines right
+(rerunfilecheck)                or use package `bookmark'.
+
+Package rerunfilecheck Info: Checksums for `formulation.out':
+(rerunfilecheck)             Before: <no file>
+(rerunfilecheck)             After:  5DD7A2312F3E0046F298A91D032F3CE1;387.
  ) 
 Here is how much of TeX's memory you used:
- 14579 strings out of 475118
- 228995 string characters out of 5765021
- 763316 words of memory out of 5000000
- 37063 multiletter control sequences out of 15000+600000
- 613883 words of font info for 217 fonts, out of 8000000 for 9000
+ 14282 strings out of 475118
+ 225097 string characters out of 5765021
+ 753455 words of memory out of 5000000
+ 36951 multiletter control sequences out of 15000+600000
+ 600071 words of font info for 130 fonts, out of 8000000 for 9000
  36 hyphenation exceptions out of 8191
- 79i,15n,93p,1670b,541s stack positions out of 10000i,1000n,20000p,200000b,200000s
-<d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi5.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi7.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy5.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy7.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/symbols/msbm10.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/cm-super/sftt1000.pfb><d:/texlive/2025/texmf-dist/fonts/type1/urw/times/utmb8a.pfb><d:/texlive/2025/texmf-dist/fonts/type1/urw/times/utmr8a.pfb><d:/texlive/2025/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
-Output written on v4.pdf (13 pages, 243923 bytes).
+ 79i,12n,93p,2212b,465s stack positions out of 10000i,1000n,20000p,200000b,200000s
+<d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi5.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi7.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy7.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/cm-super/sftt1000.pfb><d:/texlive/2025/texmf-dist/fonts/type1/urw/times/utmb8a.pfb><d:/texlive/2025/texmf-dist/fonts/type1/urw/times/utmr8a.pfb><d:/texlive/2025/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
+Output written on formulation.pdf (4 pages, 149664 bytes).
 PDF statistics:
- 263 PDF objects out of 1000 (max. 8388607)
- 217 compressed objects within 3 object streams
- 72 named destinations out of 1000 (max. 500000)
- 54401 words of extra memory for PDF output out of 61914 (max. 10000000)
+ 109 PDF objects out of 1000 (max. 8388607)
+ 78 compressed objects within 1 object stream
+ 23 named destinations out of 1000 (max. 500000)
+ 40961 words of extra memory for PDF output out of 42996 (max. 10000000)
 

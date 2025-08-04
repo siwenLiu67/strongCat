@@ -416,7 +416,7 @@ where $R_t$ is the discounted return, $\beta$ is the entropy regularization coef
 \caption{Meta-Controller Decision and Update Process}
 \label{alg:meta_controller}
 \begin{algorithmic}[1]
-\State Initialize meta-policy network \( \pi_\theta \), action counts \( N(a) \), total steps \( T \leftarrow 0 \)
+\State Initialize meta-policy network \( \pi_\theta \), action counts \( N(a) \), total steps \( T_{\max}\)
 \For{each episode \( e = 1, \dots, E \)}
     \State Reset environment and observe initial global state \( s_0 \)
     \For{each decision step \( t = 0, \dots, T_{\max} \)}
@@ -499,8 +499,82 @@ The complete training process is summarized in Algorithm~\ref{alg:hdr_training}.
 \section{Computational Experiments}
 We evaluate the performance of the proposed HDRL framework through extensive computational experiments on benchmark instances of the IFJSSP-DP. The experiments are designed to assess the effectiveness of the hierarchical approach in comparison to traditional methods and to analyze the impact of various design choices.
 
-\subsection{Experimental Setup}
-The experiments are conducted using a simulated production environment that mimics real-world job shop scenarios. We consider a range of problem instances with varying characteristics, including the number of jobs, machines, and resource constraints. The performance metrics used for evaluation include makespan, total tardiness, and resource utilization.
+\subsection{Experimental Settings}
+
+In this section, we present the experimental settings used to evaluate the proposed hierarchical deep reinforcement learning (HDRL) framework. The experiments are conducted in a custom simulation environment that replicates the dynamics of a flexible job shop with integrated scheduling and dispatching. The objective is to assess the performance, generalizability, and adaptability of the proposed method under dynamic and large-scale production-distribution scenarios.
+
+All experiments are implemented using Python 3.8 and PyTorch 1.12. The simulation environment emulates a shop floor with $M = 6$ heterogeneous machines and $D = 3$ distributors. Jobs arrive stochastically following a Poisson process with arrival rate $\lambda = 0.5$, each comprising $3$ to $5$ sequential operations. Operation processing times are uniformly drawn from $\mathcal{U}(5, 15)$, and machine assignment sets are randomly sampled per operation. The due date of each job $j$ is calculated using:
+\begin{equation}
+d_j = a_j + \delta_f \cdot \sum_{k=1}^{n_j} p_{jk}
+\end{equation}
+where $a_j$ is the job's arrival time, $p_{jk}$ is the processing time of the $k$-th operation, and $\delta_f \in \{1.2, 1.5, 2.0\}$ is the delay factor used to simulate varying urgency levels. Delivery requirements for each distributor are defined via multiple time windows, with associated coverage ratios and penalty weights to simulate mass personalization demands.
+
+For training, we adopt a small-scale configuration consisting of a single scenario with 190 dynamically arriving jobs. In contrast, the test dataset includes 30 randomly generated instances, each with 990 dynamic jobs and an identical statistical distribution. While the model is trained on a single delay factor $\delta_f = 1.5$, all three delay factors are employed during testing to evaluate generalization under variable urgency conditions.
+
+The HDRL agent comprises a meta-controller and two specialized sub-agents. The meta-controller receives a 9-dimensional high-level system state and is modeled as a three-layer feedforward network with hidden size 32, GeLU activations, dropout regularization, and LayerNorm for stability. An Upper Confidence Bound (UCB) mechanism is used to balance exploration and exploitation. The scheduling agent is implemented as a Rule-DQN hybrid with eight heuristic policies and a two-layer MLP for Q-value approximation, trained via experience replay and soft target updates. The dispatching module follows a heuristic policy with reward shaping and constraint-driven penalties for tardiness and delivery coverage gaps.
+
+Training is conducted over 800 episodes, each simulating a complete scheduling-dispatching horizon of $T = 200$ time steps. The learning rate is set to $10^{-3}$ for the meta-controller and $10^{-4}$ for the scheduling agent. An $\epsilon$-greedy policy is adopted for the low-level agent with decaying exploration rate. A discount factor of $\gamma = 0.99$ is used throughout, reflecting the long-term nature of decision impact in dynamic environments. All experiments are performed on a desktop workstation equipped with an Intel i7-11700KF CPU, 32GB RAM, and an NVIDIA RTX 3070 GPU.
+
+This experimental configuration enables us to rigorously examine the learned policy’s robustness, scalability, and adaptability under different job complexities, system pressures, and delivery constraints.
+
+\begin{table}[H]
+\centering
+\caption{Simulation Scenarios for Training and Testing}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Configuration} & \textbf{Training} & \textbf{Testing} & \textbf{Description} \\
+\midrule
+Number of Machines $(M)$ & 6 & 6 & Heterogeneous machines \\
+Number of Distributors $(D)$ & 3 & 3 & With multi-window requirements \\
+Number of Jobs & 190 & 990 & Dynamic job arrivals \\
+Arrival Pattern & Poisson $(\lambda=0.5)$ & Poisson $(\lambda=0.5)$ & Stochastic job injection \\
+Operations per Job & 3–5 & 3–5 & Randomized structure \\
+Processing Time & $\mathcal{U}(5, 15)$ & $\mathcal{U}(5, 15)$ & Seconds per operation \\
+Delay Factors $\delta_f$ & 1.5 & 1.2, 1.5, 2.0 & Simulated urgency levels \\
+Delivery Requirement Type & Single Phase & Multi-Window & With ratio/weight settings \\
+Number of Instances & 1 & 30 & Per scenario \\
+\bottomrule
+\end{tabular}
+\label{tab:scenario}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Hyperparameter Settings for HDRL Training}
+\begin{tabular}{ll}
+\toprule
+\textbf{Parameter} & \textbf{Value} \\
+\midrule
+Meta-controller Learning Rate & $1 \times 10^{-3}$ \\
+Scheduling Agent Learning Rate & $1 \times 10^{-4}$ \\
+Discount Factor $(\gamma)$ & 0.99 \\
+Meta Network Hidden Size & 32 \\
+Dropout Rate & 0.2 \\
+Exploration Coefficient (UCB) & 1.0 \\
+Entropy Regularization Weight $(\beta)$ & 0.01 \\
+Batch Size & 32 \\
+Episodes & 800 \\
+Reward Clipping & None \\
+Action Masking & Enabled \\
+Training Framework & PyTorch 1.12.0 \\
+\bottomrule
+\end{tabular}
+\label{tab:hyperparam}
+\end{table}
+
+\subsection{Comparison with Baseline Methods}
+
+To evaluate the performance of the proposed hierarchical deep reinforcement learning (HDRL) framework, we conduct comparative experiments against several baseline algorithms that represent three categories of scheduling and dispatching strategies: rule-based heuristics, flat deep reinforcement learning, and alternative hierarchical reinforcement learning approaches. These baselines are selected to reflect varying degrees of model complexity and structural design, thereby allowing for a comprehensive assessment of our method’s advantages.
+
+As representatives of traditional heuristic methods, we implement three classical rules: Earliest Due Date (EDD), Shortest Processing Time (SPT), and Critical Ratio (CR). The EDD rule prioritizes jobs based on their approaching due dates, aiming to reduce lateness. The SPT rule schedules jobs with shorter processing times first, thereby optimizing throughput under low variability. The CR rule captures the urgency of a job relative to its remaining processing window, offering a dynamic priority index. These rule-based methods are lightweight, interpretable, and widely adopted in industrial scheduling systems, serving as competitive non-learning baselines.
+
+We further compare our approach with two widely used flat deep reinforcement learning algorithms: Deep Q-Network (DQN) and Proximal Policy Optimization (PPO). Both models operate over the joint action space of scheduling and dispatching decisions, using a flattened state representation that lacks explicit temporal abstraction. DQN is a value-based method that updates Q-values via temporal difference learning, employing $\epsilon$-greedy exploration to balance exploitation and exploration. PPO, on the other hand, is a policy gradient method that uses a clipped surrogate objective to ensure stable training, enhanced by entropy regularization. Both methods are trained with the same reward formulation as our HDRL model to isolate the impact of structural differences in decision-making.
+
+To benchmark the benefit of hierarchical design, we include two state-of-the-art HDRL baselines: Option-Critic (OC) and FeUdal Networks (FuN). The Option-Critic architecture jointly learns intra-option policies and termination functions, enabling multi-step temporal abstraction. FeUdal Networks employ a two-level structure in which a high-level manager issues subgoals, and a low-level worker acts accordingly, thereby separating strategic intent from local action execution. These models provide a strong reference for evaluating the modularity and adaptability of our proposed hierarchy.
+
+Our proposed method consists of a high-level meta-controller that selects among scheduling, dispatching, and waiting actions using masked policy gradient optimization enhanced by an Upper Confidence Bound (UCB) exploration mechanism. The meta-controller is supported by a low-level Rule-DQN scheduling agent that integrates heuristic dispatching rules with deep Q-value estimation, and a dispatching module that uses reward-guided heuristics with explicit tardiness penalties and delivery constraint tracking. This multi-level coordination enables the system to address both local efficiency and global delivery objectives.
+
+All models are evaluated on the same set of randomly generated job shop environments characterized by dynamic job arrivals, stochastic processing times, and time-sensitive delivery requirements. Each method is trained for 800 episodes and tested over 100 unseen scenarios. Evaluation metrics include average job tardiness, job completion rate, cumulative dispatch delay penalties, and per-step decision latency. These metrics capture both operational performance and real-time responsiveness. Quantitative results and performance comparisons are presented in Table~\ref{tab:baseline-comparison}, with further analysis provided in Section~\ref{sec:analysis}.
 
 \subsection{Results and Discussion}
 The results of the experiments demonstrate that the HDRL framework outperforms baseline methods in terms of solution quality and adaptability to changing conditions. The hierarchical structure allows for more efficient exploration of the solution space and better handling of complex dependencies between scheduling and dispatching tasks.  
