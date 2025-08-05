@@ -522,51 +522,58 @@ The HDRL agent comprises a meta-controller and two specialized sub-agents. The m
 Training is conducted over 800 episodes, each simulating a complete scheduling-dispatching horizon of $T = 200$ time steps. The learning rate is set to $10^{-3}$ for the meta-controller and $10^{-4}$ for the scheduling agent. An $\epsilon$-greedy policy is adopted for the low-level agent with decaying exploration rate. A discount factor of $\gamma = 0.99$ is used throughout, reflecting the long-term nature of decision impact in dynamic environments. All experiments are performed on a desktop workstation equipped with an Intel i7-11700KF CPU, 32GB RAM, and an NVIDIA RTX 3070 GPU.
 
 This experimental configuration enables us to rigorously examine the learned policy’s robustness, scalability, and adaptability under different job complexities, system pressures, and delivery constraints.
-
 \begin{table}[H]
 \centering
-\caption{Simulation Scenarios for Training and Testing}
-\begin{tabular}{lccc}
-\toprule
-\textbf{Configuration} & \textbf{Training} & \textbf{Testing} & \textbf{Description} \\
-\midrule
-Number of Machines $(M)$ & 6 & 6 & Heterogeneous machines \\
-Number of Distributors $(D)$ & 3 & 3 & With multi-window requirements \\
-Number of Jobs & 190 & 990 & Dynamic job arrivals \\
-Arrival Pattern & Poisson $(\lambda=0.5)$ & Poisson $(\lambda=0.5)$ & Stochastic job injection \\
-Operations per Job & 3–5 & 3–5 & Randomized structure \\
-Processing Time & $\mathcal{U}(5, 15)$ & $\mathcal{U}(5, 15)$ & Seconds per operation \\
-Delay Factors $\delta_f$ & 1.5 & 1.2, 1.5, 2.0 & Simulated urgency levels \\
-Delivery Requirement Type & Single Phase & Multi-Window & With ratio/weight settings \\
-Number of Instances & 1 & 30 & Per scenario \\
-\bottomrule
-\end{tabular}
-\label{tab:scenario}
-\end{table}
-
-\begin{table}[H]
-\centering
-\caption{Hyperparameter Settings for HDRL Training}
-\begin{tabular}{ll}
+\caption{Parameters of hierarchical scheduling and dispatching scenarios.}
+\label{tab:benchmark-parameters}
+\begin{tabular}{p{7.5cm} p{4cm}}
 \toprule
 \textbf{Parameter} & \textbf{Value} \\
 \midrule
-Meta-controller Learning Rate & $1 \times 10^{-3}$ \\
-Scheduling Agent Learning Rate & $1 \times 10^{-4}$ \\
-Discount Factor $(\gamma)$ & 0.99 \\
-Meta Network Hidden Size & 32 \\
-Dropout Rate & 0.2 \\
-Exploration Coefficient (UCB) & 1.0 \\
-Entropy Regularization Weight $(\beta)$ & 0.01 \\
-Batch Size & 32 \\
-Episodes & 800 \\
-Reward Clipping & None \\
-Action Masking & Enabled \\
-Training Framework & PyTorch 1.12.0 \\
+Number of machines ($m$) & \{10, 20, 30\} \\
+Number of initial jobs ($n_{\text{init}}$) & 20 \\
+Number of dynamically arrived jobs ($n_{\text{add}}$) & \{30, 50, 70\} \\
+Mean inter-arrival time ($E_{\text{arr}}$) & \{20, 40, 60\} \\
+Number of operations per job ($n_i$) & U[3, 6] \\
+Operation processing time ($t_{ij}$) & U[10, 50] \\
+Job type ($u_i$) & B(1, 0) \\
+Expiration time urgency factor ($\mathit{ETUF}_i$) & \{1.5 ($u_i = 1$), 1 ($u_i = 0$)\} \\
+Due date of job $j$ ($\delta_j$) & $C_j^{\text{est}} + \Delta_j$, where $\Delta_j \sim \mathcal{U}(20, 40)$ \\
+Minimum batch size ($b_{\min}$) & \{2, 3\} \\
+Maximum batch waiting time ($T_{\text{wait}}^{\max}$) & \{20, 30\} \\
 \bottomrule
 \end{tabular}
-\label{tab:hyperparam}
 \end{table}
+
+
+\begin{table}[H]
+\centering
+\caption{Reward function parameter configurations.}
+\label{tab:reward-parameters}
+\begin{tabular}{p{7.5cm} p{4cm}}
+\toprule
+\textbf{Parameter} & \textbf{Value} \\
+\midrule
+Scheduling reward coefficient ($\alpha_1$, utilization) & 2.0 \\
+Scheduling reward coefficient ($\alpha_2$, progress rate) & 2.0 \\
+Scheduling penalty coefficient ($\alpha_3$, load imbalance) & 1.5 \\
+\addlinespace
+Dispatching base reward ($\beta_1$) & 2.0 \\
+Dispatching in-progress bonus ($\beta_2$) & 0.5 \\
+Dispatching completion bonus ($\beta_3$) & 1.0 \\
+Tardiness penalty ($r_j^{\text{tardiness}}$) & $-1 \cdot \max(0, d_j - \delta_j)$ \\
+Delivery shortfall penalty weight ($w_r$) & 1.0 \\
+\addlinespace
+Operation completion reward (shaping) & +0.2 \\
+Job completion reward (shaping) & +0.5 \\
+Batch dispatch reward (shaping) & +1.0 \\
+\addlinespace
+Reward clipping range & $[-10, +10]$ \\
+Reward normalization method & Linear min-max scaling \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 
 \subsection{Comparison with Baseline Methods}
 
