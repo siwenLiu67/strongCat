@@ -255,156 +255,82 @@ At the lower level, the framework integrates two distinct action modules. The sc
 Importantly, unlike conventional bi-level optimization frameworks (e.g., Feng, Che, and Lei 2024; Zhao et al. 2023) or embedded optimization-learning systems (Yan et al. 2024), this framework does not treat the lower-level as a black-box solver invoked by the upper agent. Instead, it models the lower level as an adaptive environment whose response dynamics are learned by the meta-agent over time. This allows the system to flexibly accommodate diverse scheduling and dispatching behaviors, as the upper-level agent implicitly captures the capabilities of lower-level modules through episodic feedback and long-term reward shaping (cf. Su et al. 2023). 
 
 This design choice enhances the robustness and generalization of the overall scheduling framework, enabling it to adapt to varying production conditions and job characteristics without requiring explicit reconfiguration of lower-level policies.
-\subsection{High-Level Agent: Meta-Controller Design}
-\subsubsection{Markov Decision Process Formulation}
+\subsection{Meta-Controller Design and Optimization}
 
-The decision-making mechanism at the meta-controller level is modeled as a Markov Decision Process (MDP), represented by a tuple $(\mathcal{S}, \mathcal{A}, \mathcal{P}, \mathcal{R}, \gamma)$. This formulation enables the high-level agent to interact with the dynamic production-dispatch environment through sequential decision-making. The key components are described as follows:
+The meta-controller is formulated as a Markov Decision Process (MDP), denoted by the tuple $(\mathcal{S}, \mathcal{A}, \mathcal{P}, \mathcal{R}, \gamma)$. At each high-level decision step $t$, the agent observes a global state vector $s_t \in \mathbb{R}^9$, which encapsulates the overall production-dispatch environment dynamics. This state vector includes: the proportion of newly arrived jobs $q_{\text{new}} = N_{\text{new}} / N_{\text{available}}$, normalized machine load imbalance $\sigma_m = \text{StdDev}(\text{remaining\_time}_m)/\text{max\_processing\_time}$, urgency ratio $\rho_{\text{urgent}} = N_{\text{urgent}} / N_{\text{available}}$, normalized time since the last scheduling decision $\tau_{\text{sched}} = (t - t_{\text{last\_schedule}})/\text{max\_processing\_time}$, system pressure $\psi = (\sum_j p_j)/(\sum_m r_m)$, job completion and dispatch ratios $r_{\text{complete}} = N_{\text{completed}} / N_{\text{total}}$ and $r_{\text{dispatch}} = N_{\text{dispatched}} / N_{\text{total}}$, average machine utilization $\mu_{\text{util}} = \frac{1}{M} \sum_{m=1}^{M} \text{util}_m$, and average waiting time of available jobs $w_{\text{avg}} = \frac{1}{N_{\text{available}}} \sum_{j} w_j$.
 
-\textbf{State ($\mathcal{S}$):}  
-Each high-level state $s \in \mathcal{S}$ is represented as a 9-dimensional feature vector that captures the global operational status of the system. These features include the proportion of newly arrived jobs, normalized load imbalance across machines, urgency of pending jobs, time elapsed since the last scheduling decision, current system pressure, job completion and dispatch ratios, average machine utilization, and average waiting time. Formally, the state is defined as:
+The agent selects an action $a_t \in \mathcal{A} = \{\texttt{schedule}, \texttt{dispatch}, \texttt{wait}\}$ to determine the next control delegation. Due to dynamic arrivals and stochastic processing durations, the transition function $\mathcal{P}(s_{t+1} \mid s_t, a_t)$ is unknown and must be learned through experience. The reward function $\mathcal{R}$ is designed to provide structured feedback for learning an effective coordination policy.
+
+For scheduling decisions, the reward is computed as:
 \[
-s = [q_{\text{new}}, \sigma_m, \rho_{\text{urgent}}, \tau_{\text{sched}}, \psi, r_{\text{complete}}, r_{\text{dispatch}}, \mu_{\text{util}}, w_{\text{avg}}]^\top
+r_t^{\text{schedule}} = \alpha_1 u_t + \alpha_2 p_t - \alpha_3 \sigma_t
 \]
-with each component computed as follows:
-\begin{align*}
-q_{\text{new}} &= \frac{N_{\text{new}}}{N_{\text{available}}} && \text{(proportion of newly arrived jobs)} \\
-\sigma_m &= \frac{\operatorname{StdDev}(\text{remaining\_time}_m)}{\text{max\_processing\_time}} && \text{(normalized load imbalance)} \\
-\rho_{\text{urgent}} &= \frac{N_{\text{urgent}}}{N_{\text{available}}} && \text{(ratio of urgent jobs based on due time)} \\
-\tau_{\text{sched}} &= \frac{t - t_{\text{last\_schedule}}}{\text{max\_processing\_time}} && \text{(time since last scheduling)} \\
-\psi &= \frac{\sum_j p_j}{\sum_m r_m} && \text{(system pressure: total job load / available machine capacity)} \\
-r_{\text{complete}} &= \frac{N_{\text{completed}}}{N_{\text{total}}} && \text{(job completion ratio)} \\
-r_{\text{dispatch}} &= \frac{N_{\text{dispatched}}}{N_{\text{total}}} && \text{(dispatch completion ratio)} \\
-\mu_{\text{util}} &= \frac{1}{M} \sum_{m=1}^{M} \text{util}_m && \text{(average machine utilization)} \\
-w_{\text{avg}} &= \frac{1}{N_{\text{available}}} \sum_{j \in \text{available}} w_j && \text{(average job waiting time)}
-\end{align*}
+where $u_t = \frac{1}{M} \sum_{m=1}^{M} \text{util}_m$ denotes the average machine utilization, $p_t = N_{\text{completed}} / N_{\text{total}}$ reflects the job processing progress, and $\sigma_t = \sqrt{ \frac{1}{M} \sum_{m=1}^M (l_m - \bar{l})^2 }$ measures load imbalance among machines. This reward encourages efficient resource usage while maintaining load balance.
 
-where $t$ is the current time, $p_j$ is the processing time of job $j$, $r_m$ is the remaining time of machine $m$, and $w_j$ is the waiting time of job $j$.
-
-\textbf{Action ($\mathcal{A}$):}  
-The action space consists of three discrete options: $\mathcal{A} = \{\texttt{schedule}, \texttt{dispatch}, \texttt{wait}\}$. At each decision step, the meta-controller selects one of these actions to delegate control to a specialized lower-level module. Each action corresponds to a policy switch that determines how the system proceeds in the current state.
-
-\textbf{State Transition ($\mathcal{P}$):}  
-The transition probability function $\mathcal{P}(s_{t+1} \mid s_t, a_t)$ models the stochastic evolution of the system. Due to dynamic job arrivals, uncertain processing durations, and heterogeneous lower-level policy behaviors, the system transitions from state $s_t$ to $s_{t+1}$ in a probabilistic manner once action $a_t$ is applied. The transition model is not known a priori and must be learned through experience.
-
-\textbf{Reward Function($\mathcal{R}$):}  
-The high-level reward $r_t$ is designed to provide informative and structured feedback over both scheduling and dispatching outcomes. It combines multiple components:
-
-\begin{itemize}
-
-  \item \textbf{Action-Based Feedback:} A base reward is assigned to each meta-action. Scheduling and dispatching actions are encouraged with positive rewards (e.g., +2.0), while waiting actions are penalized (-1.0) to discourage idling.
-  
-  \textbf{Scheduling Quality:} When a scheduling action is executed, the reward is defined as:
-\begin{equation}
-    r_t^{\text{schedule}} = \alpha_1 \cdot u_t + \alpha_2 \cdot p_t - \alpha_3 \cdot \sigma_t
-\end{equation}
-where $u_t$ is the average machine utilization, $p_t$ is the job progress rate, and $\sigma_t$ denotes the standard deviation of machine workloads. These metrics are computed as follows:
-
-\begin{align}
-    u_t &= \frac{1}{M} \sum_{m=1}^{M} \text{util}_m \\[4pt]
-    p_t &= \frac{N_{\text{completed}}}{N_{\text{total}}} \\[4pt]
-    \sigma_t &= \sqrt{ \frac{1}{M} \sum_{m=1}^{M} (l_m - \bar{l})^2 }
-\end{align}
-
-Here, $M$ is the total number of machines, $\text{util}_m$ represents the current utilization of machine $m$, $N_{\text{completed}}$ and $N_{\text{total}}$ denote the number of completed and total operations respectively, $l_m$ is the processing load on machine $m$, and $\bar{l}$ is the mean load across all machines.
-
-This formulation encourages the agent to prioritize scheduling decisions that increase resource utilization and job throughput while promoting balanced machine workloads.
-
-\item \textbf{Dispatching Quality:}  
-The dispatching reward is composed of multiple layers of feedback that reflect both job-level and batch-level delivery performance. A base reward is assigned when a dispatch action is selected. Additional shaping rewards are granted when jobs are actively being dispatched or successfully delivered, encouraging continuous dispatch engagement. Specifically, let $\mathbb{I}_{\text{dispatching}}$ and $\mathbb{I}_{\text{dispatched}}$ denote binary indicators for job-level dispatch status, then:
-
-\begin{equation}
+For dispatching decisions, the reward includes both action-based and delivery-based components:
+\[
 r_t^{\text{dispatch}} = \beta_1 \cdot \mathbb{I}_{\text{dispatch\_action}} + \beta_2 \cdot \mathbb{I}_{\text{dispatching}} + \beta_3 \cdot \mathbb{I}_{\text{dispatched}}
-\end{equation}
-
-To penalize delayed deliveries, we introduce a tardiness-based deduction. For each completed job $j$, if its dispatch time $d_j$ exceeds its due date $\delta_j$, a penalty is computed as:
-
-\begin{equation}
-r_j^{\text{tardiness}} = -\max(0, d_j - \delta_j)
-\end{equation}
-
-Moreover, distributor-level delivery constraints are modeled through time-windowed delivery ratios. For each delivery requirement $r$ with due time $\delta_r$, delivery ratio $\rho_r$, total demand $A_r$, and penalty weight $w_r$, the following penalty is imposed if delivery falls short:
-
-\begin{equation}
-L_r = -w_r \cdot \max(0, \rho_r \cdot A_r - A_r^{\text{delivered}})
-\end{equation}
-
-These penalties are accumulated over all distributors and subtracted from the total reward. This multi-tiered dispatching reward structure promotes timely job dispatching, batch completeness, and compliance with distributor-specific delivery targets.
-
-\item \textbf{Shaping Terms:} Positive rewards are given for operation completions, job completions, and successful batch dispatches to reduce reward sparsity and accelerate policy convergence.
-\end{itemize}
-
-To maintain stability, all reward terms are scaled and clipped to prevent divergence, and reward shaping is employed to enable more effective temporal credit assignment during training.
-
-\textbf{Discount Factor ($\gamma$):}  
-A discount factor $\gamma \in [0,1]$ is used to value future rewards in the long-term decision horizon. The objective of the meta-controller is to learn a policy $\pi_\theta(a \mid s)$ that maximizes the expected cumulative discounted return:
+\]
+with binary indicators representing whether the dispatch action is selected, actively ongoing, or successfully completed. In addition, a tardiness penalty is imposed for late deliveries:
 \[
-J(\theta) = \mathbb{E}_{\pi_\theta} \left[ \sum_{t=0}^{T} \gamma^t r_t \right]
+r_j^{\text{tardiness}} = -\max(0, d_j - \delta_j)
+\]
+where $d_j$ is the actual dispatch time and $\delta_j$ is the due time for job $j$. For each distributor requirement $r$, if the delivered quantity falls below a required threshold, an aggregated penalty is applied:
+\[
+L_r = -w_r \cdot \max(0, \rho_r A_r - A_r^{\text{delivered}})
+\]
+where $\rho_r$ is the delivery ratio requirement, $A_r$ the total demand, and $w_r$ the penalty weight. All reward terms are clipped and normalized to improve training stability.
+
+The policy network maps input states to action preferences using a three-layer feedforward architecture. The forward computation is defined as:
+\begin{align}
+h_1 &= \text{GeLU}(\text{LayerNorm}(W_1 s_t + b_1)) \\
+h_1' &= \text{Dropout}(h_1, p=0.2) \\
+h_2 &= \text{GeLU}(W_2 h_1' + b_2) \\
+\text{logits} &= W_3 h_2 + b_3
+\end{align}
+where $W_1 \in \mathbb{R}^{32 \times 9}$, $W_2 \in \mathbb{R}^{32 \times 32}$, $W_3 \in \mathbb{R}^{3 \times 32}$ and $b_1, b_2, b_3$ are bias vectors. Layer normalization and dropout are used to stabilize training and reduce overfitting.
+
+To ensure valid decision making, an action mask $m_t \in \{0, 1\}^3$ is applied:
+\[
+\text{masked\_logits}_t = \text{logits}_t + \log m_t, \quad \log 0 = -\infty
 \]
 
-This MDP formulation allows the meta-controller to adaptively coordinate between scheduling, dispatching, and passive waiting, enabling responsive and globally aware decision-making in the hierarchical reinforcement learning system.
+To encourage exploration, an Upper Confidence Bound (UCB) term is added:
+\[
+\mathrm{UCB}_t(a) = \text{logits}_t(a) + \lambda \cdot \sqrt{\frac{\log T_t}{N_t(a) + \epsilon}}
+\]
+where $T_t$ is the total number of decisions taken, $N_t(a)$ is the count of action $a$, and $\epsilon$ is a small constant for numerical stability.
 
-\subsubsection{Network Architecture}
+The action is selected from a softmax distribution over masked and UCB-adjusted logits:
+\[
+\pi_\theta(a_t \mid s_t) = \frac{\exp(\mathrm{UCB}_t(a_t))}{\sum_{a \in \mathcal{A}} \exp(\mathrm{UCB}_t(a) \cdot m_t(a))}
+\]
 
-The meta-controller is implemented as a fully connected feedforward neural network consisting of three hidden layers. Its primary objective is to map a 9-dimensional global state vector $s_t \in \mathbb{R}^9$, observed at each decision step $t$, to a probability distribution over three discrete meta-actions: \textit{scheduling}, \textit{dispatching}, and \textit{waiting}. The network’s forward computation is given as follows:
-
-\begin{align}
-h_1 &= \mathrm{GeLU}(\mathrm{LayerNorm}(W_1 s_t + b_1)) \tag{24} \\
-h_1' &= \mathrm{Dropout}(h_1, p = 0.2) \tag{25} \\
-h_2 &= \mathrm{GeLU}(W_2 h_1' + b_2) \tag{26} \\
-\text{logits} &= W_3 h_2 + b_3 \tag{27}
-\end{align}
-
-Here, $W_1 \in \mathbb{R}^{32 \times 9}$, $W_2 \in \mathbb{R}^{32 \times 32}$, and $W_3 \in \mathbb{R}^{3 \times 32}$ are learnable weight matrices, and $b_1, b_2, b_3$ are the corresponding bias terms. GeLU is used as the nonlinear activation function, and Layer Normalization is applied after the first layer to improve stability during training. A dropout layer with a probability of $p = 0.2$ is included to mitigate overfitting. The output of the final layer represents the unnormalized action preferences (logits) for each meta-action.
-
-To ensure that only feasible actions are selected during execution, an \textit{action mask} $m_t \in \{0, 1\}^3$ is introduced. This binary vector indicates the availability of each action at time $t$. Infeasible actions are effectively removed by assigning them a log-probability of negative infinity:
-
-\begin{equation}
-\text{masked\_logits}_t = \text{logits}_t + \log m_t, \quad \text{with} \quad \log 0 = -\infty \tag{28}
-\end{equation}
-
-To promote exploration, a \textit{UCB-style bonus} is added to the logits. This bonus increases the likelihood of selecting less frequently explored actions:
-
-\begin{equation}
-\mathrm{UCB}_t(a) = \text{logits}_t(a) + \lambda \cdot \sqrt{\frac{\log T_t}{N_t(a) + \epsilon}}, \quad a \in \{0, 1, 2\} \tag{29}
-\end{equation}
-
-where $T_t$ denotes the total number of meta-decisions taken up to time $t$, $N_t(a)$ is the number of times action $a$ has been selected, $\lambda$ is the exploration coefficient, and $\epsilon$ is a small positive constant added for numerical stability.
-
-The resulting probability distribution over actions is computed using a softmax function over the masked and UCB-adjusted logits:
-
-\begin{equation}
-\pi_\theta(a_t \mid s_t) = \frac{\exp(\mathrm{UCB}_t(a_t))}{\sum_{a \in \mathcal{A}} \exp(\mathrm{UCB}_t(a) \cdot m_t(a))} \tag{30}
-\end{equation}
-
-Finally, the meta-controller is trained using a \textit{policy gradient method with entropy regularization} to improve exploration and avoid premature convergence. The objective function is defined as:
-
-\begin{equation}
-\mathcal{L}_{\text{meta}}(\theta) = -\mathbb{E}_{\pi_\theta} \left[\log \pi_\theta(a_t \mid s_t) \cdot R_t\right] - \beta \cdot \mathbb{H}[\pi_\theta(\cdot \mid s_t)] \tag{31}
-\end{equation}
-
-Here, $R_t$ denotes the discounted return received after executing action $a_t$, and $\mathbb{H}[\cdot]$ represents the Shannon entropy of the policy distribution. The entropy coefficient $\beta$ balances exploitation and exploration. The parameters $\theta$ are optimized using the Adam optimizer with a learning rate of $\eta = 10^{-3}$, and gradient clipping is applied to maintain numerical stability, ensuring $\|\nabla \mathcal{L}\| \leq 1.0$.
-
-
+The policy is trained with a policy gradient objective incorporating entropy regularization:
+\[
+\mathcal{L}_{\text{meta}}(\theta) = -\mathbb{E}_{\pi_\theta} [\log \pi_\theta(a_t \mid s_t) \cdot R_t] - \beta \cdot \mathbb{H}[\pi_\theta(\cdot \mid s_t)]
+\]
+where $R_t$ is the cumulative discounted return and $\mathbb{H}[\cdot]$ denotes the Shannon entropy. Training is performed using the Adam optimizer with learning rate $\eta = 10^{-3}$, and gradient clipping $\|\nabla \mathcal{L}\| \leq 1.0$ is applied to ensure convergence.
 
 \begin{algorithm}[H]
 \caption{Meta-Controller Decision and Update Process}
 \label{alg:meta_controller}
 \begin{algorithmic}[1]
-\State Initialize meta-policy network \( \pi_\theta \), action counts \( N(a) \), total steps \( T_{\max}\)
-\For{each episode \( e = 1, \dots, E \)}
-    \State Reset environment and observe initial global state \( s_0 \)
-    \For{each decision step \( t = 0, \dots, T_{\max} \)}
-        \State Extract feature vector \( x_t \in \mathbb{R}^9 \) from \( s_t \)
-        \State Compute logits via feedforward network and apply action mask
-        \State Adjust logits using UCB bonus based on \( N(a) \) and \( T \)
-        \State Sample action \( a_t \sim \pi_\theta(a_t | x_t) \); update \( N(a_t), T \)
-        \State Execute action \( a_t \), observe reward \( r_t \) and next state \( s_{t+1} \)
-        \State Store transition \( (s_t, a_t, r_t, \log \pi_\theta(a_t), s_{t+1}) \) in buffer
-        \If{update condition met}
-            \State Sample batch; compute loss with entropy regularization
-            \State Update network parameters via policy gradient
+\State Initialize meta-policy $\pi_\theta$, action counters $N(a)$, and total step counter $T_{\max}$
+\For{each episode $e = 1, \dots, E$}
+    \State Reset environment and observe global state $s_0$
+    \For{each decision step $t = 0, \dots, T_{\max}$}
+        \State Extract feature vector $x_t$ from $s_t$
+        \State Compute logits and apply action mask
+        \State Apply UCB adjustment and sample action $a_t \sim \pi_\theta(a_t \mid x_t)$
+        \State Execute $a_t$, receive $r_t$ and observe $s_{t+1}$
+        \State Store $(s_t, a_t, r_t, \log \pi_\theta(a_t), s_{t+1})$ in buffer
+        \If{update condition is met}
+            \State Sample batch and compute $\mathcal{L}_{\text{meta}}$
+            \State Update parameters via policy gradient
         \EndIf
-        \If{termination condition met} \textbf{break} \EndIf
+        \If{termination condition is met} \textbf{break}
+        \EndIf
     \EndFor
 \EndFor
 \end{algorithmic}
@@ -525,41 +451,56 @@ where $d$ is the distributor ID, $b$ is the batch ID, $t_{\text{ready}}$ indicat
 The dispatching agent is invoked whenever the meta-controller triggers a ``dispatch'' action. It receives the current environment state, filters out completed and undelivered jobs, applies the batching policy, and returns a structured dispatch plan in the form $\{\text{dispatch}: \{b_i: [j_1, j_2, \ldots]\}\}$. It ensures that no job is dispatched twice and that the number of active windows remains within the system constraint. This rule-based framework enables fast, explainable decision-making at the execution layer and complements the upper-level learning-based controller through modular coordination.
 
 \subsection{HDRL Training Procedure}
-The training of the hierarchical deep reinforcement learning (HDRL) framework is conducted in a simulated environment that replicates the dynamics of a flexible job shop with integrated scheduling and dispatching. The training procedure involves both high-level meta-policy learning and low-level sub-policy optimization, as outlined in Algorithm \ref{alg:hdr_training}.
-\begin{algorithm}
-\label{alg:hdr_training}
-\caption{HDRL Training Procedure for Warehousing and Distribution Coordination}
+The training of the hierarchical deep reinforcement learning (HDRL) framework is conducted in a simulated environment that replicates the dynamics of a flexible job shop with integrated scheduling and dispatching. The training procedure involves both high-level meta-policy learning and low-level sub-policy optimization, as outlined in Algorithm \ref{alg:hrl_framework}.
+
+\begin{algorithm}[H]
+\caption{Hierarchical Scheduling and Dispatching Framework}
+\label{alg:hrl_framework}
 \begin{algorithmic}[1]
-\State Initialize high-level meta-policy Q-network $\theta_{high}$, target network $\theta_{high}'$, and replay buffer $B_{high}$
-\State Initialize low-level sub-policy Q-networks $\theta_{low}^w, \theta_{low}^d$ (for warehousing and distribution), target networks $\theta_{low}^{w'}, \theta_{low}^{d'}$, and replay buffers $B_{low}^w, B_{low}^d$
-\For{each episode $e = 1, \dots, E$}
-    \State Reset simulation environment and obtain initial state $S_0^{high}, S_0^{low}$
-    \For{each time step $t = 0, \dots, T_{max}$}
-        \State \textbf{High-Level Decision:}
-        \State Select high-level action $a_t^{high}$ using $\epsilon$-greedy policy on $Q(S_t^{high} , a; \theta_{high})$
-        \State Set sub-goals $g_t^w, g_t^d$ for warehousing and distribution based on $a_t^{high}$
-        \State Execute $a_t^{high}$, observe intermediate reward $R_t^{high}$ and next state $S_{t+1}^{high}$
-        \State Store transition $(S_t^{high}, a_t^{high}, R_t^{high}, S_{t+1}^{high})$ in $B_{high}$
-        \State \textbf{Low-Level Decision (Warehousing):}
-        \State Select action $a_t^{low,w}$ using $\epsilon$-greedy policy on $Q(S_t^{low,w}, a, g_t^w; \theta_{low}^w)$
-        \State Execute $a_t^{low,w}$, observe reward $R_t^{low,w}$ and next state $S_{t+1}^{low,w}$
-        \State Store transition $(S_t^{low,w}, a_t^{low,w}, R_t^{low,w}, S_{t+1}^{low,w}, g_t^w)$ in $B_{low}^w$
-        \State \textbf{Low-Level Decision (Distribution):}
-        \State Select action $a_t^{low,d}$ using $\epsilon$-greedy policy on $Q(S_t^{low,d}, a, g_t^d; \theta_{low}^d)$
-        \State Execute $a_t^{low,d}$, observe reward $R_t^{low,d}$ and next state $S_{t+1}^{low,d}$
-        \State Store transition $(S_t^{low,d}, a_t^{low,d}, R_t^{low,d}, S_{t+1}^{low,d}, g_t^d)$ in $B_{low}^d$
-        \State \textbf{Update Networks:}
-        \State Sample minibatches from $B_{high}, B_{low}^w, B_{low}^d$ using PER
-        \State Perform gradient descent on $\theta_{high}, \theta_{low}^w, \theta_{low}^d$ to minimize TD loss
-        \State Periodically soft-update target networks: $\theta' \leftarrow \tau \theta + (1-\tau) \theta'$
-        \State Update states: $S_t^{high} \leftarrow S_{t+1}^{high}$, $S_t^{low} \leftarrow S_{t+1}^{low}$
-        \If{episode terminates (e.g., all tasks completed or time limit reached)}
-            \State Break
+\State Initialize Meta-Controller $\pi_\theta$, Rule-DQN $Q_\phi$, replay buffers, environment $E$
+\For{episode $= 1$ to $E_{\max}$}
+    \State Reset environment: $s_0 \gets E.\text{reset()}$
+    \For{$t = 0$ to $T_{\max}$}
+        \State Observe high-level state $s_t$
+        \State Compute high-level action probabilities $\pi_\theta(a_t \mid s_t)$
+        \State Apply action mask and UCB bonus
+        \State Select action $a_t \in \{\texttt{schedule}, \texttt{dispatch}, \texttt{wait}\}$
+
+        \If{$a_t == \texttt{schedule}$}
+            \While{unscheduled operations remain}
+                \State Extract local scheduling state $x_t$
+                \State Apply Rule-DQN with rule filtering to select job-machine pair
+                \State Execute assignment and update environment
+                \State Store $(x_t, a_t, r_t, x_{t+1})$ in scheduling buffer
+            \EndWhile
+        \ElsIf{$a_t == \texttt{dispatch}$}
+            \State Retrieve all completed jobs
+            \State Group jobs by distributor ID
+            \For{each distributor $d$}
+                \State Apply time-window-based batching
+                \State Compute priority score $\text{Score}(j, t) = -w_j(t)/p_j^2$
+                \State Form batch groups and assign dispatch plans
+            \EndFor
+        \Else 
+            \State Pass current time step
+        \EndIf
+
+        \State Observe new state $s_{t+1}$ and global reward $r_t$
+        \State Store $(s_t, a_t, r_t, \log \pi_\theta(a_t), s_{t+1})$ in meta buffer
+
+        \If{update condition met}
+            \State Update Meta-Controller via policy gradient
+            \State Update Rule-DQN via Q-learning
+        \EndIf
+
+        \If{termination condition met}
+            \State \textbf{break}
         \EndIf
     \EndFor
 \EndFor
 \end{algorithmic}
 \end{algorithm}
+
 
 \section{Computational Experiments}
 We evaluate the performance of the proposed HDRL framework through extensive computational experiments on benchmark instances of the IFJSSP-DP. The experiments are designed to assess the effectiveness of the hierarchical approach in comparison to traditional methods and to analyze the impact of various design choices.
