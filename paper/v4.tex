@@ -469,10 +469,63 @@ To prevent multiple jobs from being assigned to the same machine within a single
 
 This hybrid architecture enables the agent to benefit from established scheduling knowledge while adapting rule selection to specific operational contexts, combining interpretability with learning-based optimization in dynamic job shop environments.
 
+\subsection{Heuristic-Based Dispatching Agent for Batch Coordination}
 
+The dispatching agent serves as a rule-based module responsible for grouping completed jobs into delivery batches and coordinating their dispatch to downstream distributors. Unlike the upper-layer scheduling policy that leverages deep reinforcement learning, this component is designed to be lightweight, interpretable, and tightly aligned with established logistics heuristics.
 
-\subsection{Low-Level Dispatching Agent: Heuristic Batching Policy}
-The low-level dispatching agent is designed to manage the delivery of completed jobs to distributors, ensuring timely and efficient dispatching while adhering to delivery constraints. The agent employs a heuristic batching policy that prioritizes jobs based on urgency and delivery requirements, facilitating effective coordination between production and distribution.
+To balance efficiency and freshness in delivery, the agent adopts a time-window-based batching policy. Completed jobs are first segregated by distributor ID to ensure that each batch corresponds to a single delivery destination. Within each distributor group, jobs are sorted by their completion timestamps and clustered into discrete time windows of fixed duration $\Delta t$, typically set to 8 time units. This rolling-window strategy ensures that jobs completed within similar time frames are dispatched together, reducing delivery latency without incurring excessive batch fragmentation. The system allows a maximum of $W$ active time windows (default $W=2$), maintaining a trade-off between batch granularity and dispatch frequency.
+
+Priority within each batch is determined by a composite heuristic score:
+\[
+\mathrm{Score}(j, t) = -\frac{w_j(t)}{p_j^2}, \quad w_j(t) = \max(0, t - t_j^{\text{comp}})
+\]
+where $w_j(t)$ is the time elapsed since job $j$ completed and $p_j$ denotes its processing time. The quadratic penalty in the denominator discourages computationally intensive jobs from delaying simpler ones, while the negative sign ensures that longer-waiting jobs are prioritized. This mechanism promotes responsiveness while mitigating starvation.
+
+The dispatching process is governed by a structured algorithm, summarized below:
+
+\begin{algorithm}[H]
+\caption{Heuristic-Based Batch Assignment}
+\label{alg:dispatch_heuristic}
+\begin{algorithmic}[1]
+\State Initialize available windows $W_{\text{avail}} \leftarrow W$, batch counter $b \leftarrow 0$
+\State Group completed jobs by distributor: $\{J_d\}_{d \in D}$
+\For{each distributor $d$ with job set $J_d$}
+    \If{$W_{\text{avail}} \leq 0$} \textbf{break} \EndIf
+    \State Remove dispatched jobs from $J_d$
+    \State Sort $J_d$ by heuristic score (descending), then by $t_j^{\text{comp}}$ (stable sort)
+    \State Initialize $\mathcal{G}_d \leftarrow \emptyset$, current group $G \leftarrow \emptyset$
+    \State Set $t_{\text{start}} \leftarrow \text{null}$
+    \For{each $j \in J_d$}
+        \If{$t_{\text{start}} = \text{null}$}
+            \State $t_{\text{start}} \leftarrow t_j^{\text{comp}}$
+        \EndIf
+        \If{$t_j^{\text{comp}} - t_{\text{start}} \leq \Delta t$}
+            \State Add $j$ to $G$
+        \Else
+            \If{$G \neq \emptyset$ and $W_{\text{avail}} > 0$}
+                \State Add $G$ to $\mathcal{G}_d$, decrement $W_{\text{avail}}$
+            \EndIf
+            \State $G \leftarrow \{j\},\ t_{\text{start}} \leftarrow t_j^{\text{comp}}$
+        \EndIf
+    \EndFor
+    \If{$G \neq \emptyset$ and $W_{\text{avail}} > 0$}
+        \State Add $G$ to $\mathcal{G}_d$, decrement $W_{\text{avail}}$
+    \EndIf
+    \State Assign batch IDs to $\mathcal{G}_d$: $\{(b+i, G_i)\}$, update $b \leftarrow b + |\mathcal{G}_d|$
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+
+Each batch is represented by a structured record:
+\[
+\text{Batch} = (d, b, t_{\text{ready}}, p_{\text{batch}}, \mathcal{J}_b)
+\]
+where $d$ is the distributor ID, $b$ is the batch ID, $t_{\text{ready}}$ indicates the earliest dispatchable time, $p_{\text{batch}}$ is the aggregated processing cost for dispatch preparation, and $\mathcal{J}_b$ denotes the set of jobs in the batch.
+
+The dispatching agent is invoked whenever the meta-controller triggers a ``dispatch'' action. It receives the current environment state, filters out completed and undelivered jobs, applies the batching policy, and returns a structured dispatch plan in the form $\{\text{dispatch}: \{b_i: [j_1, j_2, \ldots]\}\}$. It ensures that no job is dispatched twice and that the number of active windows remains within the system constraint. This rule-based framework enables fast, explainable decision-making at the execution layer and complements the upper-level learning-based controller through modular coordination.
+
+\subsection{HDRL Training Procedure}
+The training of the hierarchical deep reinforcement learning (HDRL) framework is conducted in a simulated environment that replicates the dynamics of a flexible job shop with integrated scheduling and dispatching. The training procedure involves both high-level meta-policy learning and low-level sub-policy optimization, as outlined in Algorithm \ref{alg:hdr_training}.
 \begin{algorithm}
 \label{alg:hdr_training}
 \caption{HDRL Training Procedure for Warehousing and Distribution Coordination}
