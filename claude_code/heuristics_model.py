@@ -604,7 +604,29 @@ class LocalSearchAlgorithm:
         best_solution.solve_time = solve_time
         best_solution.algorithm_name = f"Local_Search_{initial_method}_{max_iterations}"
         
-        return best_solution
+        if best_solution is not None:
+            return best_solution
+        else:
+            # 返回一个空的 SolutionResult，避免类型错误
+            return SolutionResult(
+                schedule_result=ScheduleResult(
+                    job_schedules={},
+                    job_completion_times={},
+                    job_tardiness={},
+                    makespan=0,
+                    total_tardiness=0,
+                    machine_utilization={}
+                ),
+                dispatch_result=DispatchResult(
+                    batches={},
+                    total_delivery_time=0,
+                    delivery_cost=0.0,
+                    on_time_delivery_rate=0.0
+                ),
+                total_objective=float('inf'),
+                solve_time=0.0,
+                algorithm_name="Genetic_Algorithm_None"
+            )
     
     def _generate_neighbors(self, solution: SolutionResult) -> List[SolutionResult]:
         """生成邻域解"""
@@ -974,8 +996,28 @@ class GeneticAlgorithm:
         if best_solution:
             best_solution.solve_time = solve_time
             best_solution.algorithm_name = f"Genetic_Algorithm_{population_size}_{generations}"
-        
-        return best_solution
+            return best_solution
+        else:
+            # 返回一个空的 SolutionResult，避免类型错误
+            return SolutionResult(
+                schedule_result=ScheduleResult(
+                    job_schedules={},
+                    job_completion_times={},
+                    job_tardiness={},
+                    makespan=0,
+                    total_tardiness=0,
+                    machine_utilization={}
+                ),
+                dispatch_result=DispatchResult(
+                    batches={},
+                    total_delivery_time=0,
+                    delivery_cost=0.0,
+                    on_time_delivery_rate=0.0
+                ),
+                total_objective=float('inf'),
+                solve_time=solve_time,
+                algorithm_name=f"Genetic_Algorithm_{population_size}_{generations}_None"
+            )
     
     def _initialize_population(self, population_size: int) -> List[Dict]:
         """初始化种群"""
@@ -1202,8 +1244,9 @@ class GeneticAlgorithm:
             for job_id in selected_jobs:
                 child1['batch_assignment'][job_id] = parent2['batch_assignment'][job_id]
                 child2['batch_assignment'][job_id] = parent1['batch_assignment'][job_id]
-
-                return child1, child2
+        
+        # Always return children
+        return child1, child2
     
     def _pmx_crossover(self, parent1: List, parent2: List) -> List:
         """部分匹配交叉（PMX）"""

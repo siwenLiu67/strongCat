@@ -1,0 +1,2 @@
+run_id,algo,instance_id,seed,num_jobs,num_machines,num_distributors,episodes,total_tardiness,weighted_shortage,objective_sum,makespan,on_time_rate,req_coverage,late_dispatch,time_per_step_ms
+20250808_42,DQN,Small-01,42,8,4,2,200,149.0,0.0,149.0,61.0,0.375,0.0,22.5,21.402097732804656

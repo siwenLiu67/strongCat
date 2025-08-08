@@ -469,6 +469,100 @@ class DQNAgent:
         
         return loss.item()
 
+import csv, time
+from pathlib import Path
+import numpy as np
+
+def save_results_csv(algo_name, instance_id, seed, config, stats, env, total_time):
+    """
+    统一保存实验结果（精简版，与论文表格对齐）。
+    必备环境字段：
+      - job: completed_time, due_date, dispatched_time
+      - distributor: distributor_id, required_jobs(可选), weight(可选)
+    """
+    output_file = Path("results") / "summary_table.csv"
+    output_file.parent.mkdir(exist_ok=True)
+
+    # 运行效率
+    num_steps = int(sum(stats.get('episode_lengths', [])))
+    time_per_step = (total_time / num_steps * 1000.0) if num_steps > 0 else 0.0
+
+    # —— 核心指标 —— #
+    # 1) 总延迟 ∑ T_j
+    total_tardiness = 0.0
+    for job in getattr(env, 'jobs', []):
+        due = float(getattr(job, 'due_date', 0.0))
+        c   = float(getattr(job, 'completed_time', 0.0))
+        total_tardiness += max(0.0, c - due)
+
+    # 2) 加权短缺 ∑ w_r u_r
+    #    若缺 required_jobs 或 weight，使用默认值：required_jobs=0, weight=0（不计入罚）
+    weighted_shortage = 0.0
+    for dist in getattr(env, 'distributors', []):
+        did = getattr(dist, 'distributor_id', None)
+        required = int(getattr(dist, 'required_jobs', 0))
+        weight   = float(getattr(dist, 'weight', 0.0))
+        delivered = sum(1 for j in getattr(env, 'dispatched_jobs', [])
+                        if getattr(j, 'distributor_id', None) == did)
+        shortage = max(0, required - delivered)
+        weighted_shortage += weight * shortage
+
+    # 3) 目标值
+    objective_sum = total_tardiness + weighted_shortage
+
+    # 4) 辅助指标
+    jobs_list = getattr(env, 'jobs', [])
+    makespan = float(getattr(env, 'current_time', 0.0))
+
+    on_time_rate = (np.mean([
+        1.0 if float(getattr(j, 'completed_time', 0.0)) <= float(getattr(j, 'due_date', 0.0)) else 0.0
+        for j in jobs_list
+    ]) if jobs_list else 0.0)
+
+    # 需求覆盖率（按配送商平均覆盖）
+    cover_vals = []
+    for dist in getattr(env, 'distributors', []):
+        required = int(getattr(dist, 'required_jobs', 0))
+        if required <= 0:
+            continue
+        did = getattr(dist, 'distributor_id', None)
+        delivered = sum(1 for j in getattr(env, 'dispatched_jobs', [])
+                        if getattr(j, 'distributor_id', None) == did)
+        cover_vals.append(min(1.0, delivered / required))
+    req_coverage = float(np.mean(cover_vals)) if cover_vals else 0.0
+
+    # 平均派遣延迟
+    late_dispatch = (np.mean([
+        max(0.0, float(getattr(j, 'dispatched_time', 0.0)) - float(getattr(j, 'due_date', 0.0)))
+        for j in jobs_list
+    ]) if jobs_list else 0.0)
+
+    # 行数据（字段名固定，便于后续统一读表）
+    row = {
+        "run_id": f"{time.strftime('%Y%m%d')}_{seed}",
+        "algo": algo_name,
+        "instance_id": instance_id,
+        "seed": int(seed),
+        "num_jobs": len(jobs_list),
+        "num_machines": len(getattr(env, 'machines', [])),
+        "num_distributors": len(getattr(env, 'distributors', [])),
+        "episodes": int(getattr(config, 'episodes', 0)),
+        "total_tardiness": float(total_tardiness),
+        "weighted_shortage": float(weighted_shortage),
+        "objective_sum": float(objective_sum),
+        "makespan": float(makespan),
+        "on_time_rate": float(on_time_rate),
+        "req_coverage": float(req_coverage),
+        "late_dispatch": float(late_dispatch),
+        "time_per_step_ms": float(time_per_step),
+    }
+
+    file_exists = output_file.exists()
+    with open(output_file, "a", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=row.keys())
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(row)
 
 def main():
     """主训练函数"""
@@ -497,7 +591,7 @@ def main():
     
     # 训练参数
     episodes = 200
-    stats = defaultdict(list)
+    stats = defaultdict(list) 
     
     print(f"\n开始DQN训练 {episodes} episodes...")
     start_time = time.time()
@@ -579,6 +673,21 @@ def main():
     print(f"平均派遣作业数: {np.mean(stats['dispatched_jobs']):.2f}")
     print(f"结果已保存至: dqn_results.pkl")
     print(f"模型已保存至: dqn_model.pth")
+
+    # 统计总步数（用于 time_per_step）
+    steps_sum = int(np.sum(stats['episode_lengths'])) if len(stats['episode_lengths']) > 0 else 0
+    # 写入CSV（确保 config 有 episodes 字段）
+    config.episodes = episodes
+    save_results_csv(
+        algo_name="DQN",
+        instance_id="Small-01",   # ← 替换为你的实例命名
+        seed=getattr(config, 'seed', 42),
+        config=config,
+        stats=stats,
+        env=env,
+        total_time=total_time
+    )
+
 
 
 def test_trained_model():

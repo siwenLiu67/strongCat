@@ -605,7 +605,7 @@ class HIROAgent:
         # 添加探索奖励
         exploration_bonus = 0.01 * np.random.random()
         
-        return intrinsic_r + exploration_bonus
+        return float(intrinsic_r + exploration_bonus)
     
     def off_policy_correction(self, trajectory: List, goal: np.ndarray) -> np.ndarray:
         """Off-policy修正"""
@@ -867,7 +867,7 @@ class HIROAgent:
 class HIROSolver:
     """HIRO求解器主类"""
     
-    def __init__(self, scenario: FlexibleJobShopScenario, config: HIROConfig = None):
+    def __init__(self, scenario: FlexibleJobShopScenario, config: Optional[HIROConfig] = None):
         self.scenario = scenario
         self.config = config or HIROConfig()
         
@@ -983,7 +983,7 @@ class HIROSolver:
             'final_metrics': final_metrics
         }
     
-    def plot_training_curves(self, save_path: str = None):
+    def plot_training_curves(self, save_path: Optional[str] = None):
         """绘制训练曲线"""
         if not self.training_history:
             print("没有训练历史数据")

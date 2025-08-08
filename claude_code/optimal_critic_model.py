@@ -1246,104 +1246,7 @@ class OptionCriticSolver:
         
         return analysis
     
-    def plot_training_curves(self, save_path: Optional[str] = None):
-        """绘制训练曲线"""
-        if not self.training_history:
-            print("没有训练历史数据")
-            return
-        
-        episodes = range(1, len(self.training_history) + 1)
-        rewards = [info['episode_reward'] for info in self.training_history]
-        intrinsic_rewards = [info['intrinsic_reward'] for info in self.training_history]
-        lengths = [info['episode_length'] for info in self.training_history]
-        
-        # 计算移动平均
-        window = min(50, len(rewards) // 10)
-        if len(rewards) >= window:
-            moving_avg_rewards = []
-            moving_avg_intrinsic = []
-            
-            for i in range(window - 1, len(rewards)):
-                moving_avg_rewards.append(np.mean(rewards[i - window + 1:i + 1]))
-                moving_avg_intrinsic.append(np.mean(intrinsic_rewards[i - window + 1:i + 1]))
-            
-            plt.figure(figsize=(15, 10))
-            
-            # 奖励曲线
-            plt.subplot(2, 3, 1)
-            plt.plot(episodes, rewards, alpha=0.3, color='blue', label='Episode Reward')
-            plt.plot(episodes[window-1:], moving_avg_rewards, color='red', 
-                    label=f'{window}-Episode Moving Average')
-            plt.xlabel('Episode')
-            plt.ylabel('Reward')
-            plt.title('Training Rewards')
-            plt.legend()
-            plt.grid(True)
-            
-            # 内在奖励曲线
-            plt.subplot(2, 3, 2)
-            plt.plot(episodes, intrinsic_rewards, alpha=0.3, color='green', label='Intrinsic Reward')
-            plt.plot(episodes[window-1:], moving_avg_intrinsic, color='orange', 
-                    label=f'{window}-Episode Moving Average')
-            plt.xlabel('Episode')
-            plt.ylabel('Intrinsic Reward')
-            plt.title('Intrinsic Rewards')
-            plt.legend()
-            plt.grid(True)
-            
-            # 长度曲线
-            plt.subplot(2, 3, 3)
-            plt.plot(episodes, lengths, alpha=0.5, color='purple')
-            plt.xlabel('Episode')
-            plt.ylabel('Episode Length')
-            plt.title('Episode Lengths')
-            plt.grid(True)
-            
-            # 选项使用频率
-            plt.subplot(2, 3, 4)
-            option_counts = [self.agent.training_metrics['option_usage'].get(i, 0) 
-                           for i in range(self.config.num_options)]
-            option_labels = [f"Option {i}\n({self.env.option_semantics.get(i, 'unknown')[:10]}...)" 
-                           for i in range(self.config.num_options)]
-            plt.bar(range(self.config.num_options), option_counts)
-            plt.xlabel('Options')
-            plt.ylabel('Usage Count')
-            plt.title('Option Usage Distribution')
-            plt.xticks(range(self.config.num_options), option_labels, rotation=45, fontsize=8)
-            
-            # 终止率分布
-            plt.subplot(2, 3, 5)
-            avg_termination_rates = []
-            for i in range(self.config.num_options):
-                rates = self.agent.training_metrics['termination_rates'].get(i, [])
-                avg_rate = np.mean(rates) if rates else 0
-                avg_termination_rates.append(avg_rate)
-            
-            plt.bar(range(self.config.num_options), avg_termination_rates, alpha=0.7, color='orange')
-            plt.xlabel('Options')
-            plt.ylabel('Average Termination Rate')
-            plt.title('Option Termination Rates')
-            plt.xticks(range(self.config.num_options), 
-                      [f"Opt {i}" for i in range(self.config.num_options)])
-            
-            # 奖励分布
-            plt.subplot(2, 3, 6)
-            plt.hist(rewards[-200:], bins=30, alpha=0.7, color='skyblue', edgecolor='black')
-            plt.xlabel('Episode Reward')
-            plt.ylabel('Frequency')
-            plt.title('Recent Reward Distribution')
-            plt.grid(True, alpha=0.3)
-            
-            plt.tight_layout()
-            
-            if save_path:
-                plt.savefig(save_path, dpi=300, bbox_inches='tight')
-                print(f"训练曲线已保存到: {save_path}")
-            
-            plt.show()
-        else:
-            print(f"数据不足以计算{window}期移动平均")
-    
+
     def save_results(self, filepath: str):
         """保存完整结果"""
         results = {
@@ -1465,10 +1368,7 @@ def main():
         option_usage_final = final_metrics.get('option_usage', {})
         print(f"最终选项使用分布: {option_usage_final}")
     
-    # 绘制训练曲线
-    print(f"\n=== 生成训练曲线 ===")
-    solver.plot_training_curves('option_critic_training_curves.png')
-    
+
     # 保存最终模型和结果
     print(f"\n=== 保存结果 ===")
     solver.agent.save_model('option_critic_final_model.pth')

@@ -1,5 +1,6 @@
 class Config:
     train_mode = True
+    episodes =  0
     
     # RL training parameters
     entropy_coef = 0.01  # Entropy regularization coefficient

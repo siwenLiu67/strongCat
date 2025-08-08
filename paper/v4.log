@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2025.5.9)  5 AUG 2025 17:19
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2025.5.9)  8 AUG 2025 21:12
 entering extended mode
  \write18 enabled.
  file:line:error style messages enabled.
@@ -592,20 +592,27 @@ Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
 [12]
-
-LaTeX Warning: Reference `tab:baseline-comparison' on page 13 undefined on input line 590.
-
-
-LaTeX Warning: Reference `sec:analysis' on page 13 undefined on input line 590.
-
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
+Overfull \hbox (115.01042pt too wide) in paragraph at lines 601--611
+ [][] 
+ []
 
 
 
 [13]
 
-[14] (./v4.aux)
+LaTeX Warning: Reference `tab:baseline-comparison' on page 14 undefined on input line 630.
+
+
+LaTeX Warning: Reference `sec:analysis' on page 14 undefined on input line 630.
+
+
+Underfull \vbox (badness 2237) has occurred while \output is active []
+
+
+
+[14]
+
+[15] (./v4.aux)
  ***********
 LaTeX2e <2024-11-01> patch level 2
 L3 programming layer <2025-01-18>
@@ -615,24 +622,30 @@ L3 programming layer <2025-01-18>
 LaTeX Warning: There were undefined references.
 
 
-LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
+Package rerunfilecheck Warning: File `v4.out' has changed.
+(rerunfilecheck)                Rerun to get outlines right
+(rerunfilecheck)                or use package `bookmark'.
 
-Package rerunfilecheck Info: File `v4.out' has not changed.
-(rerunfilecheck)             Checksum: 40D0BE0F2081C5B2C69FDBD8AD8131B4;3532.
+Package rerunfilecheck Info: Checksums for `v4.out':
+(rerunfilecheck)             Before: BFB39A29A7DB505BDCB0D89E57AA748E;4364
+(rerunfilecheck)             After:  4220A44635B6B564FB666DD29A0E38A3;4208.
  ) 
 Here is how much of TeX's memory you used:
- 14659 strings out of 475118
- 230301 string characters out of 5765021
- 758377 words of memory out of 5000000
- 37146 multiletter control sequences out of 15000+600000
- 615953 words of font info for 220 fonts, out of 8000000 for 9000
+ 14686 strings out of 475118
+ 230650 string characters out of 5765021
+ 758597 words of memory out of 5000000
+ 37154 multiletter control sequences out of 15000+600000
+ 616461 words of font info for 228 fonts, out of 8000000 for 9000
  36 hyphenation exceptions out of 8191
  79i,16n,93p,2203b,588s stack positions out of 10000i,1000n,20000p,200000b,200000s
+
+pdfTeX warning (dest): name{subsection.5.7} has been referenced but does not exist, replaced by a fixed one
+
 <d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi5.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi7.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmr5.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy5.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy7.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmti10.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/symbols/msbm10.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/cm-super/sftt1000.pfb><d:/texlive/2025/texmf-dist/fonts/type1/urw/times/utmb8a.pfb><d:/texlive/2025/texmf-dist/fonts/type1/urw/times/utmr8a.pfb><d:/texlive/2025/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
-Output written on v4.pdf (14 pages, 267644 bytes).
+Output written on v4.pdf (15 pages, 271154 bytes).
 PDF statistics:
- 269 PDF objects out of 1000 (max. 8388607)
- 218 compressed objects within 3 object streams
- 63 named destinations out of 1000 (max. 500000)
- 58001 words of extra memory for PDF output out of 61914 (max. 10000000)
+ 294 PDF objects out of 1000 (max. 8388607)
+ 242 compressed objects within 3 object streams
+ 70 named destinations out of 1000 (max. 500000)
+ 58033 words of extra memory for PDF output out of 61914 (max. 10000000)
 
