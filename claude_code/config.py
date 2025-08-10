@@ -23,6 +23,11 @@ class Config:
     max_processing_time = 1
     max_job_amount = 100
     min_job_amount = 50
+    earliest_arrival_time: int = 10  # 最早到达时间
+   
+    # 批量到达参数（可选）
+    batch_arrival_probability: float = 1  # 批量到达概率
+    max_batch_size: int = 10  # 最大批量到达数量
 
     earliest_delivery_time = 1
     latest_delivery_time = 20
@@ -44,5 +49,6 @@ class Config:
     max_job_num_limit = 20
     arrival_batch_size = 2
     num_machines = 5  # 增加机器数量缓解资源竞争
+    learning_rate = 0.01
 
     urgent_threshold = 0

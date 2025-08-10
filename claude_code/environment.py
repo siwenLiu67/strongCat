@@ -49,46 +49,56 @@ class WarehouseEnvironment:
         self.job_completed_this_step = False
         self.job_dispatched_this_step = False
         self.job_dispatching_this_step = False
+
+        # 动态作业管理
+        self.remaining_dynamic_jobs = config.num_dynamic_jobs  # 剩余要到达的动态作业数
+        self.dynamic_jobs_arrived = 0  # 已到达的动态作业数
+        self.arrival_events = []  # 到达事件记录
+    
         
         # 执行重置
         self.reset()
 
 
     def reset(self) -> Dict:
+        """重置环境"""
         self.t = 0
         self.tardy_penalty = 0
         self.done = False
 
-        # 初始化作业
+        # 初始化作业 - 只包含初始工件
         self.initial_jobs = self.case.jobs.copy()
-        # 包括新到达的作业
-        self.available_jobs = self.case.jobs.copy()
+        self.available_jobs = self.case.jobs.copy()  # 开始时只有初始工件
+        
         # 重设作业状态
         for job in self.available_jobs:
             job.status = 'waiting'
             job.current_operation = 0
+            job.job_type = 'initial'  # 标记为初始工件
+        
         # 清空已完成和已配送的作业
         self.completed_jobs = []
         self.dispatched_jobs = []
 
-        # 初始化机器
+        # 初始化机器和配送商
         self.machines = self.case.machines.copy()
-        
-        # 初始化配送商
         self.distributors = self.case.distributors.copy()
 
-        # 初始化动态到达事件
+        # 重置动态到达计数器
+        self.remaining_dynamic_jobs = self.config.num_dynamic_jobs
+        self.dynamic_jobs_arrived = 0
         self.arrival_events = []
 
         # 初始化统计指标
         self.total_weighted_tardiness = 0
         self.machine_utilization = []
-        self.completion_times = {} # 工件的完成时间
+        self.completion_times = {}
         self.last_schedule_time = 0
         self.last_batch_time = 0
 
+        print(f"🏭 环境重置完成: 初始工件{len(self.available_jobs)}个, 待到达动态工件{self.remaining_dynamic_jobs}个")
+        
         return self._get_state()
-    
 
     def _process_dynamic_arrivals(self):
         """处理动态作业到达"""
@@ -113,19 +123,23 @@ class WarehouseEnvironment:
                     'job_id': new_job.job_id
                 })
 
+
     def _log_state_transition(self, action: Dict, reward: float):
-        """记录状态转换"""
+        """记录状态转换（增强版）"""
         print(f"\n{'='*20}")
         print(f"时间步 {self.t}")
         
-        
-        # 1. 作业状态
+        # 1. 作业状态（区分初始和动态作业）
         processing_jobs = [j for j in self.available_jobs if j.status == 'processing']
+        initial_jobs = [j for j in self.available_jobs if getattr(j, 'job_type', 'initial') == 'initial']
+        dynamic_jobs = [j for j in self.available_jobs if getattr(j, 'job_type', 'initial') == 'dynamic']
+        
         print("作业状态:")
-        print(f"- 可用作业数: {len(self.available_jobs)}")
+        print(f"- 总可用作业数: {len(self.available_jobs)} (初始:{len(initial_jobs)}, 动态:{len(dynamic_jobs)})")
         print(f"- 已加工作业数: {len(self.completed_jobs)}")
         print(f"- 已配送作业数: {len(self.dispatched_jobs)}")
         print(f"- 加工中作业数: {len(processing_jobs)}")
+        print(f"- 动态作业进度: {self.dynamic_jobs_arrived}/{self.config.num_dynamic_jobs}")
         
         # 2. 机器状态
         busy_machines = [m for m in self.machines if m.status == 'busy']
@@ -141,7 +155,9 @@ class WarehouseEnvironment:
         if 'schedule' in action:
             print("- 执行调度:")
             for job_id, machine_id in action['schedule'].items():
-                print(f"  作业{job_id} -> 机器{machine_id}")
+                job = next((j for j in self.available_jobs if j.job_id == job_id), None)
+                job_type = getattr(job, 'job_type', 'unknown') if job else 'unknown'
+                print(f"  作业{job_id}({job_type}) -> 机器{machine_id}")
         if 'dispatch' in action:
             print("- 执行配送:")
             for batch_id, job_ids in action['dispatch'].items():
@@ -154,30 +170,129 @@ class WarehouseEnvironment:
         print(f"- 作业推进比例: {self.calculate_operation_progress_ratio():.2%}")
         print(f"- 机器负载方差: {self.calculate_machine_load_variance():.2f}")
         
-        # 5. 动态到达信息
-        if self.arrival_events:
+        # 5. 本时间步的动态到达信息
+        current_arrivals = [event for event in self.arrival_events if event['time'] == self.t]
+        if current_arrivals:
             print("\n本时间步新到达作业:")
-            for event in self.arrival_events:
-                if event['time'] == self.t:
-                    print(f"- 作业{event['job_id']}")
-                    
-        
+            for event in current_arrivals:
+                print(f"- 作业{event['job_id']} (类型: {event.get('job_type', 'unknown')})")
 
+    def _handle_batch_dynamic_arrivals(self):
+        """处理批量动态作业随机到达"""
+        if self.remaining_dynamic_jobs <= 0:
+            return  # 所有动态作业已到达
+        
+        if self.t == 0:
+            return  # 第一个时间步不生成动态作业
+        
+        # 随机决定是否有作业到达
+        arrival_probability = getattr(self.config, 'batch_arrival_probability', 0.15)  # 每个时间步15%概率到达
+        
+        if np.random.random() < arrival_probability:
+            # 随机决定本次到达的作业数量
+            min_batch_size = getattr(self.config, 'min_batch_size', 1)
+            max_batch_size = min(
+                self.remaining_dynamic_jobs,
+                getattr(self.config, 'max_batch_size', 5)  # 每次最多到达5个
+            )
+            
+            if max_batch_size >= min_batch_size:
+                # 随机生成批量大小
+                batch_size = np.random.randint(min_batch_size, max_batch_size + 1)
+                
+                arrived_jobs = []
+                for i in range(batch_size):
+                    if self.remaining_dynamic_jobs > 0:
+                        # 生成新的动态作业ID（避免与现有作业重复）
+                        total_existing_jobs = (len(self.available_jobs) + 
+                                            len(self.completed_jobs) + 
+                                            len(self.dispatched_jobs))
+                        new_job_id = total_existing_jobs + i
+                        
+                        # 生成新作业
+                        new_job = self.case._generate_one_job(new_job_id)
+                        new_job.arrival_time = self.t  # 设置到达时间
+                        new_job.job_type = 'dynamic'   # 标记为动态工件
+                        new_job.status = 'waiting'     # 初始状态为等待
+                        new_job.current_operation = 0  # 从第一道工序开始
+                        
+                        # 添加到可用作业列表
+                        self.available_jobs.append(new_job)
+                        arrived_jobs.append(new_job)
+                        
+                        # 更新计数器
+                        self.remaining_dynamic_jobs -= 1
+                        self.dynamic_jobs_arrived += 1
+                        
+                        # 记录到达事件
+                        self.arrival_events.append({
+                            'time': self.t,
+                            'job_id': new_job.job_id,
+                            'job_type': 'dynamic_batch',
+                            'batch_arrival': True
+                        })
+                
+                if arrived_jobs:
+                    job_ids = [job.job_id for job in arrived_jobs]
+                    print(f"⬇️ 时间步 {self.t}: 批量到达 {len(arrived_jobs)} 个动态作业 {job_ids}")
+                    print(f"   📊 动态作业进度: {self.dynamic_jobs_arrived}/{self.config.num_dynamic_jobs} "
+                        f"(剩余: {self.remaining_dynamic_jobs})")
+                    
+                    # 显示新到达作业的详细信息
+                    for job in arrived_jobs:
+                        distributor_id = job.distributor_id
+                        num_operations = len(job.operations)
+                        amount = job.amount
+                        print(f"     • 作业{job.job_id}: {num_operations}道工序, 数量{amount}, 配送商{distributor_id}")
+
+    def get_dynamic_arrival_statistics(self):
+        """获取动态作业到达统计信息"""
+        # 按时间步统计到达情况
+        arrival_by_time = {}
+        for event in self.arrival_events:
+            time_step = event['time']
+            if time_step not in arrival_by_time:
+                arrival_by_time[time_step] = 0
+            arrival_by_time[time_step] += 1
+        
+        # 计算到达率和批次统计
+        total_batches = len(set(event['time'] for event in self.arrival_events if event.get('batch_arrival', False)))
+        avg_batch_size = self.dynamic_jobs_arrived / max(total_batches, 1) if total_batches > 0 else 0
+        
+        return {
+            'total_dynamic_jobs_planned': self.config.num_dynamic_jobs,
+            'dynamic_jobs_arrived': self.dynamic_jobs_arrived,
+            'remaining_dynamic_jobs': self.remaining_dynamic_jobs,
+            'arrival_completion_rate': self.dynamic_jobs_arrived / max(self.config.num_dynamic_jobs, 1),
+            'total_arrival_events': len(self.arrival_events),
+            'total_batches': total_batches,
+            'avg_batch_size': round(avg_batch_size, 2),
+            'arrival_by_time_step': arrival_by_time,
+            'current_total_jobs': len(self.available_jobs) + len(self.completed_jobs) + len(self.dispatched_jobs),
+            'initial_jobs_count': len(self.initial_jobs)
+        }
+    
+    
     def step(self, action: Dict) -> Tuple[Dict, float, bool, Dict]:
         """执行环境步进"""
+        # 重置本时间步的状态标志
+        self.operation_completed_this_step = False
+        self.job_completed_this_step = False
+        self.job_dispatched_this_step = False
+        self.job_dispatching_this_step = False
+        
         # 1. 时间步开始时的状态更新
         self._update_machine_states()     # 首先更新机器状态
         self._update_job_states()         # 更新作业状态
         self._update_dispatching_jobs()  # 更新配送状态
         
-        
-        # 2. 处理动态到达
-        self._process_dynamic_arrivals()
+        # 2. 处理动态到达（使用新的随机批量到达机制）
+        self._handle_batch_dynamic_arrivals()
         
         # 3. 执行决策动作
         if 'wait' in action:
             self._process_waiting(action['wait'])
-        elif 'schedule' in action:        # 使用elif因为这些是互斥的决策
+        elif 'schedule' in action:
             self._process_scheduling(action['schedule'])
             self.last_schedule_time = self.t
         elif 'dispatch' in action:
@@ -200,8 +315,16 @@ class WarehouseEnvironment:
     
     def _check_termination(self) -> bool:
         """检查是否达到终止条件"""
+        # 计算预期的总作业数量
+        total_expected_jobs = len(self.initial_jobs) + self.config.num_dynamic_jobs
+        
+        # 终止条件：
+        # 1. 达到最大时间步数，或
+        # 2. 所有作业（初始+动态）都已配送完成且没有剩余动态作业
         return (self.t >= self.config.max_time_steps or 
-                len(self.dispatched_jobs) == len(self.available_jobs))
+                (len(self.dispatched_jobs) >= total_expected_jobs and 
+                self.remaining_dynamic_jobs <= 0))
+
 
     def _calculate_reward(self, action) -> float:
         reward = 0.0
@@ -454,3 +577,4 @@ class WarehouseEnvironment:
             'completed_jobs': self.completed_jobs,
             'dispatched_jobs': self.dispatched_jobs
         }
+
