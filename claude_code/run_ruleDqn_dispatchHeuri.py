@@ -14,9 +14,21 @@ from data_structures import Job
 from case_generator import FlexibleJobShopScenario
 from config import Config
 
+# 导入规范化保存函数
+from algorithm_results_saver import save_algorithm_results_csv, generate_instance_id, set_random_seed
+
 def main():
+    # 设置随机种子
+    seed = 42
+    set_random_seed(seed)
+    
     # 初始化配置和环境
     config = Config()
+    config.seed = seed  # 记录种子
+    
+    # 生成算例ID
+    instance_id = generate_instance_id(config)
+    
     # 使用case_generator创建测试场景
     case = FlexibleJobShopScenario(config)
     env = WarehouseEnvironment(config, case)
@@ -27,9 +39,9 @@ def main():
     dispatch_agent = DispatchHeuristic()
     
     # 训练参数
-    episodes = 10  # 默认训练10个episode
+    episodes = 100  # 增加训练轮数
     stats = defaultdict(list)
-    batch_size = 32  # 批量更新大小
+    batch_size = 32
     
     # 高层智能体经验收集
     meta_states = []
@@ -38,14 +50,18 @@ def main():
     meta_log_probs = []
     meta_returns = []
     
-    print("开始训练...")
+    print(f"开始训练 RuleDQN+DispatchHeuristic 算法...")
+    print(f"算例: {instance_id}, 种子: {seed}")
     start_time = time.time()
     
     for episode in range(episodes):
-        print(f"Episode {episode + 1}/{episodes}==========================")
+        if (episode + 1) % 10 == 0:
+            print(f"Episode {episode + 1}/{episodes}==========================")
+        
         state = env.reset()
         done = False
         episode_reward = 0
+        episode_length = 0
         episode_stats = defaultdict(list)
         
         # 当前episode的数据
@@ -75,7 +91,7 @@ def main():
             if agent_idx == 0:
                 transition = {
                     'states': [state],
-                    'actions': [rule_idx],  # 使用规则索引，而不是动作字典
+                    'actions': [rule_idx],
                     'rewards': [reward],
                     'next_states': [next_state],
                     'dones': [done]
@@ -88,16 +104,17 @@ def main():
             ep_rewards.append(reward)
             ep_log_probs.append(log_prob)
             
-            # 记录数据
+            # 更新状态和统计
             state = next_state
             episode_reward += reward
+            episode_length += 1
             episode_stats['rewards'].append(reward)
             episode_stats['actions'].append(action)
         
-        # 计算每步的累积折扣回报
+        # 计算累积折扣回报
         returns = []
         R = 0
-        gamma = 0.99  # 折扣因子
+        gamma = 0.99
         for r in reversed(ep_rewards):
             R = r + gamma * R
             returns.insert(0, R)
@@ -111,47 +128,93 @@ def main():
         meta_returns.extend(returns.tolist())
         
         # 批量更新meta智能体
+        meta_loss = 0.0
         if len(meta_states) >= batch_size:
             batch = {
                 'states': meta_states[:batch_size],
                 'actions': meta_actions[:batch_size],
                 'log_probs': meta_log_probs[:batch_size],
-                'returns': torch.tensor(meta_returns[:batch_size], dtype=torch.float32)  # 转换为张量
+                'returns': torch.tensor(meta_returns[:batch_size], dtype=torch.float32)
             }
             meta_loss = meta_agent.update(batch)
+            
             # 移除已使用的数据
             meta_states = meta_states[batch_size:]
             meta_actions = meta_actions[batch_size:]
             meta_rewards = meta_rewards[batch_size:]
             meta_log_probs = meta_log_probs[batch_size:]
             meta_returns = meta_returns[batch_size:]
-            print(f"Meta Agent Loss: {meta_loss:.4f}")
         
-        # 记录每轮数据
+        # 记录统计数据
         stats['episode_rewards'].append(episode_reward)
-        stats['makespans'].append(env.t)
-        stats['running_times'].append(time.time() - start_time) 
-        stats['tardy_penalty'].append(env.tardy_penalty)
+        stats['episode_lengths'].append(episode_length)
+        stats['makespans'].append(getattr(env, 't', getattr(env, 'current_time', 0)))
+        stats['running_times'].append(time.time() - start_time)
+        stats['tardy_penalty'].append(getattr(env, 'tardy_penalty', 0))
+        stats['meta_losses'].append(meta_loss)
         
         # 打印进度
-        if (episode + 1) % 10 == 0:
-            print(f"Episode {episode + 1}/{episodes}, time at: {env.t}, Reward: {episode_reward:.2f}")
+        if (episode + 1) % 20 == 0:
+            recent_rewards = stats['episode_rewards'][-20:]
+            recent_makespans = stats['makespans'][-20:]
+            print(f"Episode {episode + 1}/{episodes}")
+            print(f"  平均奖励: {np.mean(recent_rewards):.2f}")
+            print(f"  平均makespan: {np.mean(recent_makespans):.2f}")
+            print(f"  Meta损失: {meta_loss:.4f}")
     
-    # 保存结果
-    with open('results.pkl', 'wb') as f:
-        pickle.dump(stats, f)
+    total_time = time.time() - start_time
     
-    print(f"训练完成，耗时: {time.time() - start_time:.2f}秒")
-    # 打印rewards
+    # 算法特定指标
+    additional_metrics = {
+        "meta_agent_loss": float(np.mean(stats['meta_losses'][-10:])) if stats['meta_losses'] else 0.0,
+        "avg_tardy_penalty": float(np.mean(stats['tardy_penalty'])),
+        "algorithm_type": "Hybrid_RuleDQN_DispatchHeuristic",
+        "batch_size": batch_size,
+        "gamma": gamma
+    }
+    
+    # 保存标准化CSV结果
+    print(f"\n保存结果到CSV...")
+    success = save_algorithm_results_csv(
+        algo_name="RuleDQN+DispatchHeuristic",
+        instance_id=instance_id,
+        seed=seed,
+        config=config,
+        stats=stats,
+        env=env,
+        total_time=total_time,
+        additional_metrics=additional_metrics
+    )
+    
+    # 保存详细pickle结果（保留原有功能）
+    detailed_results = {
+        'stats': stats,
+        'config': config,
+        'instance_id': instance_id,
+        'seed': seed,
+        'total_time': total_time,
+        'additional_metrics': additional_metrics
+    }
+    
+    with open(f'results_detailed_{instance_id}_{seed}.pkl', 'wb') as f:
+        pickle.dump(detailed_results, f)
+    
+    # 输出总结
+    print(f"\n{'='*50}")
+    print(f"训练完成！")
+    print(f"算法: RuleDQN+DispatchHeuristic")
+    print(f"算例: {instance_id}")
+    print(f"种子: {seed}")
+    print(f"总耗时: {total_time:.2f}秒")
     print(f"平均奖励: {np.mean(stats['episode_rewards']):.2f}")
     print(f"平均makespan: {np.mean(stats['makespans']):.2f}")
-
-
-    # 打印每次迭代的rewards
-    print(f"Reward = {stats['episode_rewards']}")
-    print(f"Makespan = {stats['makespans']}")
-    print(f"Loss = {meta_loss:.4f}")
-
+    print(f"最终奖励: {stats['episode_rewards'][-1]:.2f}")
+    print(f"最终makespan: {stats['makespans'][-1]:.2f}")
+    
+    if success:
+        print(f"结果已保存到标准化CSV文件")
+    print(f"详细结果已保存到: results_detailed_{instance_id}_{seed}.pkl")
+    print(f"{'='*50}")
 
 if __name__ == '__main__':
     main()

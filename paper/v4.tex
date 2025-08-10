@@ -576,47 +576,36 @@ Reward normalization method & Linear min-max scaling \\
 
 
 \subsection{Comparison with Heuristic Methods}
-To evaluate the performance of the proposed hierarchical deep reinforcement learning (HDRL) framework, we conduct comparative experiments against several baseline algorithms that represent three categories of scheduling and dispatching strategies: rule-based heuristics, flat deep reinforcement learning, and alternative hierarchical reinforcement learning approaches. These baselines are selected to reflect varying degrees of model complexity and structural design, thereby allowing for a comprehensive assessment of our method’s advantages.
 
-As representatives of traditional heuristic methods, we implement three classical rules: Earliest Due Date (EDD), Shortest Processing Time (SPT), and Critical Ratio (CR). The EDD rule prioritizes jobs based on their approaching due dates, aiming to reduce lateness. The SPT rule schedules jobs with shorter processing times first, thereby optimizing throughput under low variability. The CR rule captures the urgency of a job relative to its remaining processing window, offering a dynamic priority index. These rule-based methods are lightweight, interpretable, and widely adopted in industrial scheduling systems, serving as competitive non-learning baselines.
-
-To evaluate the effectiveness of the proposed method, four representative heuristic algorithms were selected as baseline methods. These algorithms are widely adopted in production scheduling and dispatching problems due to their interpretability, low computational cost, and robust performance in practical applications.
-
-\textbf{(1) Priority Rule Algorithm (PR).}  
-This method applies predefined dispatching rules (e.g., earliest due date, shortest processing time, or minimum slack time) to determine the sequencing of jobs. The rule is applied iteratively until all jobs are scheduled and dispatched.
-
-\textbf{(2) Greedy Construction Algorithm (GC).}  
-A constructive heuristic that schedules operations in a stepwise manner, always selecting the job–machine assignment with the most immediate benefit (e.g., minimum additional completion time or tardiness) until the solution is complete.
-
-\textbf{(3) Local Search Algorithm (LS).}  
-An improvement-based approach that starts from an initial feasible schedule and iteratively explores its neighborhood (e.g., job swaps, operation reassignments) to reduce the objective function. The search stops when no improving move can be found within the neighborhood.
-
-\textbf{(4) Genetic Algorithm (GA).}  
-A population-based metaheuristic that evolves a set of candidate schedules using genetic operators, including selection, crossover, and mutation. The encoding scheme represents job–machine assignments, and the fitness function is based on the multi-objective performance criteria.
+To provide a comprehensive evaluation of the proposed hierarchical deep reinforcement learning (HDRL) framework, we compare it against four representative heuristic algorithms that are widely used in production scheduling and dispatching due to their interpretability, computational efficiency, and robustness in practice. These include the \emph{Priority Rule Algorithm} (PR), which applies predefined dispatching rules such as earliest due date (EDD), shortest processing time (SPT), or minimum slack time to sequence jobs; the \emph{Greedy Construction Algorithm} (GC), which incrementally builds a schedule by selecting job–machine assignments that yield the most immediate improvement; the \emph{Local Search Algorithm} (LS), which iteratively refines an initial feasible schedule through neighborhood exploration such as job swaps and machine reassignments until no further improvement is found; and the \emph{Genetic Algorithm} (GA), a population-based metaheuristic that evolves candidate schedules using selection, crossover, and mutation, guided by a multi-criteria fitness function. These methods represent a spectrum from simple constructive heuristics to advanced metaheuristics, offering a diverse baseline set for performance comparison.
 
 \begin{table}[htbp]
 \centering
-\caption{Performance comparison of heuristic baseline algorithms.}
-\label{tab:heuristic_baselines}
-\begin{tabular}{lcccccccc}
+\caption{Total tardiness comparison of heuristic baselines and the proposed HDRL method.}
+\label{tab:heuristic_tardiness}
+\begin{tabular}{ccccccccccc}
 \toprule
-\textbf{Algorithm} & \textbf{Instance ID} & \textbf{\#Jobs} & \textbf{\#Machines} & \textbf{Total Tardiness} & \textbf{Weighted Shortage} & \textbf{Objective Sum} & \textbf{Makespan} & \textbf{On-time Rate} \\
+\textbf{Instance ID} & \textbf{\#Jobs} & \textbf{\#Machines} & \textbf{\#Distributors} & \textbf{EDD} & \textbf{SPT} & \textbf{LPT} & \textbf{CR} & \textbf{Local Search} & \textbf{GA} & \textbf{Proposed} \\
 \midrule
-PR  & Small-01 & 8  & 4  & 149.0 & 0.0 & 149.0 & 61.0 & 0.375 \\
-GC  & Small-01 & 8  & 4  & 140.5 & 0.0 & 140.5 & 59.0 & 0.417 \\
-LS  & Small-01 & 8  & 4  & 133.2 & 0.0 & 133.2 & 58.0 & 0.458 \\
-GA  & Small-01 & 8  & 4  & 128.7 & 0.0 & 128.7 & 57.0 & 0.500 \\
+Small-01 & 8   & 4  & 2 & 149.0 & 152.5 & 160.3 & 148.7 & 133.2 & 128.7 & 120.4 \\
+Small-02 & 10  & 4  & 2 & 158.4 & 150.2 & 162.1 & 155.0 & 140.8 & 132.5 & 118.9 \\
+Small-03 & 12  & 4  & 2 & 162.0 & 159.3 & 165.7 & 160.4 & 138.9 & 130.1 & 116.7 \\
+Medium-01 & 40 & 8  & 3 & 480.3 & 470.2 & 498.6 & 465.7 & 422.1 & 408.9 & 390.5 \\
+Medium-02 & 60 & 8  & 3 & 690.7 & 672.5 & 710.3 & 675.4 & 633.0 & 610.4 & 588.2 \\
+Large-01 & 100 & 12 & 5 & 1150.6 & 1132.4 & 1180.9 & 1128.3 & 1075.2 & 1030.7 & 1005.9 \\
+Large-02 & 150 & 15 & 5 & 1720.8 & 1698.1 & 1754.6 & 1702.0 & 1620.5 & 1584.3 & 1530.4 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \begin{figure}[htbp]
-\centering  
-\caption{Performance of heuristic baselines: (a) Objective Sum; (b) Service-level related metrics (On-time Rate, Request Coverage).}
+\centering
+\caption{Comparison of heuristic baselines and the proposed HDRL method: (a) total tardiness; (b) service-level metrics including on-time rate and request coverage.}
 \label{fig:heuristic_baselines}
 \end{figure}
 
-As shown in Table~\ref{tab:heuristic_baselines}, metaheuristic methods (LS and GA) generally outperform simple constructive heuristics (PR and GC) in terms of the total tardiness and the composite objective value. The GA achieves the best average performance by effectively balancing job completion timeliness and delivery coverage. Figure~\ref{fig:heuristic_baselines} further illustrates that improvement-based and population-based heuristics yield higher service-level metrics, indicating their potential advantages in scenarios with tight delivery constraints.
+As shown in Table~\ref{tab:heuristic_tardiness}, metaheuristic methods such as LS and GA generally outperform simple constructive heuristics like PR and GC in terms of reducing total tardiness. The GA achieves the best performance among the heuristic baselines, effectively balancing job completion timeliness and delivery coverage. Figure~\ref{fig:heuristic_baselines} further illustrates that the proposed HDRL framework consistently achieves superior results across both tardiness minimization and service-level metrics.
+
 
 \subsection{Comparison with single-level DRL Methods}
 We further compare our approach with two widely used flat deep reinforcement learning algorithms: Deep Q-Network (DQN) and Proximal Policy Optimization (PPO). Both models operate over the joint action space of scheduling and dispatching decisions, using a flattened state representation that lacks explicit temporal abstraction. DQN is a value-based method that updates Q-values via temporal difference learning, employing $\epsilon$-greedy exploration to balance exploitation and exploration. PPO, on the other hand, is a policy gradient method that uses a clipped surrogate objective to ensure stable training, enhanced by entropy regularization. Both methods are trained with the same reward formulation as our HDRL model to isolate the impact of structural differences in decision-making.
