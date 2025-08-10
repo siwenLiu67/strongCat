@@ -507,21 +507,21 @@ We evaluate the performance of the proposed HDRL framework through extensive com
 
 \subsection{Experimental Settings}
 
-In this section, we present the experimental settings used to evaluate the proposed hierarchical deep reinforcement learning (HDRL) framework. The experiments are conducted in a custom simulation environment that replicates the dynamics of a flexible job shop with integrated scheduling and dispatching. The objective is to assess the performance, generalizability, and adaptability of the proposed method under dynamic and large-scale production-distribution scenarios.
+This section describes the experimental settings used to evaluate the proposed hierarchical deep reinforcement learning (HDRL) framework. All experiments are conducted within a custom-designed simulation platform implemented in Python 3.10.6 with PyTorch 2.7.0. The simulation environment emulates a flexible job shop with integrated scheduling and dispatching, aiming to assess the robustness, scalability, and adaptability of the proposed method under dynamic and large-scale production–distribution conditions.
 
-All experiments are implemented using Python 3.8 and PyTorch 1.12. The simulation environment emulates a shop floor with $M = 6$ heterogeneous machines and $D = 3$ distributors. Jobs arrive stochastically following a Poisson process with arrival rate $\lambda = 0.5$, each comprising $3$ to $5$ sequential operations. Operation processing times are uniformly drawn from $\mathcal{U}(5, 15)$, and machine assignment sets are randomly sampled per operation. The due date of each job $j$ is calculated using:
-\begin{equation}
-d_j = a_j + \delta_f \cdot \sum_{k=1}^{n_j} p_{jk}
-\end{equation}
-where $a_j$ is the job's arrival time, $p_{jk}$ is the processing time of the $k$-th operation, and $\delta_f \in \{1.2, 1.5, 2.0\}$ is the delay factor used to simulate varying urgency levels. Delivery requirements for each distributor are defined via multiple time windows, with associated coverage ratios and penalty weights to simulate mass personalization demands.
+In the production stage, the shop floor consists of $m \in \{10, 20, 30\}$ heterogeneous machines. The system is initially loaded with $n_{\text{init}}=20$ jobs, and an additional $n_{\text{add}} \in \{30, 50, 70\}$ jobs arrive dynamically over time. Job arrivals follow a Poisson process with an average rate $\lambda = 0.5$. Each job comprises $n_i \sim \mathcal{U}[3,5]$ sequential operations, with processing times $t_{ij} \sim \mathcal{U}[5,15]$ time units. Machine eligibility for each operation is randomly assigned. Each job $j$ also has an associated goods quantity $q_j \sim \mathcal{U}[1,5]$ to be delivered upon completion.
 
-For training, we adopt a small-scale configuration consisting of a single scenario with 190 dynamically arriving jobs. In contrast, the test dataset includes 30 randomly generated instances, each with 990 dynamic jobs and an identical statistical distribution. While the model is trained on a single delay factor $\delta_f = 1.5$, all three delay factors are employed during testing to evaluate generalization under variable urgency conditions.
+In the distribution stage, the system includes $d \in \{3, 5, 7\}$ distributors. Each distributor has $w_d \sim \mathcal{U}[2,3]$ due time windows, with a delivery coverage ratio $\rho_d \sim \mathcal{U}[0.2,1]$ representing the proportion of completed goods required to meet delivery commitments. Unfulfilled deliveries incur a penalty weight $w_d \sim \mathcal{U}[0.5,1]$. These settings collectively capture the diversity of delivery urgency, resource constraints, and personalization demands in realistic production–distribution systems.
 
-The HDRL agent comprises a meta-controller and two specialized sub-agents. The meta-controller receives a 9-dimensional high-level system state and is modeled as a three-layer feedforward network with hidden size 32, GeLU activations, dropout regularization, and LayerNorm for stability. An Upper Confidence Bound (UCB) mechanism is used to balance exploration and exploitation. The scheduling agent is implemented as a Rule-DQN hybrid with eight heuristic policies and a two-layer MLP for Q-value approximation, trained via experience replay and soft target updates. The dispatching module follows a heuristic policy with reward shaping and constraint-driven penalties for tardiness and delivery coverage gaps.
+To simulate realistic delivery requirements in community group buying scenarios, we implement a distributor-based differentiated strategy for generating delivery time windows. The distributors are categorized into three types based on their service characteristics: \textit{express distributors} (ID $\bmod 3 = 0$) with time preference weights $[3.0, 2.0, 1.0]$ favoring early delivery windows, \textit{standard distributors} (ID $\bmod 3 = 1$) with uniform weights maintaining balanced time distribution, and \textit{economic distributors} (ID $\bmod 3 = 2$) with weights $[1.0, 2.0, 3.0]$ biased toward later delivery windows for cost optimization. For each distributor $d$, the number of delivery requirements $n_{req}$ is randomly sampled from $\mathcal{U}[2, 3]$, and the corresponding due times $\delta_d$ are generated using cumulative weight distribution: $\delta_{d,i} = t_{min} + \frac{\sum_{j=1}^{i} w_j}{\sum_{k=1}^{n_{req}} w_k} \times (t_{max} - t_{min})$, where $w_j$ represents the type-specific weights, ensuring that different distributor types exhibit distinct temporal delivery patterns that reflect real-world service differentiation.
 
-Training is conducted over 800 episodes, each simulating a complete scheduling-dispatching horizon of $T = 200$ time steps. The learning rate is set to $10^{-3}$ for the meta-controller and $10^{-4}$ for the scheduling agent. An $\epsilon$-greedy policy is adopted for the low-level agent with decaying exploration rate. A discount factor of $\gamma = 0.99$ is used throughout, reflecting the long-term nature of decision impact in dynamic environments. All experiments are performed on a desktop workstation equipped with an Intel i7-11700KF CPU, 32GB RAM, and an NVIDIA RTX 3070 GPU.
+The HDRL framework consists of a meta-controller and two specialized sub-agents. The meta-controller receives a nine-dimensional high-level system state and is implemented as a three-layer feedforward neural network with hidden size 32, GeLU activation functions, dropout regularization, and Layer Normalization to enhance stability. An Upper Confidence Bound (UCB) exploration strategy is adopted to balance exploration and exploitation. The scheduling agent employs a hybrid Rule–DQN architecture that integrates eight heuristic rules with a two-layer multilayer perceptron (MLP) for Q-value approximation, trained using experience replay and soft target updates. The dispatching agent follows a heuristic policy enhanced with reward shaping and penalty terms for tardiness and delivery shortfalls.
 
-This experimental configuration enables us to rigorously examine the learned policy’s robustness, scalability, and adaptability under different job complexities, system pressures, and delivery constraints.
+Training is performed over 800 episodes, each covering a complete scheduling–dispatching horizon of $T=200$ time steps. Learning rates are set to $10^{-3}$ for the meta-controller and $10^{-4}$ for the scheduling agent. The low-level agent adopts an $\epsilon$-greedy strategy with a decaying exploration rate, and a discount factor $\gamma=0.99$ is applied throughout to account for long-term decision impacts. All experiments are executed on a workstation equipped with an Intel i5-12400 CPU, 16 GB RAM, and an NVIDIA RTX 3050 GPU.
+
+The complete parameter configurations of the production–distribution scenarios are provided in Table~\ref{tab:benchmark-parameters}, ensuring reproducibility and enabling systematic evaluation of the proposed policy under varying job complexities, system loads, and delivery constraints.
+
+
 \begin{table}[H]
 \centering
 \caption{Parameters of hierarchical scheduling and dispatching scenarios.}
@@ -533,18 +533,18 @@ This experimental configuration enables us to rigorously examine the learned pol
 Number of machines ($m$) & \{10, 20, 30\} \\
 Number of initial jobs ($n_{\text{init}}$) & 20 \\
 Number of dynamically arrived jobs ($n_{\text{add}}$) & \{30, 50, 70\} \\
-Mean inter-arrival time ($E_{\text{arr}}$) & \{20, 40, 60\} \\
-Number of operations per job ($n_i$) & U[3, 6] \\
-Operation processing time ($t_{ij}$) & U[10, 50] \\
-Job type ($u_i$) & B(1, 0) \\
-Expiration time urgency factor ($\mathit{ETUF}_i$) & \{1.5 ($u_i = 1$), 1 ($u_i = 0$)\} \\
-Due date of job $j$ ($\delta_j$) & $C_j^{\text{est}} + \Delta_j$, where $\Delta_j \sim \mathcal{U}(20, 40)$ \\
-Minimum batch size ($b_{\min}$) & \{2, 3\} \\
-Maximum batch waiting time ($T_{\text{wait}}^{\max}$) & \{20, 30\} \\
+Number of operations per job ($n_i$) & $\mathcal{U}[3, 5]$ \\
+Operation processing time ($t_{ij}$) & $\mathcal{U}[5, 15]$ \\
+Goods quantity of jobs ($q_j$) & $\mathcal{U}[1, 5]$ \\
+Number of distributors ($d$) & \{3, 5, 7\} \\
+Number of due time windows per distributor ($w_d$) & $\mathcal{U}[2, 3]$ \\
+Due time windoww of distributors ($\delta_d$) & $\mathcal{U}[10, 20]$ \\
+Ratio of delivery coverage ($\rho_d$) & $\mathcal{U}[0.2, 1]$ \\
+Penalty weight for delivery shortfall ($w_d$) & $\mathcal{U}[0.5, 1]$ \\
+
 \bottomrule
 \end{tabular}
 \end{table}
-
 
 \begin{table}[H]
 \centering
@@ -569,15 +569,16 @@ Job completion reward (shaping) & +0.5 \\
 Batch dispatch reward (shaping) & +1.0 \\
 \addlinespace
 Reward clipping range & $[-10, +10]$ \\
-Reward normalization method & Linear min-max scaling \\
+Reward normalization method & Linear min–max scaling \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-
-\subsection{Comparison with Heuristic Methods}
+\subsection{Comparison with Heuristic Methods and solver}
 
 To provide a comprehensive evaluation of the proposed hierarchical deep reinforcement learning (HDRL) framework, we compare it against four representative heuristic algorithms that are widely used in production scheduling and dispatching due to their interpretability, computational efficiency, and robustness in practice. These include the \emph{Priority Rule Algorithm} (PR), which applies predefined dispatching rules such as earliest due date (EDD), shortest processing time (SPT), or minimum slack time to sequence jobs; the \emph{Greedy Construction Algorithm} (GC), which incrementally builds a schedule by selecting job–machine assignments that yield the most immediate improvement; the \emph{Local Search Algorithm} (LS), which iteratively refines an initial feasible schedule through neighborhood exploration such as job swaps and machine reassignments until no further improvement is found; and the \emph{Genetic Algorithm} (GA), a population-based metaheuristic that evolves candidate schedules using selection, crossover, and mutation, guided by a multi-criteria fitness function. These methods represent a spectrum from simple constructive heuristics to advanced metaheuristics, offering a diverse baseline set for performance comparison.
+
+Besides, we also include a state-of-the-art solver, ortools, which implements a constraint programming approach to solve the IFJSSP-DP. This solver is designed to find optimal solutions for small to medium-sized instances by systematically exploring the solution space while enforcing constraints on job sequencing, machine assignments, and delivery requirements. By adding this solver to our comparison, we can assess the effectiveness of the HDRL framework not only against heuristic methods but also against an exact optimization approach, providing a more comprehensive evaluation of its performance in terms of solution quality and computational efficiency.
 
 \begin{table}[htbp]
 \centering

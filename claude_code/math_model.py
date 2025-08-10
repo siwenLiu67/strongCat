@@ -541,7 +541,7 @@ if __name__ == "__main__":
     config = Config()
     
     # 可以调整配置参数
-    config.num_jobs = 5
+    config.num_initial_jobs = 5
     config.num_machines = 3
     config.num_distributors = 2
     config.min_operations = 2

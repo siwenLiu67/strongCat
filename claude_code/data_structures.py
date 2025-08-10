@@ -29,6 +29,9 @@ class Job:
     due_date: int = 0 # 最终交付截止时间
     earliest_due_date: int = 0 # 最早交付截止时间
     delivery_requirements: List[Dict[str, Any]] = field(default_factory=list)  # 交付要求列表
+    is_urgent: bool = False  # 是否为紧急工件
+    arrival_time: float = 0.0  # 到达时间
+    assigned_delivery_window: Dict[str, Any] = field(default_factory=dict)  # 分配的交付窗口信息
 
 
 @dataclass

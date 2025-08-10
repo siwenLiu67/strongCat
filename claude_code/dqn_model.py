@@ -568,7 +568,7 @@ def main():
     """主训练函数"""
     # 配置参数
     config = Config()
-    config.num_jobs = 8
+    config.num_initial_jobs = 8
     config.num_machines = 4
     config.num_distributors = 2
     config.min_operations = 2
@@ -693,7 +693,7 @@ def main():
 def test_trained_model():
     """测试训练好的模型"""
     config = Config()
-    config.num_jobs = 6
+    config.num_initial_jobs = 6
     config.num_machines = 3
     config.num_distributors = 2
     

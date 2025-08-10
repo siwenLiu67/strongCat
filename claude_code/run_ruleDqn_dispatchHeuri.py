@@ -39,7 +39,7 @@ def main():
     dispatch_agent = DispatchHeuristic()
     
     # 训练参数
-    episodes = 100  # 增加训练轮数
+    episodes = 10  # 增加训练轮数
     stats = defaultdict(list)
     batch_size = 32
     

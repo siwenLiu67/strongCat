@@ -1275,7 +1275,7 @@ def main():
     
     # 创建问题实例
     config = Config()
-    config.num_jobs = 6
+    config.num_initial_jobs = 6
     config.num_machines = 4
     config.num_distributors = 2
     config.min_operations = 2

@@ -620,7 +620,7 @@ def main():
     """主训练函数"""
     # 配置参数
     config = Config()
-    config.num_jobs = 3  # 进一步减少作业数量
+    config.num_initial_jobs = 3  # 进一步减少作业数量
     config.num_machines = 2
     config.num_distributors = 2
     config.min_operations = 2
@@ -770,7 +770,7 @@ def test_trained_model():
     """测试训练好的模型"""
     try:
         config = Config()
-        config.num_jobs = 3
+        config.num_initial_jobs = 3
         config.num_machines = 2
         config.num_distributors = 2
         

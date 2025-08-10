@@ -1414,7 +1414,7 @@ def main():
     
     # 配置参数
     config = Config()
-    config.num_jobs = 8
+    config.num_initial_jobs = 8
     config.num_machines = 4
     config.num_distributors = 2
     config.min_operations = 2
@@ -1504,7 +1504,7 @@ def main():
 def test_single_algorithm():
     """测试单个算法的详细运行过程"""
     config = Config()
-    config.num_jobs = 4
+    config.num_initial_jobs = 4
     config.num_machines = 3
     config.num_distributors = 2
     config.min_operations = 2
@@ -1550,7 +1550,7 @@ def benchmark_algorithms():
               f"{test_config['machines']}机器, {test_config['distributors']}配送商 ---")
         
         config = Config()
-        config.num_jobs = test_config['jobs']
+        config.num_initial_jobs = test_config['jobs']
         config.num_machines = test_config['machines']
         config.num_distributors = test_config['distributors']
         config.min_operations = 2

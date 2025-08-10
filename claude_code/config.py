@@ -11,7 +11,8 @@ class Config:
     n_step = 3  # N-step TD learning
     ucb_exploration = 0.5  # UCB exploration coefficient
     
-    num_jobs = 4
+    num_initial_jobs = 4
+    num_dynamic_jobs = 10
     num_machines = 2
     num_distributors = 2
     min_operations = 2
@@ -28,6 +29,14 @@ class Config:
     min_delivery_requirements = 1
     max_delivery_requirements = 3
     min_load_ratio = 1
+
+    # Due date相关配置
+    dispatch_preparation_time: int = 5  # 配送准备时间
+    min_due_date_factor: float = 1.1    # 最小due date系数
+    
+    # 重要性计算权重
+    amount_weight: float = 0.6          # 数量权重
+    complexity_weight: float = 0.4      # 复杂度权重
 
 
     max_time_steps = 10  # 增加时间步数让智能体有足够时间学习

@@ -23,7 +23,7 @@ class FlexibleJobShopScenario:
     
     def __post_init__(self):
         """初始化后自动生成算例"""
-        self.num_jobs = self.config.num_jobs
+        self.num_jobs = self.config.num_initial_jobs
         self.num_machines = self.config.num_machines
         self.num_distributors = self.config.num_distributors
     
@@ -111,13 +111,61 @@ class FlexibleJobShopScenario:
     
     def _update_job_distributor_mapping(self):
         for job in self.jobs:
-            # 根据对应配送商的deliveryrequirements设置交付截止时间
             if self.distributors:
                 distributor = self.distributors[job.distributor_id]
                 if distributor.delivery_requirements:
                     job.due_date = max(distributor.delivery_requirements.due_times)
                     job.earliest_due_date = min(distributor.delivery_requirements.due_times)
 
+    def _generate_distributor_based_due_times(self, distributor_id, n_req, min_time, max_time):
+        """基于配送商类型的due_times设置（配送商差异化策略）"""
+        
+        # 不同配送商有不同的时间偏好
+        if distributor_id % 3 == 0:
+            # 快速配送商：偏向早期时间窗口
+            weights = np.array([3.0, 2.0, 1.0][:n_req])
+            distributor_type = "快速配送商"
+        elif distributor_id % 3 == 1:
+            # 标准配送商：均匀分布
+            weights = np.ones(n_req)
+            distributor_type = "标准配送商"
+        else:
+            # 经济配送商：偏向后期时间窗口
+            weights = np.array([1.0, 2.0, 3.0][:n_req])
+            distributor_type = "经济配送商"
+        
+        # 如果n_req超过3，扩展权重数组
+        if n_req > 3:
+            if distributor_id % 3 == 0:
+                # 快速配送商：保持递减趋势
+                additional_weights = np.linspace(1.0, 0.5, n_req - 3)
+                weights = np.concatenate([weights, additional_weights])
+            elif distributor_id % 3 == 1:
+                # 标准配送商：保持均匀
+                additional_weights = np.ones(n_req - 3)
+                weights = np.concatenate([weights, additional_weights])
+            else:
+                # 经济配送商：保持递增趋势
+                additional_weights = np.linspace(3.0, 4.0, n_req - 3)
+                weights = np.concatenate([weights, additional_weights])
+        
+        # 归一化权重
+        weights = weights / weights.sum()
+        
+        # 根据权重生成累积分布
+        cumulative_weights = np.cumsum(weights)
+        
+        # 生成due_times
+        due_times = []
+        for i, cum_weight in enumerate(cumulative_weights):
+            due_time = min_time + cum_weight * (max_time - min_time)
+            due_times.append(int(due_time))
+        
+        # 确保时间序列单调递增
+        due_times = sorted(due_times)
+        
+        
+        return due_times
     
     def _generate_distributors(self):
         """生成配送商分配"""
@@ -125,8 +173,8 @@ class FlexibleJobShopScenario:
             assigned_jobs = [j.job_id for j in self.jobs if j.distributor_id == d]
             if not assigned_jobs:
                 continue
+                
             """为指定配送商生成交付要求"""
-            """生成交付要求"""
             min_time = self.config.earliest_delivery_time
             max_time = self.config.latest_delivery_time
             
@@ -136,18 +184,25 @@ class FlexibleJobShopScenario:
             )
                 
             ratios = np.linspace(1/n_req, 1, n_req)
-            due_times = np.linspace(min_time, max_time, n_req).astype(int)
-            weigts = np.random.uniform(
+            
+            # 使用配送商差异化策略生成due_times
+            due_times = self._generate_distributor_based_due_times(
+                d, n_req, min_time, max_time
+            )
+            
+            weights = np.random.uniform(
                 self.config.min_load_ratio,
                 1.0,
                 n_req
             )
+            
             delivery_requirements = DeliveryRequirement(
                 distributor_id=d,
                 due_times=list(due_times),
-                ratios= [round(r, 2) for r in ratios],
-                weights=weigts.tolist()   
+                ratios=[round(r, 2) for r in ratios],
+                weights=weights.tolist()   
             )
+            
             total_amount = sum(self.jobs[j].amount for j in assigned_jobs)
             distributor = Distributor(
                 distributor_id=d,
@@ -156,7 +211,6 @@ class FlexibleJobShopScenario:
                 total_amount=total_amount,
                 completed_batches={},  # 初始化批次列表
                 status='waiting',  # 初始状态为等待
-                
                 completed_times={},
                 overdue_times={}
             )
@@ -168,4 +222,18 @@ class FlexibleJobShopScenario:
 # 使用示例
 if __name__ == "__main__":
     config = Config()
+
+    
     case = FlexibleJobShopScenario(config=config)
+    
+    # 验证生成的配送商差异化due_times
+    print("配送商差异化策略验证:")
+    print("="*50)
+    for distributor in case.distributors:
+        distributor_type = ["快速配送商", "标准配送商", "经济配送商"][distributor.distributor_id % 3]
+        print(f"配送商 {distributor.distributor_id} ({distributor_type}):")
+        print(f"  交付时间: {distributor.delivery_requirements.due_times}")
+        print(f"  比例: {distributor.delivery_requirements.ratios}")
+        print(f"  权重: {[round(w, 3) for w in distributor.delivery_requirements.weights]}")
+        print(f"  分配工件数: {len(distributor.assigned_jobs)}")
+        print("-" * 30)
