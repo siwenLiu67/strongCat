@@ -1,24 +1,25 @@
 class Config:
     train_mode = True
-    episodes =  0
-    seed = 0
+    episodes =  2
+    seeds = [42]
     
     # RL training parameters
     entropy_coef = 0.01  # Entropy regularization coefficient
-    replay_buffer_size = 10000  # Experience replay buffer size
+    replay_buffer_size = 2000  # Experience replay buffer size
     batch_size = 64  # Training batch size
-    gamma = 0.99  # Discount factor
+    gamma = 0.95  # Discount factor
     n_step = 3  # N-step TD learning
     ucb_exploration = 0.5  # UCB exploration coefficient
-    
+    learning_rate = 0.001
+
     num_initial_jobs = 4
     num_dynamic_jobs = 10
     num_machines = 2
     num_distributors = 2
-    min_operations = 2
-    max_operations = 2
+    min_operations = 1
+    max_operations = 20
     min_machines_per_op = 1
-    max_machines_per_op = num_machines
+    max_machines_per_op = 5
     min_processing_time = 1
     max_processing_time = 1
     max_job_amount = 100
@@ -43,12 +44,11 @@ class Config:
     amount_weight: float = 0.6          # 数量权重
     complexity_weight: float = 0.4      # 复杂度权重
 
-
-    max_time_steps = 10  # 增加时间步数让智能体有足够时间学习
+    max_time_steps = 500  # 增加时间步数让智能体有足够时间学习
     arrival_probability = 0
     max_job_num_limit = 20
     arrival_batch_size = 2
-    num_machines = 5  # 增加机器数量缓解资源竞争
-    learning_rate = 0.01
+    
+
 
     urgent_threshold = 0

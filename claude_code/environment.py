@@ -428,11 +428,12 @@ class WarehouseEnvironment:
         return finished_ops / total_ops
 
     def calculate_machine_load_variance(self):
-        """计算机器负载方差（衡量负载均衡性，越小越均衡）"""
-        loads = [m.remaining_time if m.status == 'busy' else 0 for m in self.machines]
-        if not loads:
+        """归一化所有机器的剩余时间方差"""
+        loads = [m.remaining_time for m in self.machines]
+        mean_load = np.mean(loads)
+        if not loads or mean_load == 0:
             return 0.0
-        return float(np.var(loads))
+        return float(np.var(loads) / mean_load)
 
 
 
@@ -444,6 +445,7 @@ class WarehouseEnvironment:
                     self.completed_jobs.append(job)
                     self.completion_times[job.job_id] = self.t
                     job.completed_time = self.t
+        self.available_jobs = [j for j in self.available_jobs if j.status != 'dispatched']
 
 
     def _update_machine_states(self):
@@ -464,7 +466,7 @@ class WarehouseEnvironment:
             self.operation_completed_this_step = True
             
             # 检查是否所有工序都完成
-            if job.current_operation >= len(job.operations)-1:
+            if job.current_operation >= len(job.operations):
                 job.status = 'completed'
                 if job not in self.completed_jobs:
                     self.completed_jobs.append(job)
@@ -499,17 +501,21 @@ class WarehouseEnvironment:
             
             if job and machine and machine.status == 'waiting':
                 # 获取当前工序
+                if job.current_operation >= len(job.operations):
+                    print(f"警告：作业{job.job_id}已无可调度工序，跳过调度。")
+                    
                 current_op = job.operations[job.current_operation]
                 if machine_id in current_op.available_machine_ids:
-                    # 改变machine 状态
-                    machine.status = 'busy'
-                    machine.current_job = job.job_id
-                    machine.remaining_time = current_op.processing_times[machine_id]
-                
-                    # 改变job 状态
-                    # 更新作业状态
-                    job.status = 'processing'
-                    self.machine_utilization.append(1.0)
+                        # 改变machine 状态
+                        machine.status = 'busy'
+                        machine.current_job = job.job_id
+                        machine.remaining_time = current_op.processing_times[machine_id]
+                    
+                        # 改变job 状态
+                        # 更新作业状态
+                        job.status = 'processing'
+                        self.machine_utilization.append(1.0)
+                    
 
 
     def _process_dispatching(self, dispatch_action: Dict):
@@ -520,9 +526,8 @@ class WarehouseEnvironment:
             # 只处理已完成加工的作
             flat_job_ids = list(chain.from_iterable(job_ids)) if job_ids and isinstance(job_ids[0], list) else job_ids
 
-            dispatch_jobs = [j for j in self.completed_jobs 
-                            if j.job_id in flat_job_ids]
-           
+            dispatch_jobs = [j for j in self.completed_jobs if j.job_id in flat_job_ids and j.status == 'completed']
+            
             if dispatch_jobs:
                 # 创建新批次,设置配送时间
                 batch_size = len(dispatch_jobs)

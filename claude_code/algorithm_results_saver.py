@@ -1,11 +1,8 @@
 import csv
 import time
 import numpy as np
-import matplotlib.pyplot as plt
 from pathlib import Path
-from typing import Dict, Any, Optional, List, Union
-import json
-import pickle
+from typing import Dict, Any, Optional, List
 
 def save_algorithm_results_csv(
     algo_name: str,
@@ -20,37 +17,26 @@ def save_algorithm_results_csv(
     """
     统一的算法结果保存函数
     自动识别强化学习或启发式算法并适配处理
+    保证所有字段都在表头，避免字段数不一致
     """
     output_file = Path("results") / "algorithm_comparison.csv"
     output_file.parent.mkdir(exist_ok=True)
-    
-    # 基础运行信息
     run_id = f"{time.strftime('%Y%m%d_%H%M%S')}_{seed}"
-    
-    # 自动检测数据类型并提取统一指标
     metrics = _extract_unified_metrics(stats, env, config, total_time)
-    
     # 构建CSV行
     row = {
-        # 运行标识
         "run_id": run_id,
         "algo_name": str(algo_name),
         "instance_id": str(instance_id),
         "seed": int(seed),
         "timestamp": time.strftime('%Y-%m-%d %H:%M:%S'),
-        
-        # 问题规模
         "num_jobs": metrics['num_jobs'],
         "num_machines": metrics['num_machines'],
         "num_distributors": metrics['num_distributors'],
         "num_episodes": metrics['num_episodes'],
-        
-        # 主要目标指标
         "total_tardiness": metrics['total_tardiness'],
         "weighted_shortage": metrics['weighted_shortage'],
         "objective_value": metrics['objective_value'],
-        
-        # 调度性能
         "final_makespan": metrics['final_makespan'],
         "avg_makespan": metrics['avg_makespan'],
         "on_time_rate": metrics['on_time_rate'],
@@ -58,44 +44,54 @@ def save_algorithm_results_csv(
         "avg_waiting_time": metrics['avg_waiting_time'],
         "machine_utilization": metrics['machine_utilization'],
         "demand_coverage": metrics['demand_coverage'],
-        
-        # 学习性能
         "avg_reward": metrics['avg_reward'],
         "std_reward": metrics['std_reward'],
         "best_reward": metrics['best_reward'],
         "final_reward": metrics['final_reward'],
-        
-        # 计算效率
         "total_time_s": float(total_time),
         "time_per_episode_s": metrics['time_per_episode_s'],
         "time_per_step_ms": metrics['time_per_step_ms'],
         "total_steps": metrics['total_steps'],
-        
-        # 配置参数
         "learning_rate": float(getattr(config, 'learning_rate', 0.0)),
         "batch_size": int(getattr(config, 'batch_size', 0)),
         "epsilon_start": float(getattr(config, 'epsilon_start', 0.0)),
         "epsilon_end": float(getattr(config, 'epsilon_end', 0.0)),
-        
-        # 算法类型
         "algorithm_type": metrics['algorithm_type'],
+        "episode_rewards_series": ",".join([f"{r:.4f}" for r in stats.get('episode_rewards', [])]),
+
     }
-    
-    # 添加额外指标
+    # 额外指标统一加 custom_ 前缀
+    custom_metrics = {}
     if additional_metrics:
         for key, value in additional_metrics.items():
-            if isinstance(value, (int, float, bool)):
-                row[f"custom_{key}"] = float(value)
-            else:
-                row[f"custom_{key}"] = str(value)
-    
+            custom_metrics[f"custom_{key}"] = float(value) if isinstance(value, (int, float, bool)) else str(value)
+    # 合并所有字段，保证表头一致
+    row.update(custom_metrics)
+    # 读取已有表头，合并所有可能字段
+    file_exists = output_file.exists()
+    fieldnames = list(row.keys())
+    if file_exists:
+        with open(output_file, "r", encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            old_fields = list(reader.fieldnames) if reader.fieldnames else []
+            # 合并已有字段和新字段
+            for k in old_fields:
+                if k not in fieldnames:
+                    fieldnames.append(k)
+            for k in fieldnames:
+                if k not in old_fields:
+                    old_fields.append(k)
+            fieldnames = old_fields
     # 写入CSV文件
     try:
-        file_exists = output_file.exists()
         with open(output_file, "a", newline="", encoding='utf-8') as f:
-            writer = csv.DictWriter(f, fieldnames=row.keys())
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
             if not file_exists:
                 writer.writeheader()
+            # 补齐缺失字段
+            for k in fieldnames:
+                if k not in row:
+                    row[k] = ""
             writer.writerow(row)
         print(f"算法结果已保存到: {output_file}")
         return True

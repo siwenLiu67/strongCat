@@ -19,17 +19,11 @@ current_dir = Path(__file__).parent
 if str(current_dir) not in sys.path:
     sys.path.insert(0, str(current_dir))
 
-try:
-    from config import Config
-    from case_generator import FlexibleJobShopScenario
-    from algorithm_results_saver import save_algorithm_results_csv, set_random_seed
-except ImportError as e:
-    print(f"导入模块失败: {e}")
-    print("请确保以下文件在同一目录下：")
-    print("- config.py")
-    print("- case_generator.py") 
-    print("- algorithm_results_saver.py")
-    sys.exit(1)
+
+from config import Config
+from case_generator import FlexibleJobShopScenario
+from algorithm_results_saver import save_algorithm_results_csv, set_random_seed
+from run_ruleDqn_dispatchHeuri import run_ruleDqn_dispatchHeuri_experiment
 
 @dataclass
 class PaperInstanceConfig:
@@ -125,9 +119,9 @@ class PaperBasedInstanceGenerator:
         """生成基准测试算例（论文中的关键配置）"""
         return [
             # 基准配置 - 对应论文中的典型设置
-            PaperInstanceConfig(20, 20, 50, 5),   # 标准配置
-            PaperInstanceConfig(10, 20, 30, 3),   # 资源受限
-            PaperInstanceConfig(30, 20, 70, 7),   # 大规模配置
+           # PaperInstanceConfig(20, 20, 50, 5),   # 标准配置
+            PaperInstanceConfig(3, 10, 10, 3),   # 资源受限
+           # PaperInstanceConfig(30, 20, 70, 7),   # 大规模配置
         ]
 
 class UniversalAlgorithmRunner:
@@ -217,8 +211,8 @@ class UniversalAlgorithmRunner:
         config.num_dynamic_jobs = instance.num_dynamic_jobs
         
         # 论文Table 2中的参数
-        config.min_operations = 3
-        config.max_operations = 5
+        config.min_operations = 1
+        config.max_operations = 3
         config.min_processing_time = 5
         config.max_processing_time = 15
         config.min_job_amount = 1
@@ -262,7 +256,7 @@ class UniversalAlgorithmRunner:
             
             # 运行算法
             if algo_name == 'RuleDQN_DispatchHeuri':
-                result = self._run_main_based_algorithm(algorithm_func, config, case, seed)
+                result = run_ruleDqn_dispatchHeuri_experiment(config, case, seed)
             else:
                 result = algorithm_func(config, case, seed, **kwargs)
             
@@ -306,27 +300,10 @@ class UniversalAlgorithmRunner:
                 'instance_id': instance.name
             }
     
-    def _run_main_based_algorithm(self, main_func, config, case, seed):
-        """运行基于main函数的算法"""
-        # 这里需要根据具体算法的接口进行适配
-        import sys
-        original_argv = sys.argv
-        sys.argv = ['algorithm', '--config', 'dummy']
-        
-        try:
-            main_func()
-            return {
-                'stats': {'episode_rewards': [0], 'makespans': [0]},
-                'env': case,
-                'additional_metrics': {}
-            }
-        finally:
-            sys.argv = original_argv
-    
+
     def run_paper_experiments(self, algo_name: str, 
-                            instance_type: str = 'scaled',
-                            seeds: Optional[List[int]] = None,
-                            base_config: Optional[Config] = None,
+                            instance_type: str,
+                            base_config,
                             **kwargs):
         """运行基于论文参数的实验"""
         
@@ -339,10 +316,9 @@ class UniversalAlgorithmRunner:
             instances = self.paper_generator.generate_benchmark_instances()
         else:
             raise ValueError(f"不支持的算例类型: {instance_type}")
-        
-        if seeds is None:
-            seeds = self.default_seeds
-        
+
+        seeds = base_config.seeds
+
         print(f"📊 准备运行 {algo_name} 算法")
         print(f"   算例类型: {instance_type}")
         print(f"   算例数量: {len(instances)}")
@@ -395,23 +371,15 @@ class UniversalAlgorithmRunner:
         return results
 
 def run_batch_experiment(
-    algorithm="DQN",
-    instance_type="benchmark",
-    seeds=[42, 123, 456],
-    episodes=50,
-    learning_rate=0.001,
-    batch_size=32
+    algorithm,
+    instance_type
 ):
     runner = UniversalAlgorithmRunner()
     base_config = Config()
-    base_config.episodes = episodes
-    base_config.learning_rate = learning_rate
-    base_config.batch_size = batch_size
 
     results = runner.run_paper_experiments(
         algo_name=algorithm,
         instance_type=instance_type,
-        seeds=seeds,
         base_config=base_config
     )
     successful = sum(1 for r in results if r['success'])
@@ -425,10 +393,6 @@ def run_batch_experiment(
 if __name__ == "__main__":
     # 直接调用，无需命令行参数
     run_batch_experiment(
-        algorithm="DQN",           # 修改为你要运行的算法
+        algorithm="RuleDQN_DispatchHeuri",   # 修改为你要运行的法
         instance_type="benchmark", # 可选: benchmark, scaled, all
-        seeds=[42, 123, 456],      # 可自定义
-        episodes=50,               # 可自定义
-        learning_rate=0.001,       # 可自定义
-        batch_size=32              # 可自定义
     )

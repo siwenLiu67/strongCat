@@ -354,11 +354,26 @@ class FJSSPEnvironment:
     def _calculate_tardiness_penalty(self) -> float:
         """计算延误惩罚"""
         penalty = 0
+        for distributor in self.distributors:
+                min_due_time = min(distributor.delivery_requirements.due_times) if distributor.delivery_requirements else float('inf')
+                if min_due_time < self.current_time:
+                    # 计算每个配送商的延迟成本
+                    requirement = distributor.delivery_requirements
+                    for due_time, ratio, weight in zip(requirement.due_times, requirement.ratios, requirement.weights):
+                        # 在这个due_time之前完成的作业
+                        completed_jobs = [j for j in self.completed_jobs if j.dispatched_time <= due_time]
+                        completed_amount = sum(j.amount for j in completed_jobs)
+                        required_amount = ratio * distributor.total_amount
+                        if completed_amount < required_amount:
+                            penalty = (required_amount - completed_amount) * weight
+                            reward -= int(penalty)
+        # 计算配送完工时间延迟
         for job in self.completed_jobs:
-            due_date = getattr(job, 'due_date', 100)
-            if job.completed_time > due_date:
-                penalty += (job.completed_time - due_date) * 0.1
-        return penalty
+            tardiness = max(0, job.dispatched_time - job.due_date)
+            self.total_weighted_tardiness += tardiness
+            reward -= tardiness 
+                           
+        return penalty+tardiness
     
     def _is_done(self) -> bool:
         """检查是否完成"""
@@ -689,6 +704,50 @@ def main():
     )
 
 
+def run_dqn_experiment(config, case, seed, **kwargs):
+    """
+    批量实验统一入口，供批量运行器调用
+    """
+    # 设置随机种子
+    import random, numpy as np, torch
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+
+    # 构建环境和智能体
+    env = FJSSPEnvironment(case)
+    state_dim = 20
+    action_dim = 20000
+    agent = DQNAgent(state_dim, action_dim, config)
+    episodes = getattr(config, "episodes", 50)
+    stats = defaultdict(list)
+
+    for episode in range(episodes):
+        state = env.reset()
+        episode_reward = 0
+        while True:
+            valid_actions = env._get_valid_actions()
+            if not valid_actions:
+                valid_actions = [99999]
+            action = agent.select_action(state, valid_actions)
+            next_state, reward, done, info = env.step(action)
+            agent.store_transition(state, action, reward, next_state, done)
+            agent.update()
+            state = next_state
+            episode_reward += reward
+            if done:
+                break
+        stats['episode_rewards'].append(episode_reward)
+        stats['makespans'].append(env.current_time)
+        stats['completed_jobs'].append(len(env.completed_jobs))
+        stats['dispatched_jobs'].append(len(env.dispatched_jobs))
+
+    result = {
+        "stats": stats,
+        "env": env,
+        "additional_metrics": {}
+    }
+    return result
 
 def test_trained_model():
     """测试训练好的模型"""
