@@ -97,7 +97,7 @@ class FlexibleJobShopScenario:
                 amount=job_amount,
                 operations=operations,
                 # 分配给的配送商ID,注意区间范围
-                distributor_id=np.random.randint(0, self.num_distributors)
+                distributor_id=np.random.randint(0, self.num_distributors)      
             )
 
             return job
