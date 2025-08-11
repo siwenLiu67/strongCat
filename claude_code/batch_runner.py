@@ -14,9 +14,22 @@ import argparse
 from dataclasses import dataclass
 import itertools
 
-from config import Config
-from case_generator import FlexibleJobShopScenario
-from algorithm_results_saver import save_algorithm_results_csv, generate_instance_id, set_random_seed
+# 添加当前目录到 Python 路径
+current_dir = Path(__file__).parent
+if str(current_dir) not in sys.path:
+    sys.path.insert(0, str(current_dir))
+
+try:
+    from config import Config
+    from case_generator import FlexibleJobShopScenario
+    from algorithm_results_saver import save_algorithm_results_csv, set_random_seed
+except ImportError as e:
+    print(f"导入模块失败: {e}")
+    print("请确保以下文件在同一目录下：")
+    print("- config.py")
+    print("- case_generator.py") 
+    print("- algorithm_results_saver.py")
+    sys.exit(1)
 
 @dataclass
 class PaperInstanceConfig:
@@ -188,11 +201,14 @@ class UniversalAlgorithmRunner:
             # 复制基础配置
             config = Config()
             for attr in dir(base_config):
-                if not attr.startswith('_'):
-                    setattr(config, attr, getattr(base_config, attr))
+                if not attr.startswith('_') and not callable(getattr(base_config, attr)):
+                    try:
+                        setattr(config, attr, getattr(base_config, attr))
+                    except AttributeError:
+                        continue  # 跳过不能设置的属性
         
-        # 设置论文参数
-        config.num_initial_jobs = instance.total_jobs
+        # 修复：设置正确的作业数量
+        config.num_initial_jobs = instance.num_initial_jobs  # 初始作业数量，用于生成算例
         config.num_machines = instance.num_machines
         config.num_distributors = instance.num_distributors
         
@@ -214,6 +230,11 @@ class UniversalAlgorithmRunner:
         config.earliest_delivery_time = 10
         config.latest_delivery_time = 200  # 根据处理时间估算
         
+        # 动态到达参数
+        config.batch_arrival_probability = 0.15
+    
+        config.max_batch_size = 5
+        
         return config
     
     def run_single_experiment(self, algo_name: str, instance: PaperInstanceConfig, seed: int, 
@@ -229,16 +250,16 @@ class UniversalAlgorithmRunner:
         # 创建配置
         config = self.create_paper_config(instance, base_config)
         
-        # 生成算例
-        case = FlexibleJobShopScenario(config=config)
-        
-        # 获取算法函数
-        algorithm_func = self.get_algorithm_function(algo_name)
-        
         # 记录开始时间
         start_time = time.time()
         
         try:
+            # 生成算例
+            case = FlexibleJobShopScenario(config=config)
+            
+            # 获取算法函数
+            algorithm_func = self.get_algorithm_function(algo_name)
+            
             # 运行算法
             if algo_name == 'RuleDQN_DispatchHeuri':
                 result = self._run_main_based_algorithm(algorithm_func, config, case, seed)
@@ -275,6 +296,8 @@ class UniversalAlgorithmRunner:
             total_time = end_time - start_time
             
             print(f"❌ 失败: {algo_name} - {instance.name}: {str(e)}")
+            import traceback
+            print(f"错误详情: {traceback.format_exc()}")
             
             return {
                 'success': False,
@@ -371,63 +394,41 @@ class UniversalAlgorithmRunner:
         
         return results
 
-def main():
-    """命令行入口"""
-    parser = argparse.ArgumentParser(description='基于论文参数的通用算法运行器')
-    parser.add_argument('algorithm', help='算法名称')
-    parser.add_argument('--instance-type', choices=['all', 'scaled', 'benchmark'], 
-                       default='scaled', help='算例类型')
-    parser.add_argument('--seeds', nargs='+', type=int, default=[42, 123, 456, 789, 999], 
-                       help='随机种子列表')
-    parser.add_argument('--episodes', type=int, default=100, help='RL算法的episode数')
-    parser.add_argument('--learning-rate', type=float, default=0.001, help='学习率')
-    parser.add_argument('--batch-size', type=int, default=32, help='批量大小')
-    parser.add_argument('--list-algorithms', action='store_true', help='列出支持的算法')
-    parser.add_argument('--list-instances', action='store_true', help='列出预定义算例')
-    
-    args = parser.parse_args()
-    
+def run_batch_experiment(
+    algorithm="DQN",
+    instance_type="benchmark",
+    seeds=[42, 123, 456],
+    episodes=50,
+    learning_rate=0.001,
+    batch_size=32
+):
     runner = UniversalAlgorithmRunner()
-    
-    if args.list_algorithms:
-        print("支持的算法:")
-        for algo in runner.algorithm_modules.keys():
-            print(f"  - {algo}")
-        return
-    
-    if args.list_instances:
-        print("算例类型:")
-        print("  all: 所有论文参数组合 (27个算例)")
-        print("  scaled: 不同规模代表性算例 (7个算例)")
-        print("  benchmark: 基准测试算例 (3个算例)")
-        
-        print("\n基准测试算例详情:")
-        instances = runner.paper_generator.generate_benchmark_instances()
-        for i, instance in enumerate(instances, 1):
-            print(f"  {i}. {instance.name}: "
-                  f"{instance.total_jobs}作业({instance.num_initial_jobs}+{instance.num_dynamic_jobs}), "
-                  f"{instance.num_machines}机器, {instance.num_distributors}配送商")
-        return
-    
-    # 创建基础配置
     base_config = Config()
-    base_config.episodes = args.episodes
-    base_config.learning_rate = args.learning_rate
-    base_config.batch_size = args.batch_size
-    
-    # 运行实验
-    try:
-        results = runner.run_paper_experiments(
-            algo_name=args.algorithm,
-            instance_type=args.instance_type,
-            seeds=args.seeds,
-            base_config=base_config
-        )
-    except Exception as e:
-        print(f"运行失败: {e}")
-        return 1
-    
-    return 0
+    base_config.episodes = episodes
+    base_config.learning_rate = learning_rate
+    base_config.batch_size = batch_size
+
+    results = runner.run_paper_experiments(
+        algo_name=algorithm,
+        instance_type=instance_type,
+        seeds=seeds,
+        base_config=base_config
+    )
+    successful = sum(1 for r in results if r['success'])
+    print(f"\n📄 实验摘要:")
+    print(f"   总实验数: {len(results)}")
+    print(f"   成功: {successful}")
+    print(f"   失败: {len(results) - successful}")
+    print(f"   结果已保存到: results/algorithm_comparison.csv")
+    return results
 
 if __name__ == "__main__":
-    exit(main())
+    # 直接调用，无需命令行参数
+    run_batch_experiment(
+        algorithm="DQN",           # 修改为你要运行的算法
+        instance_type="benchmark", # 可选: benchmark, scaled, all
+        seeds=[42, 123, 456],      # 可自定义
+        episodes=50,               # 可自定义
+        learning_rate=0.001,       # 可自定义
+        batch_size=32              # 可自定义
+    )
