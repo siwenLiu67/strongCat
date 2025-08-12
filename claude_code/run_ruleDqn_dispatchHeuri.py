@@ -98,7 +98,16 @@ def run_ruleDqn_dispatchHeuri_experiment(config, case, seed, **kwargs):
         stats['makespans'].append(getattr(env, 't', getattr(env, 'current_time', 0)))
         stats['running_times'].append(time.time() - start_time)
         stats['tardy_penalty'].append(getattr(env, 'tardy_penalty', 0))
+        stats['total_tardiness'].append(getattr(env, 'total_weighted_tardiness', 0))
         stats['meta_losses'].append(meta_loss)
+        stats['objective_value'].append(episode_reward + getattr(env, 'tardy_penalty', 0) + getattr(env, 'total_weighted_tardiness', 0))
+        stats['machine_utilization'].append(calculate_machine_utilization(env))
+        job = env.dispatched_jobs[0]
+
+        distributor = env.distributors[job.distributor_id] if job else None
+
+        print(job)
+        print(distributor)
     total_time = time.time() - start_time
     additional_metrics = {
         "meta_agent_loss": float(np.mean(stats['meta_losses'][-10:])) if stats['meta_losses'] else 0.0,
@@ -123,6 +132,16 @@ def run_ruleDqn_dispatchHeuri_experiment(config, case, seed, **kwargs):
         'additional_metrics': additional_metrics
     }
     return result
+
+def calculate_machine_utilization(env) -> float:
+    """计算机器利用率"""
+    """计算最终机器利用率"""
+    makespan = env.t if env.t > 0 else 1
+    total_work_time = sum(getattr(m, 'total_busy_time', 0) for m in env.machines)
+    total_available_time = makespan * len(env.machines)
+    if total_available_time == 0:
+        return 0.0
+    return total_work_time / total_available_time
 
 # 保留原main函数用于单独运行
 def main():

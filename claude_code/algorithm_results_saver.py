@@ -35,7 +35,7 @@ def save_algorithm_results_csv(
         "num_distributors": metrics['num_distributors'],
         "num_episodes": metrics['num_episodes'],
         "total_tardiness": metrics['total_tardiness'],
-        "weighted_shortage": metrics['weighted_shortage'],
+        "tardy_penalty": metrics['tardy_penalty'],
         "objective_value": metrics['objective_value'],
         "final_makespan": metrics['final_makespan'],
         "avg_makespan": metrics['avg_makespan'],
@@ -60,13 +60,8 @@ def save_algorithm_results_csv(
         "episode_rewards_series": ",".join([f"{r:.4f}" for r in stats.get('episode_rewards', [])]),
 
     }
-    # 额外指标统一加 custom_ 前缀
-    custom_metrics = {}
-    if additional_metrics:
-        for key, value in additional_metrics.items():
-            custom_metrics[f"custom_{key}"] = float(value) if isinstance(value, (int, float, bool)) else str(value)
-    # 合并所有字段，保证表头一致
-    row.update(custom_metrics)
+    
+    
     # 读取已有表头，合并所有可能字段
     file_exists = output_file.exists()
     fieldnames = list(row.keys())
@@ -131,53 +126,12 @@ def _extract_unified_metrics(stats: Dict, env: Any, config: Any, total_time: flo
         'algorithm_type': 'Unknown'
     }
     
-    # 1. 检测启发式算法结果 (SolutionResult对象)
-    if hasattr(env, 'total_objective') and hasattr(env, 'schedule_result'):
-        metrics.update(_extract_heuristic_metrics(env, stats, config, total_time))
     
-    # 2. 检测强化学习结果
-    elif 'episode_rewards' in stats and len(stats['episode_rewards']) > 1:
-        metrics.update(_extract_rl_metrics(stats, env, config, total_time))
     
-    # 3. 其他情况的通用处理
-    else:
-        metrics.update(_extract_generic_metrics(stats, env, config, total_time))
+    metrics.update(_extract_rl_metrics(stats, env, config, total_time))
     
+   
     return metrics
-
-
-def _extract_heuristic_metrics(result, stats: Dict, config: Any, total_time: float) -> Dict:
-    """提取启发式算法指标"""
-    schedule_result = getattr(result, 'schedule_result', None)
-    dispatch_result = getattr(result, 'dispatch_result', None)
-    
-    metrics = {
-        'algorithm_type': 'Heuristic',
-        'num_episodes': 1,
-        'objective_value': float(getattr(result, 'total_objective', 0.0)),
-        'time_per_episode_s': total_time,
-    }
-    
-    # 从config获取问题规模
-    metrics['num_jobs'] = getattr(config, 'num_jobs', 0)
-    metrics['num_machines'] = getattr(config, 'num_machines', 0)
-    metrics['num_distributors'] = getattr(config, 'num_distributors', 0)
-    
-    if schedule_result:
-        metrics['total_tardiness'] = float(getattr(schedule_result, 'total_tardiness', 0))
-        metrics['final_makespan'] = float(getattr(schedule_result, 'makespan', 0))
-        metrics['avg_makespan'] = metrics['final_makespan']
-        
-        # 机器利用率
-        machine_util = getattr(schedule_result, 'machine_utilization', {})
-        if machine_util:
-            metrics['machine_utilization'] = float(np.mean(list(machine_util.values())))
-    
-    if dispatch_result:
-        metrics['demand_coverage'] = float(getattr(dispatch_result, 'on_time_delivery_rate', 0.0))
-    
-    return metrics
-
 
 def _extract_rl_metrics(stats: Dict, env: Any, config: Any, total_time: float) -> Dict:
     """提取强化学习算法指标"""
@@ -200,6 +154,10 @@ def _extract_rl_metrics(stats: Dict, env: Any, config: Any, total_time: float) -
         'time_per_episode_s': total_time / max(num_episodes, 1),
         'time_per_step_ms': (total_time / num_steps * 1000.0) if num_steps > 0 else 0.0,
         'total_steps': num_steps,
+        'tardy_penalty': stats.get('tardy_penalty', 0.0),
+        'total_tardiness': stats.get('total_weighted_tardiness', 0.0),
+        'objective_value': stats.get('objective_value', 0.0),
+        'machine_utilization': stats.get('machine_utilization', 0.0)
     }
     
     # 从环境获取问题规模

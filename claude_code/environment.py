@@ -40,6 +40,7 @@ class WarehouseEnvironment:
         # 初始化事件和统计指标
         self.arrival_events = []
         self.total_weighted_tardiness = 0
+        self.tardy_penalty = 0
         self.machine_utilization = []
         self.completion_times = {}
         self.last_schedule_time = 0
@@ -168,6 +169,7 @@ class WarehouseEnvironment:
         print("\n性能指标:")
         print(f"- 当前奖励: {reward:.2f}")
         print(f"- 总加权延迟: {self.total_weighted_tardiness:.2f}")
+        print(f"- 总迟延惩罚: {self.tardy_penalty:.2f}")
         print(f"- 作业推进比例: {self.calculate_operation_progress_ratio():.2%}")
         print(f"- 机器负载方差: {self.calculate_machine_load_variance():.2f}")
         
@@ -385,6 +387,7 @@ class WarehouseEnvironment:
                             penalty = (required_amount - completed_amount) * weight
                             reward -= int(penalty)
                             debug_info[f'distributor_{distributor.distributor_id}_due_time_{due_time}'] = -penalty
+                            self.tardy_penalty += int(penalty)    
 
             
             
@@ -513,7 +516,8 @@ class WarehouseEnvironment:
                         machine.status = 'busy'
                         machine.current_job = job.job_id
                         machine.remaining_time = current_op.processing_times[machine_id]
-                    
+                        machine.total_busy_time += current_op.processing_times[machine_id]
+
                         # 改变job 状态
                         # 更新作业状态
                         job.status = 'processing'
