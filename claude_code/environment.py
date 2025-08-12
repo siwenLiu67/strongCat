@@ -30,6 +30,7 @@ class WarehouseEnvironment:
         self.completed_jobs = []
         # 加工完成且配送完成的作业列表
         self.dispatched_jobs = []
+        self.next_job_id = len(case.jobs)  # 初始工件数
         
         # 初始化机器和配送商
         self.machines = []
@@ -186,7 +187,7 @@ class WarehouseEnvironment:
             return  # 第一个时间步不生成动态作业
         
         # 随机决定是否有作业到达
-        arrival_probability = getattr(self.config, 'batch_arrival_probability', 0.15)  # 每个时间步15%概率到达
+        arrival_probability = getattr(self.config, 'batch_arrival_probability', 0.75)  # 每个时间步75%概率到达
         
         if np.random.random() < arrival_probability:
             # 随机决定本次到达的作业数量
@@ -203,11 +204,8 @@ class WarehouseEnvironment:
                 arrived_jobs = []
                 for i in range(batch_size):
                     if self.remaining_dynamic_jobs > 0:
-                        # 生成新的动态作业ID（避免与现有作业重复）
-                        total_existing_jobs = (len(self.available_jobs) + 
-                                            len(self.completed_jobs) + 
-                                            len(self.dispatched_jobs))
-                        new_job_id = total_existing_jobs + i
+                    
+                        new_job_id = self.next_job_id
                         
                         # 生成新作业
                         new_job = self.case._generate_one_job(new_job_id)
@@ -220,6 +218,7 @@ class WarehouseEnvironment:
                         self.available_jobs.append(new_job)
                         arrived_jobs.append(new_job)
                         
+                        self.next_job_id += 1  # 保证每次唯一
                         # 更新计数器
                         self.remaining_dynamic_jobs -= 1
                         self.dynamic_jobs_arrived += 1
@@ -315,15 +314,18 @@ class WarehouseEnvironment:
     
     def _check_termination(self) -> bool:
         """检查是否达到终止条件"""
+        
         # 计算预期的总作业数量
         total_expected_jobs = len(self.initial_jobs) + self.config.num_dynamic_jobs
         
         # 终止条件：
         # 1. 达到最大时间步数，或
         # 2. 所有作业（初始+动态）都已配送完成且没有剩余动态作业
-        return (self.t >= self.config.max_time_steps or 
-                (len(self.dispatched_jobs) >= total_expected_jobs and 
-                self.remaining_dynamic_jobs <= 0))
+        boolean_condition = self.t >= self.config.max_time_steps or (len(self.dispatched_jobs) >= total_expected_jobs and self.remaining_dynamic_jobs <= 0)
+        if boolean_condition:
+            print(f"达到终止条件：{self.t} >= {self.config.max_time_steps} 或 (已配送作业数：{len(self.dispatched_jobs)} >= 预期总作业数：{total_expected_jobs} 且 剩余动态作业数：{self.remaining_dynamic_jobs} <= 0)")
+
+        return boolean_condition
 
 
     def _calculate_reward(self, action) -> float:
@@ -503,6 +505,7 @@ class WarehouseEnvironment:
                 # 获取当前工序
                 if job.current_operation >= len(job.operations):
                     print(f"警告：作业{job.job_id}已无可调度工序，跳过调度。")
+                    continue
                     
                 current_op = job.operations[job.current_operation]
                 if machine_id in current_op.available_machine_ids:

@@ -175,9 +175,15 @@ class FlexibleJobShopScenario:
                 continue
                 
             """为指定配送商生成交付要求"""
-            min_time = self.config.earliest_delivery_time
-            max_time = self.config.latest_delivery_time
-            
+           # min_time = self.config.earliest_delivery_time
+           # max_time = self.config.latest_delivery_time
+            # 估算所有工件的最短和最长加工+配送时间
+            min_proc = min([sum([min(op.processing_times.values()) for op in job.operations]) for job in self.jobs])
+            max_proc = max([sum([max(op.processing_times.values()) for op in job.operations]) for job in self.jobs])
+            delivery_buffer = 1  # 可调节
+
+            min_time = int(min_proc * 0.1)
+            max_time = int(max_proc * 1.1 + delivery_buffer)
             n_req = np.random.randint(
                     self.config.min_delivery_requirements,
                     self.config.max_delivery_requirements + 1
