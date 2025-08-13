@@ -34,7 +34,7 @@ class Config:
     latest_delivery_time = 20
     min_delivery_requirements = 1
     max_delivery_requirements = 3
-    min_load_ratio = 1
+    min_load_ratio = 0.2
 
     # Due date相关配置
     dispatch_preparation_time: int = 5  # 配送准备时间
@@ -44,7 +44,7 @@ class Config:
     amount_weight: float = 0.6          # 数量权重
     complexity_weight: float = 0.4      # 复杂度权重
 
-    max_time_steps = 300  # 增加时间步数让智能体有足够时间学习
+    max_time_steps = 150  # 增加时间步数让智能体有足够时间学习
     arrival_probability = 0
     max_job_num_limit = 20
     arrival_batch_size = 2

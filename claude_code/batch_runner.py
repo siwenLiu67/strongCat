@@ -120,7 +120,7 @@ class PaperBasedInstanceGenerator:
         return [
             # 基准配置 - 对应论文中的典型设置
            # PaperInstanceConfig(20, 20, 50, 5),   # 标准配置
-            PaperInstanceConfig(3, 10, 10, 3),   # 资源受限
+            PaperInstanceConfig(4, 4, 2, 1),   # 资源受限
            # PaperInstanceConfig(30, 20, 70, 7),   # 大规模配置
         ]
 

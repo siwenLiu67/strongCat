@@ -102,30 +102,6 @@ class WarehouseEnvironment:
         
         return self._get_state()
 
-    def _process_dynamic_arrivals(self):
-        """处理动态作业到达"""
-        if self.t == 0:  # t=0时不生成新作业
-            return
-        
-        if len(self.available_jobs) == self.config.max_job_num_limit:
-            # 如果当前作业数已达到限制，则不生成新作业
-            return  
-            
-        # 基于概率生成新作业
-        if np.random.random() < self.config.arrival_probability:
-            # 泊松分布决定到达数量
-            max_remaining_jobs = self.config.max_job_num_limit - len(self.available_jobs)
-            num_arrivals = max(max_remaining_jobs, np.random.poisson(self.config.arrival_batch_size))
-            for _ in range(num_arrivals):
-                new_job = self.case._generate_one_job(len(self.available_jobs))
-                self.available_jobs.append(new_job)
-                # 记录到达事件
-                self.arrival_events.append({
-                    'time': self.t,
-                    'job_id': new_job.job_id
-                })
-
-
     def _log_state_transition(self, action: Dict, reward: float):
         """记录状态转换（增强版）"""
         print(f"\n{'='*20}")
@@ -141,6 +117,9 @@ class WarehouseEnvironment:
         print(f"- 已加工作业数: {len(self.completed_jobs)}")
         print(f"- 已配送作业数: {len(self.dispatched_jobs)}")
         print(f"- 加工中作业数: {len(processing_jobs)}")
+        print(f"- 配送中作业数：{len([j for j in self.available_jobs if j.status == 'dispatching'])}")
+        print(f"- 等待中作业数：{len([j for j in self.available_jobs if j.status == 'waiting'])}")
+    
         print(f"- 动态作业进度: {self.dynamic_jobs_arrived}/{self.config.num_dynamic_jobs}")
         
         # 2. 机器状态
@@ -180,6 +159,19 @@ class WarehouseEnvironment:
             for event in current_arrivals:
                 print(f"- 作业{event['job_id']} (类型: {event.get('job_type', 'unknown')})")
 
+    def _update_distributor_job_mapping(self):
+            """更新配送商与作业的映射关系"""
+            for distributor in self.distributors:
+                # 清空当前映射
+                distributor.assigned_jobs = []
+                for job in self.available_jobs:
+                    if job.distributor_id == distributor.distributor_id:
+                        distributor.assigned_jobs.append(job.job_id)
+                        distributor.total_amount += job.amount
+
+                
+
+
     def _handle_batch_dynamic_arrivals(self):
         """处理批量动态作业随机到达"""
         if self.remaining_dynamic_jobs <= 0:
@@ -215,6 +207,9 @@ class WarehouseEnvironment:
                         new_job.job_type = 'dynamic'   # 标记为动态工件
                         new_job.status = 'waiting'     # 初始状态为等待
                         new_job.current_operation = 0  # 从第一道工序开始
+
+                        self._update_distributor_job_mapping()
+
                         
                         # 添加到可用作业列表
                         self.available_jobs.append(new_job)
@@ -245,6 +240,9 @@ class WarehouseEnvironment:
                         num_operations = len(job.operations)
                         amount = job.amount
                         print(f"     • 作业{job.job_id}: {num_operations}道工序, 数量{amount}, 配送商{distributor_id}")
+
+
+
 
     def get_dynamic_arrival_statistics(self):
         """获取动态作业到达统计信息"""
@@ -450,7 +448,7 @@ class WarehouseEnvironment:
                     self.completed_jobs.append(job)
                     self.completion_times[job.job_id] = self.t
                     job.completed_time = self.t
-        self.available_jobs = [j for j in self.available_jobs if j.status != 'dispatched']
+        #self.available_jobs = [j for j in self.available_jobs if j.status != 'dispatched']
 
 
     def _update_machine_states(self):
@@ -469,12 +467,12 @@ class WarehouseEnvironment:
             # 更新工序进度
             job.current_operation += 1
             self.operation_completed_this_step = True
-            
+            operation = job.operations[job.current_operation - 1] 
+            operation.completed_time = self.t  # 设置工序完成时间
             # 检查是否所有工序都完成
             if job.current_operation >= len(job.operations):
                 job.status = 'completed'
                 if job not in self.completed_jobs:
-                    self.completed_jobs.append(job)
                     self.job_completed_this_step = True
 
             else:
@@ -560,7 +558,7 @@ class WarehouseEnvironment:
                 job.dispatch_remaining_time -= 1
                 if job.dispatch_remaining_time <= 0:
                     job.status = 'dispatched'
-                    job.dispatch_time = self.t  # 配送完成时间
+                    job.dispatched_time = self.t  # 配送完成时间
                     if job not in self.dispatched_jobs:
                         self.dispatched_jobs.append(job)
                         self.job_dispatched_this_step = True

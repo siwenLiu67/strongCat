@@ -175,12 +175,12 @@ class FlexibleJobShopScenario:
                 continue
                 
             """为指定配送商生成交付要求"""
-           # min_time = self.config.earliest_delivery_time
-           # max_time = self.config.latest_delivery_time
+            # min_time = self.config.earliest_delivery_time
+            # max_time = self.config.latest_delivery_time
             # 估算所有工件的最短和最长加工+配送时间
             min_proc = min([sum([min(op.processing_times.values()) for op in job.operations]) for job in self.jobs])
             max_proc = max([sum([max(op.processing_times.values()) for op in job.operations]) for job in self.jobs])
-            delivery_buffer = 1  # 可调节
+            delivery_buffer = 10  # 可调节
 
             min_time = int(min_proc * 0.1)
             max_time = int(max_proc * 1.1 + delivery_buffer)
@@ -188,8 +188,18 @@ class FlexibleJobShopScenario:
                     self.config.min_delivery_requirements,
                     self.config.max_delivery_requirements + 1
             )
-                
-            ratios = np.linspace(1/n_req, 1, n_req)
+            fixed_ratios_list = [
+                [0.3, 0.6, 1.0],
+                [0.45, 0.8, 1.0],
+                [0.2, 0.5, 1.0],
+                [0.4, 0.7, 1.0],
+                [0.5, 1.0],
+                [0.75, 1.0]
+            ]
+                        
+            # 随机选择一种固定比例
+            ratios = fixed_ratios_list[np.random.randint(0, len(fixed_ratios_list))]
+
             
             # 使用配送商差异化策略生成due_times
             due_times = self._generate_distributor_based_due_times(
@@ -222,9 +232,8 @@ class FlexibleJobShopScenario:
             )
 
             self.distributors.append(distributor)
-
     
-
+    
 # 使用示例
 if __name__ == "__main__":
     config = Config()
