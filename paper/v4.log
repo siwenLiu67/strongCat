@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2025.5.9)  10 AUG 2025 21:10
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2025.5.9)  18 AUG 2025 21:04
 entering extended mode
  \write18 enabled.
  file:line:error style messages enabled.
@@ -592,22 +592,19 @@ Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
 [12]
-Overfull \hbox (72.36243pt too wide) in paragraph at lines 587--600
- [][] 
- []
-
-
 
 [13]
 
-LaTeX Warning: Reference `tab:baseline-comparison' on page 14 undefined on input line 620.
+LaTeX Warning: Reference `tab:baseline-comparison' on page 14 undefined on input line 650.
 
 
-LaTeX Warning: Reference `sec:analysis' on page 14 undefined on input line 620.
+LaTeX Warning: Reference `sec:analysis' on page 14 undefined on input line 650.
 
 
 
-[14] (./v4.aux)
+[14]
+
+[15] (./v4.aux)
  ***********
 LaTeX2e <2024-11-01> patch level 2
 L3 programming layer <2025-01-18>
@@ -616,25 +613,22 @@ L3 programming layer <2025-01-18>
 
 LaTeX Warning: There were undefined references.
 
-
-LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
-
 Package rerunfilecheck Info: File `v4.out' has not changed.
 (rerunfilecheck)             Checksum: D7FE4B0E1962D810FDEEF744AD5C5883;4269.
  ) 
 Here is how much of TeX's memory you used:
- 14669 strings out of 475118
- 230391 string characters out of 5765021
- 759121 words of memory out of 5000000
+ 14670 strings out of 475118
+ 230406 string characters out of 5765021
+ 758613 words of memory out of 5000000
  37144 multiletter control sequences out of 15000+600000
  615700 words of font info for 224 fonts, out of 8000000 for 9000
  36 hyphenation exceptions out of 8191
  79i,15n,93p,2203b,588s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cmextra/cmex7.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi5.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi7.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmr5.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy5.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy7.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/symbols/msbm10.pfb><d:/texlive/2025/texmf-dist/fonts/type1/public/cm-super/sftt1000.pfb><d:/texlive/2025/texmf-dist/fonts/type1/urw/times/utmb8a.pfb><d:/texlive/2025/texmf-dist/fonts/type1/urw/times/utmr8a.pfb><d:/texlive/2025/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
-Output written on v4.pdf (14 pages, 271707 bytes).
+Output written on v4.pdf (15 pages, 271684 bytes).
 PDF statistics:
- 286 PDF objects out of 1000 (max. 8388607)
- 235 compressed objects within 3 object streams
- 67 named destinations out of 1000 (max. 500000)
+ 290 PDF objects out of 1000 (max. 8388607)
+ 238 compressed objects within 3 object streams
+ 68 named destinations out of 1000 (max. 500000)
  56489 words of extra memory for PDF output out of 61914 (max. 10000000)
 

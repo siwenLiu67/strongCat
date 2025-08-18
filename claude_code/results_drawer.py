@@ -37,7 +37,7 @@ plt.tight_layout()
 plt.show()
 
 # ----------- 新增收敛曲线图 -----------
-# 每个算例，每个算法，绘制平均收敛曲线
+# 每个算例的不同随机种子结果，取完平均后进行收敛图绘制
 fig2, axes2 = plt.subplots(nrows=nrows, ncols=ncols, figsize=(6*ncols, 4*nrows), squeeze=False)
 
 for idx, instance in enumerate(instances):

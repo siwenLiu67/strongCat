@@ -509,11 +509,13 @@ We evaluate the performance of the proposed HDRL framework through extensive com
 
 This section describes the experimental settings used to evaluate the proposed hierarchical deep reinforcement learning (HDRL) framework. All experiments are conducted within a custom-designed simulation platform implemented in Python 3.10.6 with PyTorch 2.7.0. The simulation environment emulates a flexible job shop with integrated scheduling and dispatching, aiming to assess the robustness, scalability, and adaptability of the proposed method under dynamic and large-scale production–distribution conditions.
 
-In the production stage, the shop floor consists of $m \in \{10, 20, 30\}$ heterogeneous machines. The system is initially loaded with $n_{\text{init}}=20$ jobs, and an additional $n_{\text{add}} \in \{30, 50, 70\}$ jobs arrive dynamically over time. Job arrivals follow a Poisson process with an average rate $\lambda = 0.5$. Each job comprises $n_i \sim \mathcal{U}[3,5]$ sequential operations, with processing times $t_{ij} \sim \mathcal{U}[5,15]$ time units. Machine eligibility for each operation is randomly assigned. Each job $j$ also has an associated goods quantity $q_j \sim \mathcal{U}[1,5]$ to be delivered upon completion.
+To evaluate the performance of the proposed method, a systematic set of benchmark instances was constructed based on the practical online retail scenarios. In the production stage, three system scales were considered, corresponding to small (20 initial jobs and 10 machines), medium (80 jobs and 20 machines), and large (140 jobs and 30 machines). All jobs arrive dynamically, with release times following a Poisson distribution with mean rate $\lambda=0.5$, and the total number of the dynamic job in all instance scales is $\{20, 40, 60, 80\}$. Each job $j$ consists of $n_i \sim \mathcal{U}[3,5]$ sequential operations, with processing times $t_{ij} \sim \mathcal{U}[5,15]$, and machine eligibility randomly assigned to reflect typical flexible job shop characteristics. Upon completion, each job carries a goods quantity $q_j \sim \mathcal{U}[50,100]$ to be delivered.
 
-In the distribution stage, the system includes $d \in \{3, 5, 7\}$ distributors. Each distributor has $w_d \sim \mathcal{U}[2,3]$ due time windows, with a delivery coverage ratio $\rho_d \sim \mathcal{U}[0.2,1]$ representing the proportion of completed goods required to meet delivery commitments. Unfulfilled deliveries incur a penalty weight $w_d \sim \mathcal{U}[0.5,1]$. These settings collectively capture the diversity of delivery urgency, resource constraints, and personalization demands in realistic production–distribution systems.
 
-To simulate realistic delivery requirements in community group buying scenarios, we implement a distributor-based differentiated strategy for generating delivery time windows. The distributors are categorized into three types based on their service characteristics: \textit{express distributors} (ID $\bmod 3 = 0$) with time preference weights $[3.0, 2.0, 1.0]$ favoring early delivery windows, \textit{standard distributors} (ID $\bmod 3 = 1$) with uniform weights maintaining balanced time distribution, and \textit{economic distributors} (ID $\bmod 3 = 2$) with weights $[1.0, 2.0, 3.0]$ biased toward later delivery windows for cost optimization. For each distributor $d$, the number of delivery requirements $n_{req}$ is randomly sampled from $\mathcal{U}[2, 3]$, and the corresponding due times $\delta_d$ are generated using cumulative weight distribution: $\delta_{d,i} = t_{min} + \frac{\sum_{j=1}^{i} w_j}{\sum_{k=1}^{n_{req}} w_k} \times (t_{max} - t_{min})$, where $w_j$ represents the type-specific weights, ensuring that different distributor types exhibit distinct temporal delivery patterns that reflect real-world service differentiation.
+In the distribution stage, the system involves $d \in \{10, 15, 20\}$ distributors, corresponding to single- and multi-distributor settings. Each distributor is assigned $w_d \in \{2,3\}$ delivery windows. Moreover, service heterogeneity is introduced: express distributors prioritize early windows, standard distributors maintain balanced distributions, and economic distributors prefer later windows to minimize cost. For each distributor $d$, the number of delivery requirements $n_{req}$ is sampled from $\mathcal{U}[2,3]$, and the corresponding due times $\delta_{d,i}$ are generated using the cumulative weighted distribution:
+$\delta_{d,i} = t_{\min} + \frac{\sum_{j=1}^{i} w_j}{\sum_{k=1}^{n_{req}} w_k} (t_{\max} - t_{\min})$, where $w_j$ denotes type-specific preference weights. This ensures that different distributor types exhibit distinct temporal delivery patterns aligned with realistic service differentiation.
+
+Overall, the instance design combines three system scales (small, medium, large) with three distribution configurations (express, standard, and economic), producing 12 core scenarios. By varying job numbers and machine numbers, the design is expanded to 36 instances in total, and each instance will run 5 times using different seeds. Thereby providing a comprehensive and systematic basis for performance evaluation.
 
 The HDRL framework consists of a meta-controller and two specialized sub-agents. The meta-controller receives a nine-dimensional high-level system state and is implemented as a three-layer feedforward neural network with hidden size 32, GeLU activation functions, dropout regularization, and Layer Normalization to enhance stability. An Upper Confidence Bound (UCB) exploration strategy is adopted to balance exploration and exploitation. The scheduling agent employs a hybrid Rule–DQN architecture that integrates eight heuristic rules with a two-layer multilayer perceptron (MLP) for Q-value approximation, trained using experience replay and soft target updates. The dispatching agent follows a heuristic policy enhanced with reward shaping and penalty terms for tardiness and delivery shortfalls.
 
@@ -531,14 +533,13 @@ The complete parameter configurations of the production–distribution scenarios
 \textbf{Parameter} & \textbf{Value} \\
 \midrule
 Number of machines ($m$) & \{10, 20, 30\} \\
-Number of initial jobs ($n_{\text{init}}$) & 20 \\
-Number of dynamically arrived jobs ($n_{\text{add}}$) & \{30, 50, 70\} \\
+Number of initial jobs ($n_{\text{init}}$) & \{20, 80, 140\} \\
+Number of dynamically arrived jobs ($n_{\text{add}}$) & \{20, 40, 60, 80\} \\
 Number of operations per job ($n_i$) & $\mathcal{U}[3, 5]$ \\
 Operation processing time ($t_{ij}$) & $\mathcal{U}[5, 15]$ \\
-Goods quantity of jobs ($q_j$) & $\mathcal{U}[1, 5]$ \\
-Number of distributors ($d$) & \{3, 5, 7\} \\
+Goods quantity of jobs ($q_j$) & $\mathcal{U}[50, 100]$ \\
+Number of distributors ($d$) & \{10, 15, 20\} \\
 Number of due time windows per distributor ($w_d$) & $\mathcal{U}[2, 3]$ \\
-Due time windoww of distributors ($\delta_d$) & $\mathcal{U}[10, 20]$ \\
 Ratio of delivery coverage ($\rho_d$) & $\mathcal{U}[0.2, 1]$ \\
 Penalty weight for delivery shortfall ($w_d$) & $\mathcal{U}[0.5, 1]$ \\
 
@@ -582,20 +583,48 @@ Besides, we also include a state-of-the-art solver, ortools, which implements a 
 
 \begin{table}[htbp]
 \centering
-\caption{Total tardiness comparison of heuristic baselines and the proposed HDRL method.}
-\label{tab:heuristic_tardiness}
-\begin{tabular}{ccccccccccc}
-\toprule
-\textbf{Instance ID} & \textbf{\#Jobs} & \textbf{\#Machines} & \textbf{\#Distributors} & \textbf{EDD} & \textbf{SPT} & \textbf{LPT} & \textbf{CR} & \textbf{Local Search} & \textbf{GA} & \textbf{Proposed} \\
-\midrule
-Small-01 & 8   & 4  & 2 & 149.0 & 152.5 & 160.3 & 148.7 & 133.2 & 128.7 & 120.4 \\
-Small-02 & 10  & 4  & 2 & 158.4 & 150.2 & 162.1 & 155.0 & 140.8 & 132.5 & 118.9 \\
-Small-03 & 12  & 4  & 2 & 162.0 & 159.3 & 165.7 & 160.4 & 138.9 & 130.1 & 116.7 \\
-Medium-01 & 40 & 8  & 3 & 480.3 & 470.2 & 498.6 & 465.7 & 422.1 & 408.9 & 390.5 \\
-Medium-02 & 60 & 8  & 3 & 690.7 & 672.5 & 710.3 & 675.4 & 633.0 & 610.4 & 588.2 \\
-Large-01 & 100 & 12 & 5 & 1150.6 & 1132.4 & 1180.9 & 1128.3 & 1075.2 & 1030.7 & 1005.9 \\
-Large-02 & 150 & 15 & 5 & 1720.8 & 1698.1 & 1754.6 & 1702.0 & 1620.5 & 1584.3 & 1530.4 \\
-\bottomrule
+\caption{Experimental results recording table}
+\label{tab:exp_results_with_heuristics}
+\begin{tabular}{cccccccc}
+\hline
+\textbf{Job ranges} & \textbf{Initial}& \textbf{Machines} & \textbf{Dynamic}  & \textbf{Distributors}  \\ \hline
+40--100 & 20& 10 & 20  & 5    \\
+        &    & &   & 10   \\
+        &   &  &   & 15   \\
+        &    & & 40  & 5   \\
+        &   &  &   & 10   \\
+        &   &  &   & 15  \\
+        &   &  & 60  & 5    \\
+        &   &  &     & 10   \\
+        &   &  &     & 15   \\
+        &   &  & 80  & 5    \\ 
+        &   &  &   & 10    \\ 
+        &   &  &   & 15    \\ \hline
+        100--160 & 80& 20 & 20  & 5    \\
+        &    & &   & 10   \\
+        &   &  &   & 15   \\
+        &    & & 40  & 5   \\
+        &   &  &   & 10   \\
+        &   &  &   & 15  \\
+        &   &  & 60  & 5    \\
+        &   &  &     & 10   \\
+        &   &  &     & 15   \\
+        &   &  & 80  & 5    \\ 
+        &   &  &   & 10    \\ 
+        &   &  &   & 15    \\ \hline
+        160--220 & 140& 30 & 20  & 5    \\
+        &    & &   & 10   \\
+        &   &  &   & 15   \\
+        &    & & 40  & 5   \\
+        &   &  &   & 10   \\
+        &   &  &   & 15  \\
+        &   &  & 60  & 5    \\
+        &   &  &     & 10   \\
+        &   &  &     & 15   \\
+        &   &  & 80  & 5    \\ 
+        &   &  &   & 10    \\ 
+        &   &  &   & 15    \\ \hline
+
 \end{tabular}
 \end{table}
 
@@ -605,7 +634,8 @@ Large-02 & 150 & 15 & 5 & 1720.8 & 1698.1 & 1754.6 & 1702.0 & 1620.5 & 1584.3 & 
 \label{fig:heuristic_baselines}
 \end{figure}
 
-As shown in Table~\ref{tab:heuristic_tardiness}, metaheuristic methods such as LS and GA generally outperform simple constructive heuristics like PR and GC in terms of reducing total tardiness. The GA achieves the best performance among the heuristic baselines, effectively balancing job completion timeliness and delivery coverage. Figure~\ref{fig:heuristic_baselines} further illustrates that the proposed HDRL framework consistently achieves superior results across both tardiness minimization and service-level metrics.
+As shown in Table~\ref{tab:exp_results_with_heuristics}
+metaheuristic methods such as LS and GA generally outperform simple constructive heuristics like PR and GC in terms of reducing total tardiness. The GA achieves the best performance among the heuristic baselines, effectively balancing job completion timeliness and delivery coverage. Figure~\ref{fig:heuristic_baselines} further illustrates that the proposed HDRL framework consistently achieves superior results across both tardiness minimization and service-level metrics.
 
 
 \subsection{Comparison with single-level DRL Methods}

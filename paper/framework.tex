@@ -1,0 +1,99 @@
+\documentclass[tikz,border=6pt]{standalone}
+\usetikzlibrary{arrows.meta,positioning,fit,shadows,calc}
+\begin{document}
+\begin{tikzpicture}[
+  font=\sffamily, node distance=6mm,
+  box/.style={draw, rounded corners, align=center, inner sep=3pt, minimum height=7mm},
+  panel/.style={box, ultra thick, fill=#1!12, draw=#1!60},
+  module/.style={box, fill=white, draw=black!60},
+  line/.style={-{Latex[length=2.5mm]}, thick},
+  dashedline/.style={dash pattern=on 2pt off 1.2pt, -{Latex[length=2.5mm]}, thick, draw=black!60}
+]
+
+% ===== Environment panel =====
+\node[panel=blue!60] (ENV) {Environment\\\footnotesize Production–Dispatch Integrated};
+\node[module, below=2mm of ENV.west, anchor=west, xshift=2mm] (e1) {Machines \& Queues};
+\node[module, below=1mm of e1.west, anchor=west] (e2) {Distributors \& Time Windows};
+\node[module, below=1mm of e2.west, anchor=west] (e3) {Dynamic Arrivals, Clock $t$};
+
+% ===== State node =====
+\node[module, right=25mm of e2, align=left, text width=53mm] (STATE)
+{State (9-D): new-arrival ratio; load imbalance; urgent ratio;\\
+ last-schedule gap; system pressure; completion/dispatch ratio;\\
+ avg utilization; avg waiting};
+
+\draw[line] (ENV.east) -- ++(5mm,0) |- (STATE.west);
+
+% ===== Meta-Controller panel =====
+\node[panel=orange!70, right=18mm of STATE, minimum width=48mm] (META) {Meta-Controller\\\footnotesize Policy Gradient + Entropy};
+\node[module, below=2mm of META.north, yshift=-6mm] (m1) {Action Mask};
+\node[module, below=1mm of m1] (m2) {UCB-style Bonus};
+\node[module, below=1mm of m2] (m3) {Policy $\pi_\theta$ (logits→softmax)};
+
+\draw[line] (STATE.east) -- (m1.west);
+\draw[line] (m1) -- (m2) -- (m3);
+
+% Router
+\node[module, right=10mm of m3, minimum width=28mm] (router) {Option Router\\ schedule / dispatch / wait};
+\draw[line] (m3.east) -- (router.west);
+
+% ===== Scheduling (Rule-DQN) panel =====
+\node[panel=green!60, right=16mm of router, minimum width=53mm] (SCHED) {Low-level Scheduling: Rule-DQN};
+\node[module, below=2mm of SCHED.north, yshift=-6mm, text width=47mm] (f1)
+{Local features: ready ops, machine idle/remaining time, …};
+\node[module, below=1mm of f1, text width=47mm] (q)
+{DQN selects rule \{EDD, SPT, LPT, CR, …\}};
+\node[module, below=1mm of q, text width=47mm] (exe)
+{Rule executor + greedy EAU/EFT assignment};
+
+\draw[line] (router.east) -- ++(3mm,0) |- (SCHED.west);
+
+% ===== Dispatch (Heuristic) panel =====
+\node[panel=red!60, below=10mm of SCHED, minimum width=53mm] (DISP) {Low-level Dispatch: Heuristic};
+\node[module, below=2mm of DISP.north, yshift=-6mm, text width=47mm] (g1) {Group by distributor};
+\node[module, below=1mm of g1, text width=47mm] (g2) {Score $-\text{wait}/\text{proc}^2$};
+\node[module, below=1mm of g2, text width=47mm] (g3) {Stable sort: score$\downarrow$, completion$\uparrow$};
+\node[module, below=1mm of g3, text width=47mm] (g4) {Window batching: width=$time\_window$, cap=$num\_windows$};
+\node[module, below=1mm of g4, text width=47mm] (g5) {Form batches \& plan dispatch time};
+
+\draw[line] (router.south) -- ++(0,-6mm) -| (DISP.west);
+
+% ===== Wait branch =====
+\node[module, below=12mm of router] (WAIT) {Advance time/state only};
+\draw[line] (router.south) -- (WAIT.north);
+
+% ===== Actions back to Env =====
+\draw[line] (exe.east) -- ++(6mm,0) |- (ENV.east);
+\draw[line] (g5.east) -- ++(6mm,0) |- (ENV.south east);
+\draw[line] (WAIT.east) -- ++(28mm,0) |- (ENV.south);
+
+% ===== Rewards panel =====
+\node[panel=gray!60, below=12mm of STATE, minimum width=55mm] (REW) {Rewards};
+\node[module, below=2mm of REW.north, yshift=-6mm, text width=49mm] (r1)
+{Scheduling: utilization$\uparrow$, throughput$\uparrow$, load variance$\downarrow$};
+\node[module, below=1mm of r1, text width=49mm] (r2)
+{Dispatch: action/process/success rewards};
+\node[module, below=1mm of r2, text width=49mm] (r3)
+{Tardiness penalty};
+\node[module, below=1mm of r3, text width=49mm] (r4)
+{Window/coverage shortfall penalty};
+
+\draw[line] (ENV.south) -- ++(0,-6mm) |- (REW.west);
+
+% ===== Learning panel =====
+\node[panel=violet!70, below=12mm of META, minimum width=55mm] (LEARN) {Learning Channels};
+\node[module, below=2mm of LEARN.north, yshift=-6mm, text width=49mm] (mb)
+{Meta replay buffer};
+\node[module, below=1mm of mb, text width=49mm] (pg)
+{Policy-gradient update (entropy regularization)};
+\node[module, below=3mm of pg, text width=49mm] (db)
+{Rule-DQN replay buffer};
+\node[module, below=1mm of db, text width=49mm] (tu)
+{Q-learning + target network};
+
+\draw[line] (REW.east) -- (LEARN.west);
+\draw[line] (mb) -- (pg) -- ++(0,0) -| (META.south);
+\draw[line] (db) -- (tu) -- ++(0,0) -| (SCHED.south);
+
+\end{tikzpicture}
+\end{document}

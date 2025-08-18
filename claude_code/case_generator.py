@@ -134,20 +134,6 @@ class FlexibleJobShopScenario:
             weights = np.array([1.0, 2.0, 3.0][:n_req])
             distributor_type = "经济配送商"
         
-        # 如果n_req超过3，扩展权重数组
-        if n_req > 3:
-            if distributor_id % 3 == 0:
-                # 快速配送商：保持递减趋势
-                additional_weights = np.linspace(1.0, 0.5, n_req - 3)
-                weights = np.concatenate([weights, additional_weights])
-            elif distributor_id % 3 == 1:
-                # 标准配送商：保持均匀
-                additional_weights = np.ones(n_req - 3)
-                weights = np.concatenate([weights, additional_weights])
-            else:
-                # 经济配送商：保持递增趋势
-                additional_weights = np.linspace(3.0, 4.0, n_req - 3)
-                weights = np.concatenate([weights, additional_weights])
         
         # 归一化权重
         weights = weights / weights.sum()

@@ -171,6 +171,9 @@ def _extract_rl_metrics(stats: Dict, env: Any, config: Any, total_time: float) -
     # 简化其他指标计算
     metrics['num_machines'] = getattr(config, 'num_machines', 0)
     metrics['num_distributors'] = getattr(config, 'num_distributors', 0)
+
+    # 增加一列数据，保存每个eposide的每个step的reward均值进行收敛图的绘制
+    
     
     return metrics
 
