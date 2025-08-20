@@ -143,6 +143,7 @@ class FlexibleJobShopScenario:
         
         # 生成due_times
         due_times = []
+        max_time += min_time
         for i, cum_weight in enumerate(cumulative_weights):
             due_time = min_time + cum_weight * (max_time - min_time)
             due_times.append(int(due_time))
@@ -152,11 +153,12 @@ class FlexibleJobShopScenario:
         
         
         return due_times
+
     
     def _generate_distributors(self):
         """生成配送商分配"""
         for d in range(self.num_distributors):
-            assigned_jobs = [j.job_id for j in self.jobs if j.distributor_id == d]
+            assigned_jobs = [j for j in self.jobs if j.distributor_id == d]
             if not assigned_jobs:
                 continue
                 
@@ -164,16 +166,14 @@ class FlexibleJobShopScenario:
             # min_time = self.config.earliest_delivery_time
             # max_time = self.config.latest_delivery_time
             # 估算所有工件的最短和最长加工+配送时间
-            min_proc = min([sum([min(op.processing_times.values()) for op in job.operations]) for job in self.jobs])
-            max_proc = max([sum([max(op.processing_times.values()) for op in job.operations]) for job in self.jobs])
-            delivery_buffer = 10  # 可调节
+            min_proc = float('inf')
+            max_proc = float('-inf')
+            for job in assigned_jobs:
+                min_proc = min(min_proc, sum([min(op.processing_times.values()) for op in job.operations]))
+                max_proc = max(max_proc, sum([max(op.processing_times.values()) for op in job.operations]))
 
-            min_time = int(min_proc * 0.1)
-            max_time = int(max_proc * 1.1 + delivery_buffer)
-            n_req = np.random.randint(
-                    self.config.min_delivery_requirements,
-                    self.config.max_delivery_requirements + 1
-            )
+            # 交付要求数量n_req从U[2,3]中采样
+            n_req = np.random.randint(2, 4)  # U[2,3] 均匀分布
             fixed_ratios_list = [
                 [0.3, 0.6, 1.0],
                 [0.45, 0.8, 1.0],
@@ -189,7 +189,7 @@ class FlexibleJobShopScenario:
             
             # 使用配送商差异化策略生成due_times
             due_times = self._generate_distributor_based_due_times(
-                d, n_req, min_time, max_time
+                d, n_req, min_proc, max_proc
             )
             
             weights = np.random.uniform(
@@ -205,11 +205,11 @@ class FlexibleJobShopScenario:
                 weights=weights.tolist()   
             )
             
-            total_amount = sum(self.jobs[j].amount for j in assigned_jobs)
+            total_amount = sum(j.amount for j in assigned_jobs)
             distributor = Distributor(
                 distributor_id=d,
                 delivery_requirements=delivery_requirements,
-                assigned_jobs=assigned_jobs,
+                assigned_jobs=[j.job_id for j in assigned_jobs],
                 total_amount=total_amount,
                 completed_batches={},  # 初始化批次列表
                 status='waiting',  # 初始状态为等待

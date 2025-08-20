@@ -98,7 +98,9 @@ class WarehouseEnvironment:
         self.last_schedule_time = 0
         self.last_batch_time = 0
 
-        print(f"🏭 环境重置完成: 初始工件{len(self.available_jobs)}个, 待到达动态工件{self.remaining_dynamic_jobs}个")
+        # 只在训练模式下显示重置信息
+        if hasattr(self.config, 'train_mode') and self.config.train_mode:
+            print(f"🏭 环境重置完成: 初始工件{len(self.available_jobs)}个, 待到达动态工件{self.remaining_dynamic_jobs}个")
         
         return self._get_state()
 
@@ -129,41 +131,32 @@ class WarehouseEnvironment:
         print(f"- 忙碌机器数: {len(busy_machines)}")
         print(f"- 机器利用率: {self.calculate_machine_utilization():.2%}")
         
-        # 3. 动作执行详情
-        print("\n执行的动作:")
+        # 动作摘要
         if 'wait' in action:
-            print("- 执行等待")
-        if 'schedule' in action:
-            print("- 执行调度:")
-            for job_id, machine_id in action['schedule'].items():
-                job = next((j for j in self.available_jobs if j.job_id == job_id), None)
-                job_type = getattr(job, 'job_type', 'unknown') if job else 'unknown'
-                print(f"  作业{job_id}({job_type}) -> 机器{machine_id}")
-        if 'dispatch' in action:
-            print("- 执行配送:")
-            for batch_id, job_ids in action['dispatch'].items():
-                print(f"  批次{batch_id}: 作业{job_ids}")
+            print("动作: 等待")
+        elif 'schedule' in action:
+            scheduled_count = len(action['schedule'])
+            print(f"动作: 调度 {scheduled_count} 个作业")
+        elif 'dispatch' in action:
+            dispatched_count = sum(len(jobs) for jobs in action['dispatch'].values())
+            print(f"动作: 配送 {dispatched_count} 个作业")
         
-        # 4. 性能指标
-        print("\n性能指标:")
-        print(f"- 当前奖励: {reward:.2f}")
-        print(f"- 总加权延迟: {self.total_weighted_tardiness:.2f}")
-        print(f"- 总迟延惩罚: {self.tardy_penalty:.2f}")
-        print(f"- 作业推进比例: {self.calculate_operation_progress_ratio():.2%}")
-        print(f"- 机器负载方差: {self.calculate_machine_load_variance():.2f}")
-        
-        # 5. 本时间步的动态到达信息
-        current_arrivals = [event for event in self.arrival_events if event['time'] == self.t]
-        if current_arrivals:
-            print("\n本时间步新到达作业:")
-            for event in current_arrivals:
-                print(f"- 作业{event['job_id']} (类型: {event.get('job_type', 'unknown')})")
+        # 关键事件
+        if self.operation_completed_this_step:
+            print("事件: 工序完成")
+        if self.job_completed_this_step:
+            print("事件: 作业完成")
+        if self.job_dispatched_this_step:
+            print("事件: 作业配送完成")
+            
+        print(f"奖励: {reward:.1f} | 利用率: {self.calculate_machine_utilization():.0%}")
 
     def _update_distributor_job_mapping(self):
             """更新配送商与作业的映射关系"""
             for distributor in self.distributors:
                 # 清空当前映射
                 distributor.assigned_jobs = []
+                distributor.total_amount = 0
                 for job in self.available_jobs:
                     if job.distributor_id == distributor.distributor_id:
                         distributor.assigned_jobs.append(job.job_id)
@@ -229,17 +222,12 @@ class WarehouseEnvironment:
                         })
                 
                 if arrived_jobs:
-                    job_ids = [job.job_id for job in arrived_jobs]
-                    print(f"⬇️ 时间步 {self.t}: 批量到达 {len(arrived_jobs)} 个动态作业 {job_ids}")
-                    print(f"   📊 动态作业进度: {self.dynamic_jobs_arrived}/{self.config.num_dynamic_jobs} "
-                        f"(剩余: {self.remaining_dynamic_jobs})")
-                    
-                    # 显示新到达作业的详细信息
-                    for job in arrived_jobs:
-                        distributor_id = job.distributor_id
-                        num_operations = len(job.operations)
-                        amount = job.amount
-                        print(f"     • 作业{job.job_id}: {num_operations}道工序, 数量{amount}, 配送商{distributor_id}")
+                    # 只在训练模式下显示动态作业到达信息
+                    if hasattr(self.config, 'train_mode') and self.config.train_mode:
+                        job_ids = [job.job_id for job in arrived_jobs]
+                        print(f"⬇️ 时间步 {self.t}: 批量到达 {len(arrived_jobs)} 个动态作业 {job_ids}")
+                        print(f"   📊 动态作业进度: {self.dynamic_jobs_arrived}/{self.config.num_dynamic_jobs} "
+                            f"(剩余: {self.remaining_dynamic_jobs})")
 
 
 
@@ -322,8 +310,12 @@ class WarehouseEnvironment:
         # 1. 达到最大时间步数，或
         # 2. 所有作业（初始+动态）都已配送完成且没有剩余动态作业
         boolean_condition = self.t >= self.config.max_time_steps or (len(self.dispatched_jobs) >= total_expected_jobs and self.remaining_dynamic_jobs <= 0)
-        if boolean_condition:
-            print(f"达到终止条件：{self.t} >= {self.config.max_time_steps} 或 (已配送作业数：{len(self.dispatched_jobs)} >= 预期总作业数：{total_expected_jobs} 且 剩余动态作业数：{self.remaining_dynamic_jobs} <= 0)")
+        
+        # 只在达到终止条件且处于训练模式时显示信息
+        if boolean_condition and hasattr(self.config, 'train_mode') and self.config.train_mode:
+            print(f"🏁 达到终止条件：时间步 {self.t}/{self.config.max_time_steps} | "
+                  f"已配送 {len(self.dispatched_jobs)}/{total_expected_jobs} 作业 | "
+                  f"剩余动态作业 {self.remaining_dynamic_jobs}")
 
         return boolean_condition
 
@@ -337,21 +329,21 @@ class WarehouseEnvironment:
             reward -= 1.0  # 增加等待动作的惩罚
             debug_info['wait_penalty'] = -1.0
         elif 'schedule' in action:
-            reward += 2.0  # 增加调度动作的奖励
-            debug_info['schedule_base'] = 2.0
+            reward += 0.2  # 增加调度动作的奖励
+            debug_info['schedule_base'] = 0.2
         elif 'dispatch' in action:
-            reward += 2.0  # 增加配送动作的奖励
-            debug_info['dispatch_base'] = 2.0
+            reward += 0.4  # 增加配送动作的奖励
+            debug_info['dispatch_base'] = 0.4
     
         # 调度质量奖励
         if 'schedule' in action:
             utilization = self.calculate_machine_utilization()
-            reward += 5.0 * utilization
-            debug_info['utilization'] = 5.0 * utilization
+            reward += 0.1 * utilization
+            debug_info['utilization'] = 0.1 * utilization
     
             job_progress = self.calculate_operation_progress_ratio()
-            reward += 3.0 * job_progress  # 增加作业推进奖励
-            debug_info['job_progress'] = 3.0 * job_progress
+            reward += 0.3 * job_progress  # 增加作业推进奖励
+            debug_info['job_progress'] = 0.3 * job_progress
     
             load_balance = self.calculate_machine_load_variance()
             reward -= 0.5 * load_balance
@@ -359,14 +351,15 @@ class WarehouseEnvironment:
     
         # 配送质量奖励
         if 'dispatch' in action:
-            reward += 5.0  # 增加配送动作的奖励
-            debug_info['dispatch_reward'] = 5.0
+            reward += 0.5 # 增加配送动作的奖励
+            debug_info['dispatch_reward'] = 0.5
 
         # 计算配送完工时间延迟
         for job in self.completed_jobs:
             tardiness = max(0, job.dispatched_time - job.due_date)
             self.total_weighted_tardiness += tardiness
-            reward -= tardiness 
+            # 归一化total_weighted_tardiness
+            reward +=  1/(1+self.total_weighted_tardiness)
             debug_info[f'job_{job.job_id}_tardiness'] = -tardiness
 
         
@@ -383,35 +376,38 @@ class WarehouseEnvironment:
                         required_amount = ratio * distributor.total_amount
                         if completed_amount < required_amount:
                             penalty = (required_amount - completed_amount) * weight
-                            reward -= int(penalty)
+                            penalty_reward =  (required_amount - completed_amount)/required_amount * weight
+                            reward -= (penalty_reward)
                             debug_info[f'distributor_{distributor.distributor_id}_due_time_{due_time}'] = -penalty
-                            self.tardy_penalty += int(penalty)    
+                            self.tardy_penalty += (penalty)    
 
             
             
         # 即时操作奖励
         if self.operation_completed_this_step:
-            reward += 1.0  # 增加工序完成奖励
-            debug_info['operation_complete'] = 1.0
+            reward += 0.5  # 增加工序完成奖励
+            debug_info['operation_complete'] = 0.5
     
         if self.job_completed_this_step:
-            reward += 2.0  # 增加作业完成奖励
-            debug_info['job_complete'] = 2.0
+            reward += 0.8  # 增加作业完成奖励
+            debug_info['job_complete'] = 0.8
 
         # 如果有作业被配送，增加奖励
         if self.job_dispatching_this_step:
-            reward += 2.0  # 增加作业配送奖励
+            reward += 1.0  # 增加作业配送奖励
             debug_info['job_dispatching'] = 2.0
 
         if self.job_dispatched_this_step:
-            reward += 3.0  # 增加作业配送奖励
-            debug_info['job_dispatched'] = 3.0
+            reward += 1.0  # 增加作业配送奖励
+            debug_info['job_dispatched'] = 1.0
     
         # 不限制奖励范围
         final_reward = reward
         debug_info['final_reward'] = final_reward
     
-        print("Reward breakdown:", debug_info)
+        # 只在训练模式下显示详细的奖励分解（避免过多日志输出）
+        if hasattr(self.config, 'train_mode') and self.config.train_mode:
+            print("Reward breakdown:", debug_info)
         return final_reward
     
 
@@ -505,7 +501,9 @@ class WarehouseEnvironment:
             if job and machine and machine.status == 'waiting':
                 # 获取当前工序
                 if job.current_operation >= len(job.operations):
-                    print(f"警告：作业{job.job_id}已无可调度工序，跳过调度。")
+                    # 只在训练模式下显示警告信息
+                    if hasattr(self.config, 'train_mode') and self.config.train_mode:
+                        print(f"⚠️ 警告：作业{job.job_id}已无可调度工序，跳过调度。")
                     continue
                     
                 current_op = job.operations[job.current_operation]
@@ -587,4 +585,3 @@ class WarehouseEnvironment:
             'completed_jobs': self.completed_jobs,
             'dispatched_jobs': self.dispatched_jobs
         }
-

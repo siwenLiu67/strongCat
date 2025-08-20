@@ -10,9 +10,7 @@ import time
 import importlib
 from pathlib import Path
 from typing import Dict, List, Any, Optional
-import argparse
 from dataclasses import dataclass
-import itertools
 
 # 添加当前目录到 Python 路径
 current_dir = Path(__file__).parent
@@ -40,46 +38,85 @@ class PaperInstanceConfig:
     
     def __post_init__(self):
         if not self.name:
-            if self.total_jobs <= 30:
+            if self.num_initial_jobs <= 30:
                 size = "Small"
-            elif self.total_jobs <= 70:
+            elif self.num_initial_jobs <= 100:
                 size = "Medium"
             else:
                 size = "Large"
-            self.name = f"{size}-{self.total_jobs}J{self.num_machines}M{self.num_distributors}D"
+            self.name = f"{size}-{self.num_initial_jobs + self.num_dynamic_jobs}J{self.num_machines}M{self.num_distributors}D"
 
 class PaperBasedInstanceGenerator:
     """基于论文参数生成标准算例"""
     
-    def __init__(self):
-        # 基于论文Table 2的参数设置
-        self.paper_params = {
-            'num_machines': [10, 20, 30],
-            'num_initial_jobs': [20],  # 固定20个初始作业
-            'num_dynamic_jobs': [30, 50, 70],  # 动态到达作业数
-            'num_distributors': [3, 5, 7],
-            
-            # 作业参数（在Config中设置）
-            'operations_per_job': (3, 5),  # U[3,5]
-            'processing_time': (5, 15),    # U[5,15]
-            'goods_quantity': (1, 5),      # U[1,5]
-            
-            # 配送商参数
-            'due_time_windows': (2, 3),    # U[2,3]
-            'due_time_window_size': (10, 20),  # U[10,20]
-        }
-    
     def generate_all_paper_instances(self) -> List[PaperInstanceConfig]:
-        """生成所有论文参数组合的算例"""
+        """生成所有论文参数组合的算例（基于Table 4的36个实验算例）"""
         instances = []
         
-        for machines, dynamic_jobs, distributors in itertools.product(
-            self.paper_params['num_machines'],
-            self.paper_params['num_dynamic_jobs'], 
-            self.paper_params['num_distributors']
-        ):
-            initial_jobs = self.paper_params['num_initial_jobs'][0]  # 固定20
-            
+        # 基于论文Table 4的参数设置
+        # 小规模算例 (40-100作业): 初始作业20, 机器10
+        small_configs = [
+            # 动态作业20, 配送商[5, 10, 15]
+            (20, 10, 20, 5),
+            # (20, 10, 20, 10),
+            # (20, 10, 20, 15),
+            # # 动态作业40, 配送商[5, 10, 15]
+            # (20, 10, 40, 5),
+            # (20, 10, 40, 10),
+            # (20, 10, 40, 15),
+            # # 动态作业60, 配送商[5, 10, 15]
+            # (20, 10, 60, 5),
+            # (20, 10, 60, 10),
+            # (20, 10, 60, 15),
+            # # 动态作业80, 配送商[5, 10, 15]
+            # (20, 10, 80, 5),
+            # (20, 10, 80, 10),
+            # (20, 10, 80, 15),
+        ]
+        
+        # 中规模算例 (100-160作业): 初始作业80, 机器20
+        # medium_configs = [
+        #     # 动态作业20, 配送商[5, 10, 15]
+        #     (80, 20, 20, 5),
+        #     (80, 20, 20, 10),
+        #     (80, 20, 20, 15),
+        #     # 动态作业40, 配送商[5, 10, 15]
+        #     (80, 20, 40, 5),
+        #     (80, 20, 40, 10),
+        #     (80, 20, 40, 15),
+        #     # 动态作业60, 配送商[5, 10, 15]
+        #     (80, 20, 60, 5),
+        #     (80, 20, 60, 10),
+        #     (80, 20, 60, 15),
+        #     # 动态作业80, 配送商[5, 10, 15]
+        #     (80, 20, 80, 5),
+        #     (80, 20, 80, 10),
+        #     (80, 20, 80, 15),
+        # ]
+        
+        # # 大规模算例 (160-220作业): 初始作业140, 机器30
+        # large_configs = [
+        #     # 动态作业20, 配送商[5, 10, 15]
+        #     (140, 30, 20, 5),
+        #     (140, 30, 20, 10),
+        #     (140, 30, 20, 15),
+        #     # 动态作业40, 配送商[5, 10, 15]
+        #     (140, 30, 40, 5),
+        #     (140, 30, 40, 10),
+        #     (140, 30, 40, 15),
+        #     # 动态作业60, 配送商[5, 10, 15]
+        #     (140, 30, 60, 5),
+        #     (140, 30, 60, 10),
+        #     (140, 30, 60, 15),
+        #     # 动态作业80, 配送商[5, 10, 15]
+        #     (140, 30, 80, 5),
+        #     (140, 30, 80, 10),
+        #     (140, 30, 80, 15),
+        # ]
+        
+        # 生成所有算例
+        for config in small_configs :#+ medium_configs + large_configs:
+            initial_jobs, machines, dynamic_jobs, distributors = config
             instance = PaperInstanceConfig(
                 num_machines=machines,
                 num_initial_jobs=initial_jobs,
@@ -87,31 +124,6 @@ class PaperBasedInstanceGenerator:
                 num_distributors=distributors
             )
             instances.append(instance)
-        
-        return instances
-    
-    def generate_scaled_instances(self) -> List[PaperInstanceConfig]:
-        """生成不同规模的代表性算例"""
-        instances = []
-        
-        # 小规模算例
-        instances.extend([
-            PaperInstanceConfig(10, 20, 30, 3),   # Small: 50作业, 10机器, 3配送商
-            PaperInstanceConfig(10, 20, 30, 5),   # Small: 50作业, 10机器, 5配送商
-        ])
-        
-        # 中规模算例
-        instances.extend([
-            PaperInstanceConfig(20, 20, 50, 3),   # Medium: 70作业, 20机器, 3配送商
-            PaperInstanceConfig(20, 20, 50, 5),   # Medium: 70作业, 20机器, 5配送商
-            PaperInstanceConfig(20, 20, 50, 7),   # Medium: 70作业, 20机器, 7配送商
-        ])
-        
-        # 大规模算例
-        instances.extend([
-            PaperInstanceConfig(30, 20, 70, 5),   # Large: 90作业, 30机器, 5配送商
-            PaperInstanceConfig(30, 20, 70, 7),   # Large: 90作业, 30机器, 7配送商
-        ])
         
         return instances
     
@@ -193,21 +205,14 @@ class UniversalAlgorithmRunner:
             config = Config()
         else:
             # 复制基础配置
-            config = Config()
-            for attr in dir(base_config):
-                if not attr.startswith('_') and not callable(getattr(base_config, attr)):
-                    try:
-                        setattr(config, attr, getattr(base_config, attr))
-                    except AttributeError:
-                        continue  # 跳过不能设置的属性
-        
-        # 修复：设置正确的作业数量
+            config = base_config
+            
+        # 设置正确的作业数量
         config.num_initial_jobs = instance.num_initial_jobs  # 初始作业数量，用于生成算例
         config.num_machines = instance.num_machines
         config.num_distributors = instance.num_distributors
         
         # 动态作业相关
-        config.num_initial_jobs = instance.num_initial_jobs
         config.num_dynamic_jobs = instance.num_dynamic_jobs
         
         # 论文Table 2中的参数
@@ -215,8 +220,8 @@ class UniversalAlgorithmRunner:
         config.max_operations = 3
         config.min_processing_time = 5
         config.max_processing_time = 15
-        config.min_job_amount = 1
-        config.max_job_amount = 5
+        config.min_job_amount = 50
+        config.max_job_amount = 100
         
         # 配送相关参数
         config.min_delivery_requirements = 2
@@ -225,8 +230,7 @@ class UniversalAlgorithmRunner:
         config.latest_delivery_time = 200  # 根据处理时间估算
         
         # 动态到达参数
-        config.batch_arrival_probability = 0.15
-    
+        config.batch_arrival_probability = 0.5
         config.max_batch_size = 5
         
         return config
@@ -310,8 +314,7 @@ class UniversalAlgorithmRunner:
         # 选择算例类型
         if instance_type == 'all':
             instances = self.paper_generator.generate_all_paper_instances()
-        elif instance_type == 'scaled':
-            instances = self.paper_generator.generate_scaled_instances()
+        
         elif instance_type == 'benchmark':
             instances = self.paper_generator.generate_benchmark_instances()
         else:
@@ -394,5 +397,5 @@ if __name__ == "__main__":
     # 直接调用，无需命令行参数
     run_batch_experiment(
         algorithm="RuleDQN_DispatchHeuri",   # 修改为你要运行的法
-        instance_type="benchmark", # 可选: benchmark, scaled, all
+        instance_type="all", # 可选: benchmark, all
     )

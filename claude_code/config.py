@@ -44,7 +44,7 @@ class Config:
     amount_weight: float = 0.6          # 数量权重
     complexity_weight: float = 0.4      # 复杂度权重
 
-    max_time_steps = 150  # 增加时间步数让智能体有足够时间学习
+    max_time_steps = 200  # 增加时间步数让智能体有足够时间学习
     arrival_probability = 0
     max_job_num_limit = 20
     arrival_batch_size = 2
