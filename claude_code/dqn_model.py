@@ -16,6 +16,7 @@ from typing import Dict, List, Tuple, Optional
 from case_generator import FlexibleJobShopScenario
 from config import Config
 from data_structures import Job, Operation, Machine
+from dqn_environment_adapter import FJSSPEnvironment
 
 
 class DQNNetwork(nn.Module):
@@ -61,327 +62,6 @@ class ReplayBuffer:
         return len(self.buffer)
 
 
-class FJSSPEnvironment:
-    """FJSSP-DP环境"""
-    
-    def __init__(self, scenario: FlexibleJobShopScenario):
-        self.scenario = scenario
-        self.jobs = scenario.jobs
-        self.machines = scenario.machines
-        self.distributors = scenario.distributors
-        self.reset()
-    
-    def reset(self):
-        """重置环境"""
-        self.current_time = 0
-        self.completed_jobs = []
-        self.dispatched_jobs = []
-        self.pending_jobs = self.jobs.copy()
-        self.available_jobs = []
-        
-        # 重置机器状态
-        for machine in self.machines:
-            machine.status = "waiting"  # 使用data_structures中定义的状态
-            machine.current_job = -1
-            machine.remaining_time = 0.0
-            machine.processed_jobs = []
-            machine.total_busy_time = 0.0
-            machine.total_idle_time = 0.0
-        
-        # 重置作业状态
-        for job in self.jobs:
-            job.status = "waiting"
-            job.current_operation = 0  # 使用data_structures中的属性名
-            job.completed_time = 0.0
-            job.dispatched_time = 0.0
-             
-        self._update_available_jobs()
-        return self._get_state()
-    
-    def _update_available_jobs(self):
-        """更新可用作业列表"""
-        # 检查新到达的作业
-        for job in self.pending_jobs[:]:
-            arrival_time = getattr(job, 'arrival_time', 0)
-            if arrival_time <= self.current_time:
-                self.available_jobs.append(job)
-                self.pending_jobs.remove(job)
-    
-    def _get_state(self) -> np.ndarray:
-        """获取当前状态向量"""
-        state_features = []
-        
-        # 时间特征
-        state_features.append(self.current_time / 100.0)  # 归一化时间
-        
-        # 机器状态特征
-        idle_machines = sum(1 for m in self.machines if m.status == "waiting")
-        busy_machines = len(self.machines) - idle_machines
-        state_features.extend([
-            idle_machines / len(self.machines),
-            busy_machines / len(self.machines)
-        ])
-        
-        # 作业特征
-        total_jobs = len(self.jobs)
-        waiting_jobs = sum(1 for j in self.available_jobs if j.status == "waiting")
-        processing_jobs = sum(1 for j in self.jobs if j.status == "processing")
-        completed_jobs = len(self.completed_jobs)
-        dispatched_jobs = len(self.dispatched_jobs)
-        
-        state_features.extend([
-            waiting_jobs / max(total_jobs, 1),
-            processing_jobs / max(total_jobs, 1),
-            completed_jobs / max(total_jobs, 1),
-            dispatched_jobs / max(total_jobs, 1)
-        ])
-        
-        # 紧急度特征
-        if self.available_jobs:
-            urgencies = []
-            for job in self.available_jobs:
-                # 计算剩余处理时间
-                remaining_operations = job.operations[job.current_operation:]
-                if remaining_operations:
-                    remaining_time = sum(
-                        min(op.processing_times.values()) if op.processing_times else 0
-                        for op in remaining_operations
-                    )
-                else:
-                    remaining_time = 0
-                
-                due_date = getattr(job, 'due_date', 100)
-                urgency = max(0, (due_date - self.current_time - remaining_time)) / 100.0
-                urgencies.append(urgency)
-            
-            state_features.extend([
-                np.mean(urgencies),
-                np.min(urgencies) if urgencies else 0,
-                np.max(urgencies) if urgencies else 0
-            ])
-        else:
-            state_features.extend([0, 0, 0])
-        
-        # 配送商负载特征
-        for dist in self.distributors:
-            dist_jobs = [j for j in self.jobs if j.distributor_id == dist.distributor_id]
-            completed_for_dist = [j for j in dist_jobs if j in self.completed_jobs]
-            load_ratio = len(completed_for_dist) / max(len(dist_jobs), 1)
-            state_features.append(load_ratio)
-        
-        # 填充到固定长度
-        target_length = 20
-        while len(state_features) < target_length:
-            state_features.append(0.0)
-        
-        return np.array(state_features[:target_length], dtype=np.float32)
-    
-    def _get_valid_actions(self) -> List[int]:
-        """获取当前有效的动作"""
-        valid_actions = []
-        
-        # 调度动作：为等待的作业分配机器
-        for job in self.available_jobs:
-            if job.status == "waiting" and job.current_operation < len(job.operations):
-                current_op = job.operations[job.current_operation]
-                for machine_id in current_op.available_machine_ids:
-                    if machine_id < len(self.machines):
-                        machine = self.machines[machine_id]
-                        if machine.status == "waiting":  # 机器空闲状态
-                            # 动作编码：job_id * 100 + machine_id
-                            action_id = job.job_id * 100 + machine_id
-                            valid_actions.append(action_id)
-        
-        # 派遣动作：为完成的作业创建批次
-        completed_waiting = [j for j in self.completed_jobs 
-                           if j not in self.dispatched_jobs]
-        if completed_waiting:
-            # 按配送商分组派遣
-            for dist in self.distributors:
-                dist_jobs = [j for j in completed_waiting 
-                           if j.distributor_id == dist.distributor_id]
-                if dist_jobs:
-                    # 派遣动作编码：10000 + distributor_id
-                    dispatch_action_id = 10000 + dist.distributor_id
-                    valid_actions.append(dispatch_action_id)
-        
-        # 等待动作
-        valid_actions.append(99999)  # 等待动作编码
-        
-        return valid_actions
-    
-    def step(self, action: int) -> Tuple[np.ndarray, float, bool, dict]:
-        """执行动作"""
-        reward = 0
-        info = {}
-        
-        # 解析动作
-        if action == 99999:
-            # 等待动作
-            reward = -0.1  # 等待惩罚
-        elif action >= 10000:
-            # 派遣动作
-            distributor_id = action - 10000
-            reward += self._dispatch_jobs(distributor_id)
-        else:
-            # 调度动作
-            job_id = action // 100
-            machine_id = action % 100
-            reward += self._schedule_job(job_id, machine_id)
-        
-        # 推进时间
-        self._advance_time()
-        
-        # 更新可用作业
-        self._update_available_jobs()
-        
-        # 计算延误惩罚
-        tardiness_penalty = self._calculate_tardiness_penalty()
-        reward -= tardiness_penalty
-        
-        # 检查完成条件
-        done = self._is_done()
-        
-        next_state = self._get_state()
-        
-        return next_state, reward, done, info
-    
-    def _schedule_job(self, job_id: int, machine_id: int) -> float:
-        """调度作业到机器"""
-        reward = 0
-        
-        # 找到对应的作业
-        job = next((j for j in self.available_jobs if j.job_id == job_id), None)
-        if not job or job.status != "waiting":
-            return -1  # 无效动作惩罚
-        
-        if machine_id >= len(self.machines):
-            return -1  # 机器ID无效
-            
-        machine = self.machines[machine_id]
-        if machine.status != "waiting":
-            return -1  # 机器忙碌惩罚
-        
-        # 获取当前工序
-        if job.current_operation >= len(job.operations):
-            return -1  # 工序已完成
-            
-        current_op = job.operations[job.current_operation]
-        if machine_id not in current_op.available_machine_ids:
-            return -1  # 机器不可用惩罚
-        
-        # 执行调度
-        processing_time = current_op.processing_times.get(machine_id, 0)
-        if processing_time <= 0:
-            return -1  # 处理时间无效
-            
-        machine.assign_job(job_id, processing_time)  # 使用data_structures中的方法
-        machine.status = "busy"
-        
-        job.status = "processing"
-        if not hasattr(job, 'start_time') or job.start_time is None:
-            job.start_time = self.current_time
-        
-        # 计算奖励
-        due_date = getattr(job, 'due_date', 100)
-        urgency = max(0, due_date - self.current_time) / max(due_date, 1)
-        reward = 2.0 + urgency  # 基础调度奖励 + 紧急度奖励
-        
-        return reward
-    
-    def _dispatch_jobs(self, distributor_id: int) -> float:
-        """派遣作业"""
-        reward = 0
-        
-        # 找到该配送商的已完成未派遣作业
-        completed_waiting = [j for j in self.completed_jobs 
-                           if j not in self.dispatched_jobs 
-                           and j.distributor_id == distributor_id]
-        
-        if not completed_waiting:
-            return -0.5  # 无作业可派遣惩罚
-        
-        # 执行派遣
-        for job in completed_waiting:
-            job.dispatch_time = self.current_time
-            job.dispatched_time = self.current_time  # 使用data_structures中的属性
-            job.status = "dispatched"
-            self.dispatched_jobs.append(job)
-            
-            # 计算派遣奖励
-            due_date = getattr(job, 'due_date', 100)
-            if job.completed_time <= due_date:
-                reward += 1.0  # 按时完成奖励
-            else:
-                reward += 0.5  # 延误但完成奖励
-        
-        # 批次大小奖励
-        batch_size = len(completed_waiting)
-        reward += batch_size * 0.2
-        
-        return reward
-    
-    def _advance_time(self):
-        """推进时间"""
-        self.current_time += 1
-        
-        # 更新机器状态
-        for machine in self.machines:
-            if machine.status == "busy":
-                machine.remaining_time -= 1
-                if machine.remaining_time <= 0:
-                    # 机器完成当前作业
-                    job_id = machine.current_job
-                    job = next((j for j in self.jobs if j.job_id == job_id), None)
-                    
-                    if job:
-                        job.current_operation += 1  # 使用正确的属性名
-                        if job.current_operation >= len(job.operations):
-                            # 作业完成
-                            job.status = "completed"
-                            job.completed_time = self.current_time
-                            if job not in self.completed_jobs:
-                                self.completed_jobs.append(job)
-                        else:
-                            # 还有后续工序
-                            job.status = "waiting"
-                    
-                    # 重置机器状态
-                    machine.status = "waiting"  # 使用正确的状态值
-                    machine.current_job = -1
-                    machine.remaining_time = 0.0
-    
-    def _calculate_tardiness_penalty(self) -> float:
-        """计算延误惩罚"""
-        penalty = 0
-        for distributor in self.distributors:
-                min_due_time = min(distributor.delivery_requirements.due_times) if distributor.delivery_requirements else float('inf')
-                if min_due_time < self.current_time:
-                    # 计算每个配送商的延迟成本
-                    requirement = distributor.delivery_requirements
-                    for due_time, ratio, weight in zip(requirement.due_times, requirement.ratios, requirement.weights):
-                        # 在这个due_time之前完成的作业
-                        completed_jobs = [j for j in self.completed_jobs if j.dispatched_time <= due_time]
-                        completed_amount = sum(j.amount for j in completed_jobs)
-                        required_amount = ratio * distributor.total_amount
-                        if completed_amount < required_amount:
-                            penalty = (required_amount - completed_amount) * weight
-                            reward -= int(penalty)
-        # 计算配送完工时间延迟
-        for job in self.completed_jobs:
-            tardiness = max(0, job.dispatched_time - job.due_date)
-            self.total_weighted_tardiness += tardiness
-            reward -= tardiness 
-                           
-        return penalty+tardiness
-    
-    def _is_done(self) -> bool:
-        """检查是否完成"""
-        all_jobs_completed = len(self.completed_jobs) == len(self.jobs)
-        all_jobs_dispatched = len(self.dispatched_jobs) == len(self.jobs)
-        timeout = self.current_time > 500  # 超时限制
-        
-        return (all_jobs_completed and all_jobs_dispatched) or timeout
 
 
 class DQNAgent:
@@ -620,7 +300,7 @@ def main():
             # 获取有效动作
             valid_actions = env._get_valid_actions()
             if not valid_actions:
-                valid_actions = [99999]  # 至少包含等待动作
+                valid_actions = [19999]  # 至少包含等待动作
             
             # 选择动作
             action = agent.select_action(state, valid_actions)
@@ -728,7 +408,7 @@ def run_dqn_experiment(config, case, seed, **kwargs):
         while True:
             valid_actions = env._get_valid_actions()
             if not valid_actions:
-                valid_actions = [99999]
+                valid_actions = [19999]
             action = agent.select_action(state, valid_actions)
             next_state, reward, done, info = env.step(action)
             agent.store_transition(state, action, reward, next_state, done)
@@ -775,7 +455,7 @@ def test_trained_model():
     while True:
         valid_actions = env._get_valid_actions()
         if not valid_actions:
-            valid_actions = [99999]
+            valid_actions = [19999]
         
         action = agent.select_action(state, valid_actions)
         next_state, reward, done, info = env.step(action)
