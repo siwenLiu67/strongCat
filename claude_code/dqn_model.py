@@ -421,6 +421,19 @@ def run_dqn_experiment(config, case, seed, **kwargs):
         stats['makespans'].append(env.current_time)
         stats['completed_jobs'].append(len(env.completed_jobs))
         stats['dispatched_jobs'].append(len(env.dispatched_jobs))
+        
+        # 从环境中获取延迟惩罚和目标值指标
+        stats['tardy_penalty'] = stats.get('tardy_penalty', [])
+        stats['total_weighted_tardiness'] = stats.get('total_weighted_tardiness', [])
+        stats['objective_value'] = stats.get('objective_value', [])
+        
+        # 获取环境中的惩罚指标
+        tardy_penalty = getattr(env, 'tardy_penalty', 0)
+        total_weighted_tardiness = getattr(env, 'total_weighted_tardiness', 0)
+        
+        stats['tardy_penalty'].append(tardy_penalty)
+        stats['total_weighted_tardiness'].append(total_weighted_tardiness)
+        stats['objective_value'].append(episode_reward + tardy_penalty + total_weighted_tardiness)
 
     result = {
         "stats": stats,

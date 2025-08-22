@@ -13,7 +13,7 @@ import pickle
 import time
 from collections import defaultdict, deque
 from typing import Dict, List, Tuple, Optional
-
+from ppo_environment_adaptor import FJSSPEnvironment
 from case_generator import FlexibleJobShopScenario
 from config import Config
 from data_structures import Job, Operation, Machine
@@ -173,318 +173,6 @@ class PPOBuffer:
         return cumsum
 
 
-class FJSSPEnvironment:
-    """FJSSP-DP环境（复用DQN的环境，但添加PPO所需的功能）"""
-    
-    def __init__(self, scenario: FlexibleJobShopScenario):
-        self.scenario = scenario
-        self.jobs = scenario.jobs
-        self.machines = scenario.machines
-        self.distributors = scenario.distributors
-        self.action_dim = 1000  # 减小动作空间以适应PPO
-        self.reset()
-    
-    def reset(self):
-        """重置环境"""
-        self.current_time = 0
-        self.completed_jobs = []
-        self.dispatched_jobs = []
-        self.pending_jobs = self.jobs.copy()
-        self.available_jobs = []
-        
-        # 重置机器状态
-        for machine in self.machines:
-            machine.status = "waiting"
-            machine.current_job = -1
-            machine.remaining_time = 0.0
-            machine.processed_jobs = []
-            machine.total_busy_time = 0.0
-            machine.total_idle_time = 0.0
-        
-        # 重置作业状态
-        for job in self.jobs:
-            job.status = "waiting"
-            job.current_operation = 0
-            job.completed_time = 0.0
-            job.dispatched_time = 0.0
-            
-        self._update_available_jobs()
-        return self._get_state()
-    
-    def _update_available_jobs(self):
-        """更新可用作业列表"""
-        for job in self.pending_jobs[:]:
-            arrival_time = getattr(job, 'arrival_time', 0)
-            if arrival_time <= self.current_time:
-                self.available_jobs.append(job)
-                self.pending_jobs.remove(job)
-    
-    def _get_state(self) -> np.ndarray:
-        """获取当前状态向量"""
-        state_features = []
-        
-        # 时间特征
-        state_features.append(self.current_time / 100.0)
-        
-        # 机器状态特征
-        idle_machines = sum(1 for m in self.machines if m.status == "waiting")
-        busy_machines = len(self.machines) - idle_machines
-        state_features.extend([
-            idle_machines / len(self.machines),
-            busy_machines / len(self.machines)
-        ])
-        
-        # 作业特征
-        total_jobs = len(self.jobs)
-        waiting_jobs = sum(1 for j in self.available_jobs if j.status == "waiting")
-        processing_jobs = sum(1 for j in self.jobs if j.status == "processing")
-        completed_jobs = len(self.completed_jobs)
-        dispatched_jobs = len(self.dispatched_jobs)
-        
-        state_features.extend([
-            waiting_jobs / max(total_jobs, 1),
-            processing_jobs / max(total_jobs, 1),
-            completed_jobs / max(total_jobs, 1),
-            dispatched_jobs / max(total_jobs, 1)
-        ])
-        
-        # 紧急度特征
-        if self.available_jobs:
-            urgencies = []
-            for job in self.available_jobs:
-                remaining_operations = job.operations[job.current_operation:]
-                if remaining_operations:
-                    remaining_time = sum(
-                        min(op.processing_times.values()) if op.processing_times else 0
-                        for op in remaining_operations
-                    )
-                else:
-                    remaining_time = 0
-                
-                due_date = getattr(job, 'due_date', 100)
-                urgency = max(0, (due_date - self.current_time - remaining_time)) / 100.0
-                urgencies.append(urgency)
-            
-            state_features.extend([
-                np.mean(urgencies),
-                np.min(urgencies) if urgencies else 0,
-                np.max(urgencies) if urgencies else 0
-            ])
-        else:
-            state_features.extend([0, 0, 0])
-        
-        # 配送商负载特征
-        for dist in self.distributors:
-            dist_jobs = [j for j in self.jobs if j.distributor_id == dist.distributor_id]
-            completed_for_dist = [j for j in dist_jobs if j in self.completed_jobs]
-            load_ratio = len(completed_for_dist) / max(len(dist_jobs), 1)
-            state_features.append(load_ratio)
-        
-        # 填充到固定长度
-        target_length = 20
-        while len(state_features) < target_length:
-            state_features.append(0.0)
-        
-        return np.array(state_features[:target_length], dtype=np.float32)
-    
-    def get_action_mask(self) -> np.ndarray:
-        """获取有效动作掩码"""
-        mask = np.zeros(self.action_dim, dtype=bool)
-        
-        # 调度动作
-        action_idx = 0
-        for job in self.available_jobs:
-            if job.status == "waiting" and job.current_operation < len(job.operations):
-                current_op = job.operations[job.current_operation]
-                for machine_id in current_op.available_machine_ids:
-                    if machine_id < len(self.machines):
-                        machine = self.machines[machine_id]
-                        if machine.status == "waiting" and action_idx < self.action_dim - 100:
-                            mask[action_idx] = True
-                            action_idx += 1
-        
-        # 派遣动作
-        completed_waiting = [j for j in self.completed_jobs if j not in self.dispatched_jobs]
-        if completed_waiting:
-            for dist in self.distributors:
-                dist_jobs = [j for j in completed_waiting if j.distributor_id == dist.distributor_id]
-                if dist_jobs and action_idx < self.action_dim - 10:
-                    mask[action_idx] = True
-                    action_idx += 1
-        
-        # 等待动作
-        if action_idx < self.action_dim:
-            mask[action_idx] = True
-        
-        # 如果没有有效动作，允许等待
-        if not np.any(mask):
-            mask[-1] = True
-        
-        return mask
-    
-    def step(self, action_idx: int) -> Tuple[np.ndarray, float, bool, dict]:
-        """执行动作"""
-        reward = 0
-        info = {}
-        
-        # 解析动作
-        valid_actions = self._get_indexed_actions()
-        if action_idx < len(valid_actions):
-            action_type, job_id, machine_id, distributor_id = valid_actions[action_idx]
-            
-            if action_type == "schedule":
-                reward += self._schedule_job(job_id, machine_id)
-            elif action_type == "dispatch":
-                reward += self._dispatch_jobs(distributor_id)
-            else:  # wait
-                reward -= 0.1
-        else:
-            # 无效动作，等待
-            reward -= 0.1
-        
-        # 推进时间
-        self._advance_time()
-        self._update_available_jobs()
-        
-        # 计算延误惩罚
-        tardiness_penalty = self._calculate_tardiness_penalty()
-        reward -= tardiness_penalty
-        
-        # 检查完成条件
-        done = self._is_done()
-        
-        next_state = self._get_state()
-        return next_state, reward, done, info
-    
-    def _get_indexed_actions(self) -> List[Tuple]:
-        """获取索引化的动作列表"""
-        actions = []
-        
-        # 调度动作
-        for job in self.available_jobs:
-            if job.status == "waiting" and job.current_operation < len(job.operations):
-                current_op = job.operations[job.current_operation]
-                for machine_id in current_op.available_machine_ids:
-                    if machine_id < len(self.machines):
-                        machine = self.machines[machine_id]
-                        if machine.status == "waiting":
-                            actions.append(("schedule", job.job_id, machine_id, None))
-        
-        # 派遣动作
-        completed_waiting = [j for j in self.completed_jobs if j not in self.dispatched_jobs]
-        if completed_waiting:
-            for dist in self.distributors:
-                dist_jobs = [j for j in completed_waiting if j.distributor_id == dist.distributor_id]
-                if dist_jobs:
-                    actions.append(("dispatch", None, None, dist.distributor_id))
-        
-        # 等待动作
-        actions.append(("wait", None, None, None))
-        
-        return actions
-    
-    def _schedule_job(self, job_id: int, machine_id: int) -> float:
-        """调度作业到机器"""
-        job = next((j for j in self.available_jobs if j.job_id == job_id), None)
-        if not job or job.status != "waiting":
-            return -1
-        
-        if machine_id >= len(self.machines):
-            return -1
-            
-        machine = self.machines[machine_id]
-        if machine.status != "waiting":
-            return -1
-        
-        if job.current_operation >= len(job.operations):
-            return -1
-            
-        current_op = job.operations[job.current_operation]
-        if machine_id not in current_op.available_machine_ids:
-            return -1
-        
-        processing_time = current_op.processing_times.get(machine_id, 0)
-        if processing_time <= 0:
-            return -1
-            
-        machine.current_job = job_id
-        machine.remaining_time = processing_time
-        machine.status = "busy"
-        
-        job.status = "processing"
-        if not hasattr(job, 'start_time') or job.start_time is None:
-            job.start_time = self.current_time
-        
-        due_date = getattr(job, 'due_date', 100)
-        urgency = max(0, due_date - self.current_time) / max(due_date, 1)
-        return 2.0 + urgency
-    
-    def _dispatch_jobs(self, distributor_id: int) -> float:
-        """派遣作业"""
-        completed_waiting = [j for j in self.completed_jobs 
-                           if j not in self.dispatched_jobs 
-                           and j.distributor_id == distributor_id]
-        
-        if not completed_waiting:
-            return -0.5
-        
-        reward = 0
-        for job in completed_waiting:
-            job.dispatch_time = self.current_time
-            job.dispatched_time = self.current_time
-            job.status = "dispatched"
-            self.dispatched_jobs.append(job)
-            
-            due_date = getattr(job, 'due_date', 100)
-            if job.completed_time <= due_date:
-                reward += 1.0
-            else:
-                reward += 0.5
-        
-        reward += len(completed_waiting) * 0.2
-        return reward
-    
-    def _advance_time(self):
-        """推进时间"""
-        self.current_time += 1
-        
-        for machine in self.machines:
-            if machine.status == "busy":
-                machine.remaining_time -= 1
-                if machine.remaining_time <= 0:
-                    job_id = machine.current_job
-                    job = next((j for j in self.jobs if j.job_id == job_id), None)
-                    
-                    if job:
-                        job.current_operation += 1
-                        if job.current_operation >= len(job.operations):
-                            job.status = "completed"
-                            job.completed_time = self.current_time
-                            if job not in self.completed_jobs:
-                                self.completed_jobs.append(job)
-                        else:
-                            job.status = "waiting"
-                    
-                    machine.status = "waiting"
-                    machine.current_job = -1
-                    machine.remaining_time = 0.0
-    
-    def _calculate_tardiness_penalty(self) -> float:
-        """计算延误惩罚"""
-        penalty = 0
-        for job in self.completed_jobs:
-            due_date = getattr(job, 'due_date', 100)
-            if job.completed_time > due_date:
-                penalty += (job.completed_time - due_date) * 0.1
-        return penalty
-    
-    def _is_done(self) -> bool:
-        """检查是否完成"""
-        all_jobs_completed = len(self.completed_jobs) == len(self.jobs)
-        all_jobs_dispatched = len(self.dispatched_jobs) == len(self.jobs)
-        timeout = self.current_time > 500
-        
-        return (all_jobs_completed and all_jobs_dispatched) or timeout
 
 
 class PPOAgent:
@@ -682,6 +370,19 @@ def main():
         stats['completed_jobs'].append(len(env.completed_jobs))
         stats['dispatched_jobs'].append(len(env.dispatched_jobs))
         
+        # 从环境中获取延迟惩罚和目标值指标
+        stats['tardy_penalty'] = stats.get('tardy_penalty', [])
+        stats['total_weighted_tardiness'] = stats.get('total_weighted_tardiness', [])
+        stats['objective_value'] = stats.get('objective_value', [])
+        
+        # 获取环境中的惩罚指标
+        tardy_penalty = getattr(env, 'tardy_penalty', 0)
+        total_weighted_tardiness = getattr(env, 'total_weighted_tardiness', 0)
+        
+        stats['tardy_penalty'].append(tardy_penalty)
+        stats['total_weighted_tardiness'].append(total_weighted_tardiness)
+        stats['objective_value'].append(episode_reward + tardy_penalty + total_weighted_tardiness)
+        
         # 更新网络
         if agent.buffer.ptr >= agent.buffer_size:
             update_info = agent.update()
@@ -771,6 +472,85 @@ def test_trained_model():
     print(f"  Makespan: {env.current_time}")
     print(f"  完成作业: {len(env.completed_jobs)}/{len(env.jobs)}")
     print(f"  派遣作业: {len(env.dispatched_jobs)}/{len(env.jobs)}")
+
+
+def run_ppo_experiment(config, case, seed, **kwargs):
+    """
+    批量实验统一入口，供批量运行器调用
+    """
+    # 设置随机种子
+    import random, numpy as np, torch
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+
+    # 构建环境和智能体
+    env = FJSSPEnvironment(case)
+    state_dim = 20
+    action_dim = env.action_dim
+    agent = PPOAgent(state_dim, action_dim, config)
+    episodes = getattr(config, "episodes", 50)
+    stats = defaultdict(list)
+
+    for episode in range(episodes):
+        state = env.reset()
+        episode_reward = 0
+        episode_length = 0
+        
+        while True:
+            # 获取动作掩码
+            action_mask = env.get_action_mask()
+            
+            # 选择动作
+            action, log_prob, value = agent.select_action(state, action_mask)
+            
+            # 执行动作
+            next_state, reward, done, info = env.step(action)
+            
+            # 存储经验
+            agent.store_transition(state, action, reward, value, log_prob, done)
+            
+            # 更新状态和统计
+            state = next_state
+            episode_reward += reward
+            episode_length += 1
+            
+            if done:
+                # 完成路径
+                last_value = agent.actor_critic.get_value(torch.FloatTensor(state).unsqueeze(0)).item()
+                agent.finish_path(last_value)
+                break
+        
+        # 记录统计数据
+        stats['episode_rewards'].append(episode_reward)
+        stats['episode_lengths'].append(episode_length)
+        stats['makespans'].append(env.current_time)
+        stats['completed_jobs'].append(len(env.completed_jobs))
+        stats['dispatched_jobs'].append(len(env.dispatched_jobs))
+        
+        
+        # 获取环境中的惩罚指标
+        tardy_penalty = getattr(env, 'tardy_penalty', 0)
+        total_weighted_tardiness = getattr(env, 'total_weighted_tardiness', 0)
+        
+        stats['tardy_penalty'].append(tardy_penalty)
+        stats['total_weighted_tardiness'].append(total_weighted_tardiness)
+        stats['objective_value'].append(episode_reward + tardy_penalty + total_weighted_tardiness)
+        
+        # 更新网络
+        if agent.buffer.ptr >= agent.buffer_size:
+            update_info = agent.update()
+            if update_info:
+                stats['policy_loss'].append(update_info['policy_loss'])
+                stats['value_loss'].append(update_info['value_loss'])
+                stats['entropy_loss'].append(update_info['entropy_loss'])
+
+    result = {
+        "stats": stats,
+        "env": env,
+        "additional_metrics": {}
+    }
+    return result
 
 
 if __name__ == "__main__":

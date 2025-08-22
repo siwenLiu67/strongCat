@@ -9,19 +9,15 @@ import os
 import time
 import importlib
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Callable
 from dataclasses import dataclass
-
-# 添加当前目录到 Python 路径
-current_dir = Path(__file__).parent
-if str(current_dir) not in sys.path:
-    sys.path.insert(0, str(current_dir))
 
 
 from config import Config
 from case_generator import FlexibleJobShopScenario
 from algorithm_results_saver import save_algorithm_results_csv, set_random_seed
 from run_ruleDqn_dispatchHeuri import run_ruleDqn_dispatchHeuri_experiment
+from ppo_model import run_ppo_experiment
 
 @dataclass
 class PaperInstanceConfig:
@@ -164,40 +160,81 @@ class UniversalAlgorithmRunner:
         # 默认种子列表
         self.default_seeds = [42, 123, 456, 789, 999]
     
-    def get_algorithm_function(self, algo_name: str):
-        """根据算法名称获取对应的运行函数"""
+    def get_algorithm_function(self, algo_name: str) -> Callable:
+        """
+        根据算法名称获取对应的运行函数
+        
+        Args:
+            algo_name: 算法名称
+            
+        Returns:
+            callable: 算法运行函数
+            
+        Raises:
+            ValueError: 不支持的算法名称
+            ImportError: 无法导入算法模块
+            AttributeError: 模块中没有找到合适的运行函数
+        """
+        # 验证算法名称
         if algo_name not in self.algorithm_modules:
             raise ValueError(f"不支持的算法: {algo_name}. 支持的算法: {list(self.algorithm_modules.keys())}")
         
         module_name = self.algorithm_modules[algo_name]
         
         try:
+            # 导入模块
             module = importlib.import_module(module_name)
             
-            # 根据算法类型确定函数名
-            if algo_name in ['DQN', 'SARSA', 'PPO', 'A3C', 'DDPG']:
-                func_name = f'run_{algo_name.lower()}_experiment'
-            elif algo_name == 'HRL_GAT':
-                func_name = 'run_hrl_gat_experiment'
-            elif algo_name == 'RuleDQN_DispatchHeuri':
-                func_name = 'main'
-            elif algo_name in ['GA', 'PSO', 'NSGA2', 'Greedy', 'Random']:
-                func_name = f'run_{algo_name.lower()}_experiment'
-            else:
-                func_name = 'main'
+            # 定义算法函数名映射
+            function_name_mapping = {
+                # 强化学习算法 - 使用标准命名模式
+                'DQN': 'run_dqn_experiment',
+                'SARSA': 'run_sarsa_experiment',
+                'PPO': 'run_ppo_experiment',
+                'A3C': 'run_a3c_experiment',
+                'DDPG': 'run_ddpg_experiment',
+                # 特殊算法 - 自定义函数名
+                'HRL_GAT': 'run_hrl_gat_experiment',
+                'RuleDQN_DispatchHeuri': 'main',
+                # 启发式算法 - 使用标准命名模式
+                'GA': 'run_ga_experiment',
+                'PSO': 'run_pso_experiment',
+                'NSGA2': 'run_nsga2_experiment',
+                'Greedy': 'run_greedy_experiment',
+                'Random': 'run_random_experiment',
+            }
             
+            # 获取函数名，如果没有映射则使用默认值
+            func_name = function_name_mapping.get(algo_name, 'main')
+            
+            # 尝试获取函数
             if hasattr(module, func_name):
                 return getattr(module, func_name)
-            else:
-                # 尝试常见的函数名
-                for name in ['main', 'run_experiment', f'run_{algo_name.lower()}']:
-                    if hasattr(module, name):
-                        return getattr(module, name)
-                
-                raise AttributeError(f"模块 {module_name} 中没有找到合适的运行函数")
+            
+            # 如果标准函数名不存在，尝试备选函数名
+            alternative_names = [
+                'main',
+                'run_experiment',
+                f'run_{algo_name.lower()}',
+                f'{algo_name.lower()}_experiment'
+            ]
+            
+            for alt_name in alternative_names:
+                if hasattr(module, alt_name):
+                    return getattr(module, alt_name)
+            
+            # 如果所有尝试都失败，抛出详细错误
+            available_functions = [name for name in dir(module) 
+                                 if not name.startswith('_') and callable(getattr(module, name))]
+            
+            raise AttributeError(
+                f"模块 {module_name} 中没有找到合适的运行函数。\n"
+                f"期望的函数名: {func_name}\n"
+                f"模块中可用的函数: {available_functions}"
+            )
                 
         except ImportError as e:
-            raise ImportError(f"无法导入算法模块 {module_name}: {e}")
+            raise ImportError(f"无法导入算法模块 {module_name}: {e}") from e
     
     def create_paper_config(self, instance: PaperInstanceConfig, base_config: Optional[Config] = None) -> Config:
         """基于论文参数创建配置"""
@@ -396,6 +433,6 @@ def run_batch_experiment(
 if __name__ == "__main__":
     # 直接调用，无需命令行参数
     run_batch_experiment(
-        algorithm="DQN",   # 修改为你要运行的法
+        algorithm="PPO",   # 修改为你要运行的法
         instance_type="all", # 可选: benchmark, all
     )
