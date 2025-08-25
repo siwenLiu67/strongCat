@@ -1,5 +1,5 @@
 """
-DQN环境适配器 - 使DQN算法能够复用WarehouseEnvironment
+SARSA环境适配器 - 使SARSA算法能够复用WarehouseEnvironment
 """
 
 import numpy as np
@@ -9,8 +9,8 @@ from case_generator import FlexibleJobShopScenario
 from config import Config
 
 
-class DQNEnvironmentAdapter:
-    """DQN环境适配器，将WarehouseEnvironment适配为DQN可用的接口"""
+class SARSAEnvironmentAdapter:
+    """SARSA环境适配器，将WarehouseEnvironment适配为SARSA可用的接口"""
     
     def __init__(self, config: Config, scenario: FlexibleJobShopScenario):
         """初始化适配器
@@ -23,16 +23,9 @@ class DQNEnvironmentAdapter:
         self.scenario = scenario
         self.config = config
         
-        # 状态和动作空间参数
-        self.state_dim = 20  # 与原始DQN保持一致
-        self.action_dim = 20000  # 与原始DQN保持一致
-        
-        # 内部状态
-        self.current_time = 0
-        self.completed_jobs = []
-        self.dispatched_jobs = []
-        self.pending_jobs = scenario.jobs.copy()
-        self.available_jobs = []
+        # 状态和动作空间参数（与原始SARSA保持一致）
+        self.state_dim = 20
+        self.action_dim = 1000
         
     def reset(self) -> np.ndarray:
         """重置环境并返回初始状态"""
@@ -40,7 +33,7 @@ class DQNEnvironmentAdapter:
         return self._get_state()
     
     def _get_state(self) -> np.ndarray:
-        """将WarehouseEnvironment的字典状态转换为DQN需要的numpy数组状态"""
+        """将WarehouseEnvironment的字典状态转换为SARSA需要的numpy数组状态"""
         state_features = []
         
         # 获取基础环境状态
@@ -113,11 +106,11 @@ class DQNEnvironmentAdapter:
         
         return np.array(state_features[:target_length], dtype=np.float32)
     
-    def _get_valid_actions(self) -> List[int]:
-        """获取当前有效的DQN动作编码"""
+    def get_valid_actions(self) -> List[int]:
+        """获取当前有效的动作ID列表"""
         valid_actions = []
         
-        # 调度动作：为等待的作业分配机器
+        # 调度动作
         for job in self.base_env.available_jobs:
             if job.status == "waiting" and job.current_operation < len(job.operations):
                 current_op = job.operations[job.current_operation]
@@ -127,9 +120,10 @@ class DQNEnvironmentAdapter:
                         if machine.status == "waiting":
                             # 动作编码：job_id * 100 + machine_id
                             action_id = job.job_id * 100 + machine_id
-                            valid_actions.append(action_id)
+                            if action_id < self.action_dim:
+                                valid_actions.append(action_id)
         
-        # 派遣动作：为完成的作业创建批次
+        # 派遣动作
         completed_waiting = [j for j in self.base_env.completed_jobs 
                            if j not in self.base_env.dispatched_jobs]
         if completed_waiting:
@@ -140,16 +134,18 @@ class DQNEnvironmentAdapter:
                 if dist_jobs:
                     # 派遣动作编码：10000 + distributor_id
                     dispatch_action_id = 10000 + dist.distributor_id
-                    valid_actions.append(dispatch_action_id)
+                    if dispatch_action_id < self.action_dim:
+                        valid_actions.append(dispatch_action_id)
         
         # 等待动作
-        valid_actions.append(19999)  # 等待动作编码
+        wait_action_id = self.action_dim - 1  # 等待动作编码
+        valid_actions.append(wait_action_id)
         
         return valid_actions
     
     def _decode_action(self, action: int) -> Dict:
-        """将DQN的整数动作解码为WarehouseEnvironment的字典动作"""
-        if action == 19999:
+        """将SARSA的整数动作解码为WarehouseEnvironment的字典动作"""
+        if action == self.action_dim - 1:
             # 等待动作
             return {'wait': {}}
         elif action >= 10000:
@@ -171,10 +167,10 @@ class DQNEnvironmentAdapter:
             return {'schedule': {job_id: machine_id}}
     
     def step(self, action: int) -> Tuple[np.ndarray, float, bool, dict]:
-        """执行DQN动作并返回结果
+        """执行SARSA动作并返回结果
         
         Args:
-            action: DQN的整数动作编码
+            action: SARSA的整数动作编码
             
         Returns:
             Tuple[np.ndarray, float, bool, dict]: 下一个状态，奖励，是否完成，信息
@@ -208,11 +204,92 @@ class DQNEnvironmentAdapter:
     def distributors(self):
         """获取配送商列表"""
         return self.base_env.distributors
+    
+    @property
+    def completed_jobs(self):
+        """获取已完成作业列表"""
+        return self.base_env.completed_jobs
+    
+    @property
+    def dispatched_jobs(self):
+        """获取已派遣作业列表"""
+        return self.base_env.dispatched_jobs
+    
+    @property
+    def current_time(self):
+        """获取当前时间"""
+        return self.base_env.t
+    
+    @property
+    def tardy_penalty(self):
+        """获取延迟惩罚"""
+        return self.base_env.tardy_penalty
+    
+    @property
+    def total_weighted_tardiness(self):
+        """获取总加权延迟时间"""
+        return self.base_env.total_weighted_tardiness
+    
+    @property
+    def dynamic_jobs_arrived(self):
+        """获取已到达的动态作业数"""
+        return self.base_env.dynamic_jobs_arrived
+    
+    @property
+    def remaining_dynamic_jobs(self):
+        """获取剩余动态作业数"""
+        return self.base_env.remaining_dynamic_jobs
+    
+    @property
+    def arrival_events(self):
+        """获取到达事件记录"""
+        return self.base_env.arrival_events
+    
+    @property
+    def completion_times(self):
+        """获取完成时间记录"""
+        return self.base_env.completion_times
+    
+    @property
+    def machine_utilization(self):
+        """获取机器利用率统计"""
+        return self.base_env.machine_utilization
+    
+    @property
+    def initial_jobs(self):
+        """获取初始作业列表"""
+        return self.base_env.initial_jobs
+    
+    @property
+    def available_jobs(self):
+        """获取可用作业列表"""
+        return self.base_env.available_jobs
+    
+    @property
+    def done(self):
+        """获取是否完成"""
+        return self.base_env.done
+    
+    def get_dynamic_arrival_statistics(self):
+        """获取动态到达统计信息"""
+        return self.base_env.get_dynamic_arrival_statistics()
+    
+    def calculate_machine_utilization(self):
+        """计算机器利用率"""
+        return self.base_env.calculate_machine_utilization()
+    
+    def calculate_operation_progress_ratio(self):
+        """计算作业进度比例"""
+        return self.base_env.calculate_operation_progress_ratio()
+    
+    def calculate_machine_load_variance(self):
+        """计算机器负载方差"""
+        return self.base_env.calculate_machine_load_variance()
 
 
-# 兼容性包装器，保持与原始FJSSPEnvironment相同的接口
+# 兼容性包装器，保持与原始SARSA环境相同的接口
 class FJSSPEnvironment:
-    """兼容性包装器，保持与原始DQN环境相同的接口"""
+    """兼容性包装器，保持与原始SARSA环境相同的接口"""
     
     def __init__(self, scenario: FlexibleJobShopScenario):
         """初始化兼容性环境
@@ -221,8 +298,9 @@ class FJSSPEnvironment:
             scenario: 算例生成器实例
         """
         config = Config()
-        self.adapter = DQNEnvironmentAdapter(config, scenario)
+        self.adapter = SARSAEnvironmentAdapter(config, scenario)
         self.scenario = scenario
+        self.action_dim = self.adapter.action_dim
         
     def reset(self):
         """重置环境"""
@@ -232,9 +310,9 @@ class FJSSPEnvironment:
         """执行动作"""
         return self.adapter.step(action)
     
-    def _get_valid_actions(self) -> List[int]:
+    def get_valid_actions(self) -> List[int]:
         """获取有效动作"""
-        return self.adapter._get_valid_actions()
+        return self.adapter.get_valid_actions()
     
     def _is_done(self) -> bool:
         """检查是否完成"""
@@ -258,80 +336,80 @@ class FJSSPEnvironment:
     @property
     def completed_jobs(self):
         """获取已完成作业列表"""
-        return self.adapter.base_env.completed_jobs
+        return self.adapter.completed_jobs
     
     @property
     def dispatched_jobs(self):
         """获取已派遣作业列表"""
-        return self.adapter.base_env.dispatched_jobs
+        return self.adapter.dispatched_jobs
     
     @property
     def current_time(self):
         """获取当前时间"""
-        return self.adapter.base_env.t
+        return self.adapter.current_time
     
     @property
     def tardy_penalty(self):
         """获取延迟惩罚"""
-        return self.adapter.base_env.tardy_penalty
+        return self.adapter.tardy_penalty
     
     @property
     def total_weighted_tardiness(self):
         """获取总加权延迟时间"""
-        return self.adapter.base_env.total_weighted_tardiness
+        return self.adapter.total_weighted_tardiness
     
     @property
     def dynamic_jobs_arrived(self):
         """获取已到达的动态作业数"""
-        return self.adapter.base_env.dynamic_jobs_arrived
+        return self.adapter.dynamic_jobs_arrived
     
     @property
     def remaining_dynamic_jobs(self):
         """获取剩余动态作业数"""
-        return self.adapter.base_env.remaining_dynamic_jobs
+        return self.adapter.remaining_dynamic_jobs
     
     @property
     def arrival_events(self):
         """获取到达事件记录"""
-        return self.adapter.base_env.arrival_events
+        return self.adapter.arrival_events
     
     @property
     def completion_times(self):
         """获取完成时间记录"""
-        return self.adapter.base_env.completion_times
+        return self.adapter.completion_times
     
     @property
     def machine_utilization(self):
         """获取机器利用率统计"""
-        return self.adapter.base_env.machine_utilization
+        return self.adapter.machine_utilization
     
     @property
     def initial_jobs(self):
         """获取初始作业列表"""
-        return self.adapter.base_env.initial_jobs
+        return self.adapter.initial_jobs
     
     @property
     def available_jobs(self):
         """获取可用作业列表"""
-        return self.adapter.base_env.available_jobs
+        return self.adapter.available_jobs
     
     @property
     def done(self):
         """获取是否完成"""
-        return self.adapter.base_env.done
+        return self.adapter.done
     
     def get_dynamic_arrival_statistics(self):
         """获取动态到达统计信息"""
-        return self.adapter.base_env.get_dynamic_arrival_statistics()
+        return self.adapter.get_dynamic_arrival_statistics()
     
     def calculate_machine_utilization(self):
         """计算机器利用率"""
-        return self.adapter.base_env.calculate_machine_utilization()
+        return self.adapter.calculate_machine_utilization()
     
     def calculate_operation_progress_ratio(self):
         """计算作业进度比例"""
-        return self.adapter.base_env.calculate_operation_progress_ratio()
+        return self.adapter.calculate_operation_progress_ratio()
     
     def calculate_machine_load_variance(self):
         """计算机器负载方差"""
-        return self.adapter.base_env.calculate_machine_load_variance()
+        return self.adapter.calculate_machine_load_variance()

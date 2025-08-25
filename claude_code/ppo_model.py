@@ -376,8 +376,8 @@ def main():
         stats['objective_value'] = stats.get('objective_value', [])
         
         # 获取环境中的惩罚指标
-        tardy_penalty = getattr(env, 'tardy_penalty', 0)
-        total_weighted_tardiness = getattr(env, 'total_weighted_tardiness', 0)
+        tardy_penalty = env.tardy_penalty
+        total_weighted_tardiness = env.total_weighted_tardiness
         
         stats['tardy_penalty'].append(tardy_penalty)
         stats['total_weighted_tardiness'].append(total_weighted_tardiness)
@@ -530,8 +530,10 @@ def run_ppo_experiment(config, case, seed, **kwargs):
         
         
         # 获取环境中的惩罚指标
-        tardy_penalty = getattr(env, 'tardy_penalty', 0)
-        total_weighted_tardiness = getattr(env, 'total_weighted_tardiness', 0)
+        # tardy_penalty = getattr(env, 'tardy_penalty', 0)
+        # total_weighted_tardiness = getattr(env, 'total_weighted_tardiness', 0)
+        tardy_penalty = env.tardy_penalty 
+        total_weighted_tardiness = env.total_weighted_tardiness
         
         stats['tardy_penalty'].append(tardy_penalty)
         stats['total_weighted_tardiness'].append(total_weighted_tardiness)

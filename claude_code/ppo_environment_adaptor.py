@@ -235,6 +235,72 @@ class PPOEnvironmentAdapter:
     def current_time(self):
         """获取当前时间"""
         return self.base_env.t
+    
+    @property
+    def tardy_penalty(self):
+        """获取延迟惩罚"""
+        return self.base_env.tardy_penalty
+    
+    @property
+    def total_weighted_tardiness(self):
+        """获取总加权延迟时间"""
+        return self.base_env.total_weighted_tardiness
+    
+    @property
+    def dynamic_jobs_arrived(self):
+        """获取已到达的动态作业数"""
+        return self.base_env.dynamic_jobs_arrived
+    
+    @property
+    def remaining_dynamic_jobs(self):
+        """获取剩余动态作业数"""
+        return self.base_env.remaining_dynamic_jobs
+    
+    @property
+    def arrival_events(self):
+        """获取到达事件记录"""
+        return self.base_env.arrival_events
+    
+    @property
+    def completion_times(self):
+        """获取完成时间记录"""
+        return self.base_env.completion_times
+    
+    @property
+    def machine_utilization(self):
+        """获取机器利用率统计"""
+        return self.base_env.machine_utilization
+    
+    @property
+    def initial_jobs(self):
+        """获取初始作业列表"""
+        return self.base_env.initial_jobs
+    
+    @property
+    def available_jobs(self):
+        """获取可用作业列表"""
+        return self.base_env.available_jobs
+    
+    @property
+    def done(self):
+        """获取是否完成"""
+        return self.base_env.done
+    
+    def get_dynamic_arrival_statistics(self):
+        """获取动态到达统计信息"""
+        return self.base_env.get_dynamic_arrival_statistics()
+    
+    def calculate_machine_utilization(self):
+        """计算机器利用率"""
+        return self.base_env.calculate_machine_utilization()
+    
+    def calculate_operation_progress_ratio(self):
+        """计算作业进度比例"""
+        return self.base_env.calculate_operation_progress_ratio()
+    
+    def calculate_machine_load_variance(self):
+        """计算机器负载方差"""
+        return self.base_env.calculate_machine_load_variance()
 
 
 # 兼容性包装器，保持与原始PPO环境相同的接口
@@ -297,3 +363,69 @@ class FJSSPEnvironment:
     def current_time(self):
         """获取当前时间"""
         return self.adapter.current_time
+    
+    @property
+    def tardy_penalty(self):
+        """获取延迟惩罚"""
+        return self.adapter.tardy_penalty
+    
+    @property
+    def total_weighted_tardiness(self):
+        """获取总加权延迟时间"""
+        return self.adapter.total_weighted_tardiness
+    
+    @property
+    def dynamic_jobs_arrived(self):
+        """获取已到达的动态作业数"""
+        return self.adapter.dynamic_jobs_arrived
+    
+    @property
+    def remaining_dynamic_jobs(self):
+        """获取剩余动态作业数"""
+        return self.adapter.remaining_dynamic_jobs
+    
+    @property
+    def arrival_events(self):
+        """获取到达事件记录"""
+        return self.adapter.arrival_events
+    
+    @property
+    def completion_times(self):
+        """获取完成时间记录"""
+        return self.adapter.completion_times
+    
+    @property
+    def machine_utilization(self):
+        """获取机器利用率统计"""
+        return self.adapter.machine_utilization
+    
+    @property
+    def initial_jobs(self):
+        """获取初始作业列表"""
+        return self.adapter.initial_jobs
+    
+    @property
+    def available_jobs(self):
+        """获取可用作业列表"""
+        return self.adapter.available_jobs
+    
+    @property
+    def done(self):
+        """获取是否完成"""
+        return self.adapter.done
+    
+    def get_dynamic_arrival_statistics(self):
+        """获取动态到达统计信息"""
+        return self.adapter.get_dynamic_arrival_statistics()
+    
+    def calculate_machine_utilization(self):
+        """计算机器利用率"""
+        return self.adapter.calculate_machine_utilization()
+    
+    def calculate_operation_progress_ratio(self):
+        """计算作业进度比例"""
+        return self.adapter.calculate_operation_progress_ratio()
+    
+    def calculate_machine_load_variance(self):
+        """计算机器负载方差"""
+        return self.adapter.calculate_machine_load_variance()

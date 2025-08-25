@@ -1592,6 +1592,182 @@ def benchmark_algorithms():
     return all_results
 
 
+def run_all_heuristics_experiment(config, case, seed, **kwargs):
+    """
+    统一运行所有启发式算法的实验函数
+    供batch_runner调用，返回与DQN等算法一致的格式
+    
+    Args:
+        config: 配置对象
+        case: 算例对象
+        seed: 随机种子
+        **kwargs: 其他参数
+        
+    Returns:
+        Dict: 包含所有算法统计信息的结果字典
+    """
+    import random
+    import numpy as np
+    import time
+    
+    # 设置随机种子
+    random.seed(seed)
+    np.random.seed(seed)
+    
+    start_time = time.time()
+    
+    # 创建启发式求解器
+    solver = HeuristicSolver(case)
+    
+    # 运行所有算法
+    print(f"🚀 运行所有启发式算法 (seed={seed})...")
+    all_results = solver.solve_all()
+    
+    total_time = time.time() - start_time
+    
+    # 转换为统一的统计格式
+    stats = defaultdict(list)
+    additional_metrics = {}
+    
+    # 收集所有算法的统计信息
+    for algo_name, result in all_results.items():
+        # 基本统计
+        stats['episode_rewards'].append(result.total_objective)
+        stats['makespans'].append(result.schedule_result.makespan)
+        stats['total_tardiness'].append(result.schedule_result.total_tardiness)
+        stats['solve_times'].append(result.solve_time)
+        
+        # 算法特定的统计
+        stats[f'{algo_name}_objective'] = [result.total_objective]
+        stats[f'{algo_name}_makespan'] = [result.schedule_result.makespan]
+        stats[f'{algo_name}_tardiness'] = [result.schedule_result.total_tardiness]
+        stats[f'{algo_name}_solve_time'] = [result.solve_time]
+        
+        # 额外的性能指标
+        additional_metrics[algo_name] = {
+            'objective_value': result.total_objective,
+            'makespan': result.schedule_result.makespan,
+            'total_tardiness': result.schedule_result.total_tardiness,
+            'delivery_time': result.dispatch_result.total_delivery_time,
+            'on_time_rate': result.dispatch_result.on_time_delivery_rate,
+            'solve_time': result.solve_time,
+            'machine_utilization': result.schedule_result.machine_utilization
+        }
+    
+    # 找到最佳算法
+    best_algo = min(all_results.keys(), key=lambda x: all_results[x].total_objective)
+    best_result = all_results[best_algo]
+    
+    # 返回与DQN等算法一致的格式
+    return {
+        'stats': stats,
+        'env': case,  # 返回原始算例
+        'additional_metrics': additional_metrics,
+        'best_algorithm': best_algo,
+        'best_objective': best_result.total_objective,
+        'all_results': all_results  # 包含所有原始结果
+    }
+
+
+def run_heuristic_experiment(config, case, seed, algorithm_name=None, **kwargs):
+    """
+    运行单个启发式算法的实验函数
+    支持指定特定算法运行
+    
+    Args:
+        config: 配置对象
+        case: 算例对象
+        seed: 随机种子
+        algorithm_name: 算法名称，如果为None则运行所有算法
+        **kwargs: 算法特定参数
+        
+    Returns:
+        Dict: 包含算法统计信息的结果字典
+    """
+    import random
+    import numpy as np
+    import time
+    
+    # 设置随机种子
+    random.seed(seed)
+    np.random.seed(seed)
+    
+    start_time = time.time()
+    
+    # 创建启发式求解器
+    solver = HeuristicSolver(case)
+    
+    if algorithm_name is None:
+        # 运行所有算法
+        return run_all_heuristics_experiment(config, case, seed, **kwargs)
+    
+    # 运行特定算法
+    if algorithm_name.lower() == 'priority_rule':
+        # 优先规则算法需要指定规则
+        job_rule = kwargs.get('job_priority_rule', 'EDD')
+        machine_rule = kwargs.get('machine_selection_rule', 'SPT')
+        result = solver.algorithms['priority_rule'].solve(job_rule, machine_rule)
+        algo_key = f'priority_rule_{job_rule}_{machine_rule}'
+        
+    elif algorithm_name.lower() == 'greedy_construction':
+        result = solver.algorithms['greedy_construction'].solve()
+        algo_key = 'greedy_construction'
+        
+    elif algorithm_name.lower() == 'local_search':
+        max_iter = kwargs.get('max_iterations', 50)
+        initial_method = kwargs.get('initial_method', 'greedy')
+        result = solver.algorithms['local_search'].solve(max_iter, initial_method)
+        algo_key = f'local_search_{initial_method}_{max_iter}'
+        
+    elif algorithm_name.lower() == 'genetic_algorithm':
+        pop_size = kwargs.get('population_size', 30)
+        generations = kwargs.get('generations', 50)
+        mutation_rate = kwargs.get('mutation_rate', 0.1)
+        crossover_rate = kwargs.get('crossover_rate', 0.8)
+        result = solver.algorithms['genetic_algorithm'].solve(pop_size, generations, mutation_rate, crossover_rate)
+        algo_key = f'genetic_algorithm_{pop_size}_{generations}'
+        
+    else:
+        raise ValueError(f"不支持的启发式算法: {algorithm_name}")
+    
+    total_time = time.time() - start_time
+    
+    # 转换为统一的统计格式
+    stats = defaultdict(list)
+    additional_metrics = {}
+    
+    # 收集统计信息
+    stats['episode_rewards'].append(result.total_objective)
+    stats['makespans'].append(result.schedule_result.makespan)
+    stats['total_tardiness'].append(result.schedule_result.total_tardiness)
+    stats['solve_times'].append(result.solve_time)
+    
+    # 算法特定的统计
+    stats[f'{algo_key}_objective'] = [result.total_objective]
+    stats[f'{algo_key}_makespan'] = [result.schedule_result.makespan]
+    stats[f'{algo_key}_tardiness'] = [result.schedule_result.total_tardiness]
+    stats[f'{algo_key}_solve_time'] = [result.solve_time]
+    
+    # 额外的性能指标
+    additional_metrics[algo_key] = {
+        'objective_value': result.total_objective,
+        'makespan': result.schedule_result.makespan,
+        'total_tardiness': result.schedule_result.total_tardiness,
+        'delivery_time': result.dispatch_result.total_delivery_time,
+        'on_time_rate': result.dispatch_result.on_time_delivery_rate,
+        'solve_time': result.solve_time,
+        'machine_utilization': result.schedule_result.machine_utilization
+    }
+    
+    return {
+        'stats': stats,
+        'env': case,
+        'additional_metrics': additional_metrics,
+        'algorithm_name': algo_key,
+        'objective_value': result.total_objective
+    }
+
+
 if __name__ == "__main__":
     # 运行主要测试
     print("启动FJSP-DP启发式算法求解器")

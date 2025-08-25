@@ -26,6 +26,7 @@ import time
 from case_generator import FlexibleJobShopScenario
 from config import Config
 from data_structures import Job, Operation, Machine, Distributor
+from optimal_critic_environment_adapter import OptimalCriticEnvironmentAdapter
 
 
 @dataclass
@@ -759,7 +760,13 @@ class ScheduleEnvironmentOC:
 class OptionCriticAgent:
     """Option-Critic智能体"""
     
-    def __init__(self, env: ScheduleEnvironmentOC, config: OptionCriticConfig):
+    def __init__(self, env, config: OptionCriticConfig):
+        """初始化智能体
+        
+        Args:
+            env: 环境适配器 (OptimalCriticEnvironmentAdapter 或 ScheduleEnvironmentOC)
+            config: 配置参数
+        """
         self.env = env
         self.config = config
         
@@ -988,6 +995,7 @@ class OptionCriticAgent:
             # 获取动作并执行
             try:
                 action = self.get_action(state, option)
+                # 使用OptimalCriticEnvironmentAdapter的step方法，需要传递option参数
                 next_state, reward, done, info = self.env.step(action, option)
             except Exception as e:
                 print(f"环境step出错: {e}")
@@ -1084,7 +1092,9 @@ class OptionCriticSolver:
     def __init__(self, scenario: FlexibleJobShopScenario, config: OptionCriticConfig):
         self.scenario = scenario
         self.config = config
-        self.env = ScheduleEnvironmentOC(scenario)
+        # 使用OptimalCriticEnvironmentAdapter而不是ScheduleEnvironmentOC
+        self.env_adapter = OptimalCriticEnvironmentAdapter(Config(), scenario)
+        self.env = self.env_adapter  # 保持兼容性
         self.agent = OptionCriticAgent(self.env, config)
         self.training_history = []
     

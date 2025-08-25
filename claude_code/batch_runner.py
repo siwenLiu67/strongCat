@@ -141,6 +141,8 @@ class UniversalAlgorithmRunner:
             'DQN': 'dqn_model',
             'SARSA': 'sarsa_model', 
             'PPO': 'ppo_model',
+            'OptimalCritic': 'optimal_critic_model',
+            'HIRO': 'hiro_model',
             'A3C': 'a3c_model',
             'DDPG': 'ddpg_model',
             'HRL_GAT': 'hrl_gnn_model',
@@ -152,6 +154,7 @@ class UniversalAlgorithmRunner:
             'NSGA2': 'nsga2_model',
             'Greedy': 'greedy_model',
             'Random': 'random_model',
+            'ALL_HEURISTICS': 'heuristics_model',  # 新增：运行所有启发式算法
         }
         
         # 论文算例生成器
@@ -202,6 +205,8 @@ class UniversalAlgorithmRunner:
                 'NSGA2': 'run_nsga2_experiment',
                 'Greedy': 'run_greedy_experiment',
                 'Random': 'run_random_experiment',
+                # 新增：所有启发式算法
+                'ALL_HEURISTICS': 'run_all_heuristics_experiment',
             }
             
             # 获取函数名，如果没有映射则使用默认值
