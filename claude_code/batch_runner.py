@@ -347,6 +347,91 @@ class UniversalAlgorithmRunner:
             }
     
 
+    def run_all_heuristics_experiment(self, instance: PaperInstanceConfig, seed: int, 
+                                    base_config: Optional[Config] = None, **kwargs) -> Dict:
+        """专门处理所有启发式算法的实验，返回多个算法的结果"""
+        print(f"🚀 开始运行所有启发式算法 - {instance.name} - seed{seed}")
+        print(f"   参数: {instance.total_jobs}作业({instance.num_initial_jobs}+{instance.num_dynamic_jobs}), "
+              f"{instance.num_machines}机器, {instance.num_distributors}配送商")
+        
+        # 设置随机种子
+        set_random_seed(seed)
+        
+        # 创建配置
+        config = self.create_paper_config(instance, base_config)
+        
+        # 记录开始时间
+        start_time = time.time()
+        
+        try:
+            # 生成算例
+            case = FlexibleJobShopScenario(config=config)
+            
+            # 获取算法函数
+            algorithm_func = self.get_algorithm_function('ALL_HEURISTICS')
+            
+            # 运行所有启发式算法
+            results_list = algorithm_func(config, case, seed, **kwargs)
+            
+            end_time = time.time()
+            total_time = end_time - start_time
+            
+            # 保存每个算法的结果
+            instance_id = instance.name
+            all_success = True
+            algorithm_results = []
+            
+            for algo_result in results_list:
+                success = save_algorithm_results_csv(
+                    algo_name=algo_result.get('algorithm_name', 'unknown_heuristic'),
+                    instance_id=instance_id,
+                    seed=seed,
+                    config=config,
+                    stats=algo_result.get('stats', {}),
+                    env=algo_result.get('env', case),
+                    total_time=total_time,
+                    additional_metrics=algo_result.get('additional_metrics', {})
+                )
+                
+                if not success:
+                    all_success = False
+                
+                algorithm_results.append({
+                    'algorithm_name': algo_result.get('algorithm_name', 'unknown_heuristic'),
+                    'success': success,
+                    'objective_value': algo_result.get('objective_value', 0)
+                })
+            
+            print(f"✅ 完成所有启发式算法 - {instance.name} (耗时: {total_time:.2f}s)")
+            
+            # 打印每个算法的结果
+            print(f"📊 各算法结果:")
+            for result in algorithm_results:
+                status = "✅" if result['success'] else "❌"
+                print(f"   {status} {result['algorithm_name']}: 目标值={result['objective_value']:.2f}")
+            
+            return {
+                'success': all_success,
+                'results': algorithm_results,
+                'total_time': total_time,
+                'instance_id': instance_id
+            }
+            
+        except Exception as e:
+            end_time = time.time()
+            total_time = end_time - start_time
+            
+            print(f"❌ 失败: 所有启发式算法 - {instance.name}: {str(e)}")
+            import traceback
+            print(f"错误详情: {traceback.format_exc()}")
+            
+            return {
+                'success': False,
+                'error': str(e),
+                'total_time': total_time,
+                'instance_id': instance.name
+            }
+    
     def run_paper_experiments(self, algo_name: str, 
                             instance_type: str,
                             base_config,
@@ -385,13 +470,22 @@ class UniversalAlgorithmRunner:
         
         for instance in instances:
             for seed in seeds:
-                result = self.run_single_experiment(
-                    algo_name=algo_name,
-                    instance=instance,
-                    seed=seed,
-                    base_config=base_config,
-                    **kwargs
-                )
+                # 特殊处理所有启发式算法
+                if algo_name == 'ALL_HEURISTICS':
+                    result = self.run_all_heuristics_experiment(
+                        instance=instance,
+                        seed=seed,
+                        base_config=base_config,
+                        **kwargs
+                    )
+                else:
+                    result = self.run_single_experiment(
+                        algo_name=algo_name,
+                        instance=instance,
+                        seed=seed,
+                        base_config=base_config,
+                        **kwargs
+                    )
                 
                 results.append(result)
                 completed += 1

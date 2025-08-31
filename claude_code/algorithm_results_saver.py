@@ -126,11 +126,12 @@ def _extract_unified_metrics(stats: Dict, env: Any, config: Any, total_time: flo
         'algorithm_type': 'Unknown'
     }
     
+    # 检测启发式算法
+    if _is_heuristic_algorithm(stats):
+        metrics.update(_extract_heuristic_metrics(stats, env, config, total_time))
+    else:
+        metrics.update(_extract_rl_metrics(stats, env, config, total_time))
     
-    
-    metrics.update(_extract_rl_metrics(stats, env, config, total_time))
-    
-   
     return metrics
 
 def _extract_rl_metrics(stats: Dict, env: Any, config: Any, total_time: float) -> Dict:
@@ -177,6 +178,71 @@ def _extract_rl_metrics(stats: Dict, env: Any, config: Any, total_time: float) -
     
     return metrics
 
+
+def _is_heuristic_algorithm(stats: Dict) -> bool:
+    """检测是否为启发式算法"""
+    # 启发式算法通常有特定的统计字段
+    has_heuristic_fields = any(key in stats for key in [
+        'solve_times', 'heuristic_objective', 'priority_rule', 'greedy', 
+        'local_search', 'genetic', 'total_tardiness', 'objective_value'
+    ])
+    
+    # 检查是否有典型的强化学习字段（多个episode的数据）
+    has_rl_fields = False
+    if 'episode_rewards' in stats:
+        # 启发式算法通常只有一个episode，而强化学习有多个
+        episode_rewards = stats['episode_rewards']
+        if isinstance(episode_rewards, list) and len(episode_rewards) > 1:
+            has_rl_fields = True
+    
+    if 'episode_lengths' in stats:
+        episode_lengths = stats['episode_lengths']
+        if isinstance(episode_lengths, list) and len(episode_lengths) > 1:
+            has_rl_fields = True
+    
+    # 如果有启发式字段且没有强化学习字段，则认为是启发式算法
+    # 或者如果明确包含启发式算法的特定字段
+    return (has_heuristic_fields and not has_rl_fields) or \
+           any(key in stats for key in ['solve_times', 'heuristic_objective'])
+
+def _extract_heuristic_metrics(stats: Dict, env: Any, config: Any, total_time: float) -> Dict:
+    """提取启发式算法指标"""
+    # 从stats中提取启发式算法特有的指标
+    objective_value = stats.get('objective_value', [0.0])[0] if isinstance(stats.get('objective_value'), list) else stats.get('objective_value', 0.0)
+    makespan = stats.get('makespans', [0.0])[0] if isinstance(stats.get('makespans'), list) else stats.get('makespan', 0.0)
+    tardiness = stats.get('total_tardiness', [0.0])[0] if isinstance(stats.get('total_tardiness'), list) else stats.get('total_tardiness', 0.0)
+    solve_time = stats.get('solve_times', [total_time])[0] if isinstance(stats.get('solve_times'), list) else stats.get('solve_time', total_time)
+    
+    metrics = {
+        'algorithm_type': 'Heuristic',
+        'num_episodes': 1,  # 启发式算法通常只运行一次
+        'objective_value': float(objective_value),
+        'final_makespan': float(makespan),
+        'avg_makespan': float(makespan),
+        'total_tardiness': float(tardiness),
+        'tardy_penalty': float(tardiness),  # 使用总延误作为延误惩罚
+        'time_per_episode_s': float(solve_time),
+        'time_per_step_ms': 0.0,  # 启发式算法没有步的概念
+        'total_steps': 0,
+        'avg_reward': float(objective_value),  # 使用目标值作为奖励
+        'std_reward': 0.0,
+        'best_reward': float(objective_value),
+        'final_reward': float(objective_value),
+        'machine_utilization': stats.get('machine_utilization', 0.0)
+    }
+    
+    # 从环境获取问题规模
+    if hasattr(env, 'jobs'):
+        metrics['num_jobs'] = len(env.jobs)
+    elif hasattr(env, 'case') and hasattr(env.case, 'jobs'):
+        metrics['num_jobs'] = len(env.case.jobs)
+    else:
+        metrics['num_jobs'] = getattr(config, 'num_jobs', 0)
+    
+    metrics['num_machines'] = getattr(config, 'num_machines', 0)
+    metrics['num_distributors'] = getattr(config, 'num_distributors', 0)
+    
+    return metrics
 
 def _extract_generic_metrics(stats: Dict, env: Any, config: Any, total_time: float) -> Dict:
     """通用指标提取（兜底方案）"""

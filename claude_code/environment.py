@@ -354,32 +354,39 @@ class WarehouseEnvironment:
             reward += 0.5 # 增加配送动作的奖励
             debug_info['dispatch_reward'] = 0.5
 
-        # 计算配送完工时间延迟
+        # 计算作业延误（只计算一次，避免重复计算）
+        current_tardiness = 0
         for job in self.completed_jobs:
             tardiness = max(0, job.dispatched_time - job.due_date)
-            self.total_weighted_tardiness += tardiness
-            # 归一化total_weighted_tardiness
-            reward +=  1/(1+self.total_weighted_tardiness)
+            current_tardiness += tardiness
             debug_info[f'job_{job.job_id}_tardiness'] = -tardiness
-
         
-        # 计算分段配送时间要求延迟成本
+        # 更新总延误（避免重复累加）
+        self.total_weighted_tardiness = current_tardiness
+        # 归一化total_weighted_tardiness
+        reward += 1/(1 + self.total_weighted_tardiness)
+        
+        # 计算分段配送时间要求延迟成本（只计算配送商要求的惩罚，不重复计算作业延误）
+        current_tardy_penalty = 0
         for distributor in self.distributors:
-                min_due_time = min(distributor.delivery_requirements.due_times) if distributor.delivery_requirements else float('inf')
-                if min_due_time < self.t:
-                    # 计算每个配送商的延迟成本
-                    requirement = distributor.delivery_requirements
-                    for due_time, ratio, weight in zip(requirement.due_times, requirement.ratios, requirement.weights):
-                        # 在这个due_time之前完成的作业
-                        completed_jobs = [j for j in self.completed_jobs if j.dispatched_time <= due_time]
-                        completed_amount = sum(j.amount for j in completed_jobs)
-                        required_amount = ratio * distributor.total_amount
-                        if completed_amount < required_amount:
-                            penalty = (required_amount - completed_amount) * weight
-                            penalty_reward =  (required_amount - completed_amount)/required_amount * weight
-                            reward -= (penalty_reward)
-                            debug_info[f'distributor_{distributor.distributor_id}_due_time_{due_time}'] = -penalty
-                            self.tardy_penalty += (penalty)    
+            min_due_time = min(distributor.delivery_requirements.due_times) if distributor.delivery_requirements else float('inf')
+            if min_due_time < self.t:
+                # 计算每个配送商的延迟成本
+                requirement = distributor.delivery_requirements
+                for due_time, ratio, weight in zip(requirement.due_times, requirement.ratios, requirement.weights):
+                    # 在这个due_time之前完成的作业
+                    completed_jobs = [j for j in self.completed_jobs if j.dispatched_time <= due_time]
+                    completed_amount = sum(j.amount for j in completed_jobs)
+                    required_amount = ratio * distributor.total_amount
+                    if completed_amount < required_amount:
+                        penalty = (required_amount - completed_amount) * weight
+                        penalty_reward = (required_amount - completed_amount)/required_amount * weight
+                        reward -= penalty_reward
+                        debug_info[f'distributor_{distributor.distributor_id}_due_time_{due_time}'] = -penalty
+                        current_tardy_penalty += penalty
+        
+        # 更新配送时间要求惩罚（避免重复累加）
+        self.tardy_penalty = current_tardy_penalty
 
             
             

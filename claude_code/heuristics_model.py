@@ -39,6 +39,8 @@ class DispatchResult:
     total_delivery_time: int
     delivery_cost: float
     on_time_delivery_rate: float
+    tardy_penalty: float = 0.0  # 配送时间要求延迟惩罚
+    total_weighted_tardiness: float = 0.0  # 总加权延误时间
 
 
 @dataclass
@@ -51,38 +53,113 @@ class SolutionResult:
     algorithm_name: str
 
 
-class PriorityRuleAlgorithm:
+class DynamicPriorityRuleAlgorithm:
     """
-    优先规则算法
-    基于作业和机器的优先级规则进行调度和派遣
+    动态优先规则算法
+    支持动态到达作业，每次都对未调度的工件重新进行启发式排序
     """
     
-    def __init__(self, scenario: FlexibleJobShopScenario):
-        self.scenario = scenario
-        self.jobs = scenario.jobs
-        self.machines = scenario.machines
-        self.distributors = scenario.distributors
+    def __init__(self, environment):
+        self.env = environment
+        self.jobs = []
+        self.machines = environment.machines
+        self.distributors = environment.distributors
+        self.current_time = 0
         
-    def solve(self, job_priority_rule: str = "EDD", 
-              machine_selection_rule: str = "SPT") -> SolutionResult:
+    def solve_dynamic(self, job_priority_rule: str = "EDD", machine_selection_rule: str = "SPT") -> SolutionResult:
         """
-        使用优先规则求解
+        在动态环境中求解
         
         Args:
-            job_priority_rule: 作业优先规则 ("EDD", "SPT", "LPT", "CR")
-            machine_selection_rule: 机器选择规则 ("SPT", "LPT", "RANDOM")
+            job_priority_rule: 作业优先规则 ("EDD", "SPT", "MST", "CR")
+            machine_selection_rule: 机器选择规则 ("SPT", "LPT", "EFT")
         """
         start_time = time.time()
         
-        # 阶段1: 车间调度
-        schedule_result = self._schedule_jobs(job_priority_rule, machine_selection_rule)
+        # 重置环境
+        state = self.env.reset()
+        self.current_time = 0
+        self.jobs = state['available_jobs'].copy()
         
-        # 阶段2: 派遣决策
-        dispatch_result = self._dispatch_jobs(schedule_result)
+        # 初始化调度结果
+        job_schedules = {job.job_id: [] for job in self.jobs}
+        job_completion_times = {}
+        job_tardiness = {}
+        machine_busy_until = {m.machine_id: 0 for m in self.machines}
+        
+        # 主循环
+        done = False
+        while not done:
+            # 获取当前状态
+            state = self.env._get_state()
+            available_jobs = [job for job in state['available_jobs'] if job.status == 'waiting']
+            
+            if available_jobs:
+                # 动态重新排序可用作业
+                sorted_operations = self._sort_operations_dynamically(available_jobs, job_priority_rule)
+                
+                # 调度可用的工序
+                for job_id, op_idx in sorted_operations:
+                    job = next((j for j in available_jobs if j.job_id == job_id), None)
+                    if job and job.current_operation == op_idx:
+                        operation = job.operations[op_idx]
+                        
+                        # 选择机器
+                        selected_machine, start_time, processing_time = self._select_machine(
+                            operation, machine_busy_until, self.current_time, machine_selection_rule
+                        )
+                        
+                        if selected_machine is not None:
+                            end_time = start_time + processing_time
+                            
+                            # 记录调度结果
+                            job_schedules[job_id].append({
+                                'operation': op_idx,
+                                'machine': selected_machine,
+                                'start': start_time,
+                                'end': end_time,
+                                'processing_time': processing_time
+                            })
+                            
+                            # 更新状态
+                            machine_busy_until[selected_machine] = end_time
+                            
+                            # 模拟环境步进
+                            action = {'schedule': {job_id: selected_machine}}
+                            state, reward, done, _ = self.env.step(action)
+                            self.current_time = state['current_time']
+                            self.jobs = state['available_jobs'].copy()
+            
+            # 如果没有可用作业，等待一个时间步
+            else:
+                action = {'wait': True}
+                state, reward, done, _ = self.env.step(action)
+                self.current_time = state['current_time']
+                self.jobs = state['available_jobs'].copy()
+        
+        # 计算性能指标
+        makespan = self.current_time
+        total_tardiness = self._calculate_total_tardiness(job_completion_times)
+        
+        # 计算机器利用率
+        machine_utilization = self._calculate_machine_utilization(job_schedules, makespan)
+        
+        schedule_result = ScheduleResult(
+            job_schedules=job_schedules,
+            job_completion_times=job_completion_times,
+            job_tardiness=job_tardiness,
+            makespan=makespan,
+            total_tardiness=total_tardiness,
+            machine_utilization=machine_utilization
+        )
+        
+        # 派遣决策
+        dispatch_result = self._dispatch_jobs_dynamic(schedule_result)
         
         # 计算总目标值
         total_objective = (schedule_result.total_tardiness + 
-                          dispatch_result.total_delivery_time * 0.1)
+                          dispatch_result.total_delivery_time * 0.1 +
+                          dispatch_result.tardy_penalty)
         
         solve_time = time.time() - start_time
         
@@ -91,7 +168,267 @@ class PriorityRuleAlgorithm:
             dispatch_result=dispatch_result,
             total_objective=total_objective,
             solve_time=solve_time,
-            algorithm_name=f"Priority_Rule_{job_priority_rule}_{machine_selection_rule}"
+            algorithm_name=f"Dynamic_Priority_Rule_{job_priority_rule}_{machine_selection_rule}"
+        )
+    
+    def _sort_operations_dynamically(self, available_jobs: List[Job], rule: str) -> List[Tuple[int, int]]:
+        """动态排序可用作业的工序"""
+        operations = []
+        
+        for job in available_jobs:
+            if job.current_operation < len(job.operations):
+                operations.append((job.job_id, job.current_operation))
+        
+        if rule == "EDD":  # Earliest Due Date
+            return sorted(operations, key=lambda x: getattr(
+                next(j for j in available_jobs if j.job_id == x[0]), 'due_date', float('inf')
+            ))
+        elif rule == "SPT":  # Shortest Processing Time
+            return sorted(operations, key=lambda x: self._get_min_processing_time_dynamic(x[0], x[1], available_jobs))
+        elif rule == "MST":  # Minimum Slack Time
+            return sorted(operations, key=lambda x: self._calculate_slack_time(x[0], x[1], available_jobs))
+        elif rule == "CR":  # Critical Ratio
+            return sorted(operations, key=lambda x: self._calculate_critical_ratio_dynamic(x[0], x[1], available_jobs))
+        else:
+            return operations
+    
+    def _get_min_processing_time_dynamic(self, job_id: int, op_idx: int, available_jobs: List[Job]) -> int:
+        """获取工序的最小处理时间（动态版本）"""
+        job = next((j for j in available_jobs if j.job_id == job_id), None)
+        if not job or op_idx >= len(job.operations):
+            return 1
+        operation = job.operations[op_idx]
+        processing_times = getattr(operation, 'processing_times', {})
+        if not processing_times:
+            return 1
+        min_time = min(processing_times.values())
+        # 确保返回整数类型，处理可能的浮点数
+        return int(min_time) if isinstance(min_time, (int, float)) else 1
+    
+    def _calculate_slack_time(self, job_id: int, op_idx: int, available_jobs: List[Job]) -> float:
+        """计算松弛时间"""
+        job = next(j for j in available_jobs if j.job_id == job_id)
+        due_date = getattr(job, 'due_date', float('inf'))
+        
+        # 计算剩余处理时间
+        remaining_time = sum(
+            min(op.processing_times.values()) if getattr(op, 'processing_times', {}) else 1
+            for i, op in enumerate(job.operations[op_idx:])
+        )
+        
+        # 松弛时间 = 截止时间 - 当前时间 - 剩余处理时间
+        return due_date - self.current_time - remaining_time
+    
+    def _calculate_critical_ratio_dynamic(self, job_id: int, op_idx: int, available_jobs: List[Job]) -> float:
+        """计算临界比率（动态版本）"""
+        job = next(j for j in available_jobs if j.job_id == job_id)
+        due_date = getattr(job, 'due_date', float('inf'))
+        
+        # 计算剩余处理时间
+        remaining_time = sum(
+            min(op.processing_times.values()) if getattr(op, 'processing_times', {}) else 1
+            for i, op in enumerate(job.operations[op_idx:])
+        )
+        
+        # 临界比率 = (截止时间 - 当前时间) / 剩余处理时间
+        return (due_date - self.current_time) / max(remaining_time, 1)
+    
+    def _select_machine(self, operation: Operation, machine_busy_until: Dict, 
+                       earliest_start: int, rule: str) -> Tuple[Optional[int], int, int]:
+        """选择机器"""
+        eligible_machines = getattr(operation, 'available_machine_ids', [])
+        processing_times = getattr(operation, 'processing_times', {})
+        
+        if not eligible_machines or not processing_times:
+            return None, 0, 0
+        
+        candidates = []
+        for machine_id in eligible_machines:
+            if machine_id in processing_times:
+                proc_time = processing_times[machine_id]
+                start_time = max(earliest_start, machine_busy_until[machine_id])
+                candidates.append((machine_id, start_time, proc_time))
+        
+        if not candidates:
+            return None, 0, 0
+        
+        if rule == "SPT":  # 最短处理时间
+            selected = min(candidates, key=lambda x: x[2])
+        elif rule == "LPT":  # 最长处理时间
+            selected = max(candidates, key=lambda x: x[2])
+        elif rule == "EFT":  # 最早完成时间
+            selected = min(candidates, key=lambda x: x[1] + x[2])
+        else:  # RANDOM
+            selected = random.choice(candidates)
+        
+        return selected
+    
+    def _calculate_total_tardiness(self, job_completion_times: Dict[int, int]) -> int:
+        """计算总延误"""
+        total_tardiness = 0
+        for job in self.jobs:
+            completion_time = job_completion_times.get(job.job_id, self.current_time)
+            due_date = getattr(job, 'due_date', float('inf'))
+            tardiness = max(0, completion_time - due_date)
+            total_tardiness += tardiness
+        return total_tardiness
+    
+    def _calculate_machine_utilization(self, job_schedules: Dict, makespan: int) -> Dict[int, float]:
+        """计算机器利用率"""
+        machine_utilization = {}
+        for machine in self.machines:
+            busy_time = sum(
+                schedule['processing_time'] 
+                for schedules in job_schedules.values()
+                for schedule in schedules
+                if schedule['machine'] == machine.machine_id
+            )
+            machine_utilization[machine.machine_id] = busy_time / max(makespan, 1)
+        return machine_utilization
+    
+    def _dispatch_jobs_dynamic(self, schedule_result: ScheduleResult) -> DispatchResult:
+        """动态环境下的派遣决策"""
+        batches = {}
+        batch_id = 0
+        
+        # 按配送商分组作业
+        distributor_jobs = defaultdict(list)
+        for job in self.jobs:
+            distributor_id = getattr(job, 'distributor_id', 0)
+            completion_time = schedule_result.job_completion_times.get(job.job_id, self.current_time)
+            distributor_jobs[distributor_id].append((job.job_id, completion_time))
+        
+        total_delivery_time = 0
+        on_time_count = 0
+        total_jobs = len(self.jobs)
+        
+        # 计算总加权延误时间
+        total_weighted_tardiness = 0
+        for job in self.jobs:
+            completion_time = schedule_result.job_completion_times.get(job.job_id, self.current_time)
+            due_date = getattr(job, 'due_date', float('inf'))
+            tardiness = max(0, completion_time - due_date)
+            total_weighted_tardiness += tardiness
+        
+        # 计算配送时间要求延迟惩罚
+        tardy_penalty = 0
+        for distributor in self.distributors:
+            if hasattr(distributor, 'delivery_requirements') and distributor.delivery_requirements:
+                requirement = distributor.delivery_requirements
+                total_amount = sum(j.amount for j in self.jobs 
+                                 if getattr(j, 'distributor_id', 0) == distributor.distributor_id)
+                
+                for due_time, ratio, weight in zip(requirement.due_times, 
+                                                 requirement.ratios, requirement.weights):
+                    # 在这个due_time之前完成的作业
+                    completed_jobs = [j for j in self.jobs 
+                                    if schedule_result.job_completion_times.get(j.job_id, self.current_time) <= due_time
+                                    and getattr(j, 'distributor_id', 0) == distributor.distributor_id]
+                    completed_amount = sum(j.amount for j in completed_jobs)
+                    required_amount = ratio * total_amount
+                    
+                    if completed_amount < required_amount:
+                        penalty = (required_amount - completed_amount) * weight
+                        tardy_penalty += penalty
+        
+        # 为每个配送商创建批次
+        for distributor_id, jobs in distributor_jobs.items():
+            # 按完成时间排序
+            jobs.sort(key=lambda x: x[1])
+            
+            # 动态批次策略
+            batch_size = min(3, len(jobs))  # 最多3个作业一批
+            for i in range(0, len(jobs), batch_size):
+                batch_jobs = jobs[i:i + batch_size]
+                job_ids = [job_id for job_id, _ in batch_jobs]
+                completion_times = [comp_time for _, comp_time in batch_jobs]
+                
+                # 派遣时间为批次中最晚完成的作业时间
+                dispatch_time = max(completion_times)
+                
+                batches[batch_id] = {
+                    'jobs': job_ids,
+                    'dispatch_time': dispatch_time,
+                    'distributor': distributor_id,
+                    'completion_times': dict(batch_jobs)
+                }
+                
+                total_delivery_time += dispatch_time
+                
+                # 计算按时交付
+                for job_id in job_ids:
+                    job = next(j for j in self.jobs if j.job_id == job_id)
+                    due_date = getattr(job, 'due_date', float('inf'))
+                    if dispatch_time <= due_date:
+                        on_time_count += 1
+                
+                batch_id += 1
+        
+        on_time_delivery_rate = on_time_count / max(total_jobs, 1)
+        delivery_cost = total_delivery_time * 0.1
+        
+        return DispatchResult(
+            batches=batches,
+            total_delivery_time=total_delivery_time,
+            delivery_cost=delivery_cost,
+            on_time_delivery_rate=on_time_delivery_rate,
+            tardy_penalty=tardy_penalty,
+            total_weighted_tardiness=total_weighted_tardiness
+        )
+
+
+class PriorityRuleAlgorithm:
+    """
+    优先规则算法
+    基于作业优先级规则进行调度和派遣，固定使用机器SPT规则
+    """
+    
+    def __init__(self, scenario: FlexibleJobShopScenario):
+        self.scenario = scenario
+        self.jobs = scenario.jobs
+        self.machines = scenario.machines
+        self.distributors = scenario.distributors
+        
+    def solve_edd_spt(self) -> SolutionResult:
+        """使用EDD作业规则和SPT机器规则求解"""
+        return self._solve_with_rule("EDD")
+    
+    def solve_spt_spt(self) -> SolutionResult:
+        """使用SPT作业规则和SPT机器规则求解"""
+        return self._solve_with_rule("SPT")
+    
+    def solve_mst_spt(self) -> SolutionResult:
+        """使用MST作业规则和SPT机器规则求解"""
+        return self._solve_with_rule("MST")
+    
+    def _solve_with_rule(self, job_priority_rule: str) -> SolutionResult:
+        """
+        使用指定的作业优先规则和固定的SPT机器规则求解
+        
+        Args:
+            job_priority_rule: 作业优先规则 ("EDD", "SPT", "MST")
+        """
+        start_time = time.time()
+        
+        # 阶段1: 车间调度（固定使用SPT机器规则）
+        schedule_result = self._schedule_jobs(job_priority_rule, "SPT")
+        
+        # 阶段2: 派遣决策
+        dispatch_result = self._dispatch_jobs(schedule_result)
+        
+        # 计算总目标值（包含配送时间要求延迟惩罚）
+        total_objective = (schedule_result.total_tardiness + 
+                          dispatch_result.total_delivery_time * 0.1 +
+                          dispatch_result.tardy_penalty)
+        
+        solve_time = time.time() - start_time
+        
+        return SolutionResult(
+            schedule_result=schedule_result,
+            dispatch_result=dispatch_result,
+            total_objective=total_objective,
+            solve_time=solve_time,
+            algorithm_name=f"Priority_Rule_{job_priority_rule}_SPT"
         )
     
     def _schedule_jobs(self, job_priority_rule: str, machine_selection_rule: str) -> ScheduleResult:
@@ -263,6 +600,35 @@ class PriorityRuleAlgorithm:
         on_time_count = 0
         total_jobs = len(self.jobs)
         
+        # 计算总加权延误时间
+        total_weighted_tardiness = 0
+        for job in self.jobs:
+            completion_time = schedule_result.job_completion_times.get(job.job_id, 0)
+            due_date = getattr(job, 'due_date', 1000)
+            tardiness = max(0, completion_time - due_date)
+            total_weighted_tardiness += tardiness
+        
+        # 计算配送时间要求延迟惩罚
+        tardy_penalty = 0
+        for distributor in self.distributors:
+            if hasattr(distributor, 'delivery_requirements') and distributor.delivery_requirements:
+                requirement = distributor.delivery_requirements
+                total_amount = sum(j.amount for j in self.jobs 
+                                 if getattr(j, 'distributor_id', 0) == distributor.distributor_id)
+                
+                for due_time, ratio, weight in zip(requirement.due_times, 
+                                                 requirement.ratios, requirement.weights):
+                    # 在这个due_time之前完成的作业
+                    completed_jobs = [j for j in self.jobs 
+                                    if schedule_result.job_completion_times.get(j.job_id, 0) <= due_time
+                                    and getattr(j, 'distributor_id', 0) == distributor.distributor_id]
+                    completed_amount = sum(j.amount for j in completed_jobs)
+                    required_amount = ratio * total_amount
+                    
+                    if completed_amount < required_amount:
+                        penalty = (required_amount - completed_amount) * weight
+                        tardy_penalty += penalty
+        
         # 为每个配送商创建批次
         for distributor_id, jobs in distributor_jobs.items():
             # 按完成时间排序
@@ -303,7 +669,9 @@ class PriorityRuleAlgorithm:
             batches=batches,
             total_delivery_time=total_delivery_time,
             delivery_cost=delivery_cost,
-            on_time_delivery_rate=on_time_delivery_rate
+            on_time_delivery_rate=on_time_delivery_rate,
+            tardy_penalty=tardy_penalty,  # 新增：配送时间要求延迟惩罚
+            total_weighted_tardiness=total_weighted_tardiness  # 新增：总加权延误时间
         )
 
 
@@ -326,9 +694,10 @@ class GreedyConstructionAlgorithm:
         # 同时考虑调度和派遣的贪婪构造
         schedule_result, dispatch_result = self._greedy_construction()
         
-        # 计算总目标值
+        # 计算总目标值（包含配送时间要求延迟惩罚）
         total_objective = (schedule_result.total_tardiness + 
-                          dispatch_result.total_delivery_time * 0.1)
+                          dispatch_result.total_delivery_time * 0.1 +
+                          dispatch_result.tardy_penalty)
         
         solve_time = time.time() - start_time
         
@@ -575,7 +944,7 @@ class LocalSearchAlgorithm:
             current_solution = greedy_alg.solve()
         else:
             priority_alg = PriorityRuleAlgorithm(self.scenario)
-            current_solution = priority_alg.solve()
+            current_solution = priority_alg.solve_edd_spt()
         
         best_solution = copy.deepcopy(current_solution)
         best_objective = current_solution.total_objective
@@ -857,7 +1226,7 @@ class LocalSearchAlgorithm:
         )
         
         # 计算总目标
-        total_objective = (total_tardiness + dispatch_result.total_delivery_time * 0.1)
+        total_objective = (total_tardiness + dispatch_result.total_delivery_time * 0.1 + dispatch_result.tardy_penalty)
         
         return SolutionResult(
             schedule_result=new_schedule_result,
@@ -1067,9 +1436,10 @@ class GeneticAlgorithm:
         # 解码派遣部分
         dispatch_result = self._decode_dispatch(individual, schedule_result)
         
-        # 计算总目标
+        # 计算总目标（包含配送时间要求延迟惩罚）
         total_objective = (schedule_result.total_tardiness + 
-                          dispatch_result.total_delivery_time * 0.1)
+                          dispatch_result.total_delivery_time * 0.1 +
+                          dispatch_result.tardy_penalty)
         
         return SolutionResult(
             schedule_result=schedule_result,
@@ -1325,8 +1695,9 @@ class HeuristicSolver:
         results = {}
         
         print("=== 使用优先规则算法求解 ===")
-        results['priority_rule_edd_spt'] = self.algorithms['priority_rule'].solve("EDD", "SPT")
-        results['priority_rule_spt_eft'] = self.algorithms['priority_rule'].solve("SPT", "EFT")
+        results['priority_rule_edd_spt'] = self.algorithms['priority_rule'].solve_edd_spt()
+        results['priority_rule_spt_spt'] = self.algorithms['priority_rule'].solve_spt_spt()
+        results['priority_rule_mst_spt'] = self.algorithms['priority_rule'].solve_mst_spt()
         
         print("=== 使用贪婪构造算法求解 ===")
         results['greedy_construction'] = self.algorithms['greedy_construction'].solve()
@@ -1514,7 +1885,7 @@ def test_single_algorithm():
     
     print("=== 测试优先规则算法 ===")
     priority_alg = PriorityRuleAlgorithm(scenario)
-    result = priority_alg.solve("EDD", "SPT")
+    result = priority_alg.solve_edd_spt()
     
     print(f"目标值: {result.total_objective:.2f}")
     print(f"延误: {result.schedule_result.total_tardiness}")
@@ -1561,7 +1932,7 @@ def benchmark_algorithms():
         
         # 只测试主要算法以节省时间
         results = {}
-        results['priority_edd_spt'] = solver.algorithms['priority_rule'].solve("EDD", "SPT")
+        results['priority_edd_spt'] = solver.algorithms['priority_rule'].solve_edd_spt()
         results['greedy'] = solver.algorithms['greedy_construction'].solve()
         results['local_search'] = solver.algorithms['local_search'].solve(30, "greedy")
         results['genetic'] = solver.algorithms['genetic_algorithm'].solve(20, 30, 0.1, 0.8)
@@ -1595,7 +1966,7 @@ def benchmark_algorithms():
 def run_all_heuristics_experiment(config, case, seed, **kwargs):
     """
     统一运行所有启发式算法的实验函数
-    供batch_runner调用，返回与DQN等算法一致的格式
+    供batch_runner调用，返回多个算法的结果列表
     
     Args:
         config: 配置对象
@@ -1604,7 +1975,7 @@ def run_all_heuristics_experiment(config, case, seed, **kwargs):
         **kwargs: 其他参数
         
     Returns:
-        Dict: 包含所有算法统计信息的结果字典
+        List[Dict]: 包含多个算法结果字典的列表，每个字典对应一个算法的结果
     """
     import random
     import numpy as np
@@ -1625,17 +1996,28 @@ def run_all_heuristics_experiment(config, case, seed, **kwargs):
     
     total_time = time.time() - start_time
     
-    # 转换为统一的统计格式
-    stats = defaultdict(list)
-    additional_metrics = {}
+    # 创建结果列表，每个算法一个结果字典
+    results_list = []
     
-    # 收集所有算法的统计信息
+        # 为每个算法创建单独的结果字典
     for algo_name, result in all_results.items():
-        # 基本统计
+        # 为每个算法创建独立的统计信息
+        stats = defaultdict(list)
+        
+        # 基本统计 - 与DQN格式保持一致
         stats['episode_rewards'].append(result.total_objective)
         stats['makespans'].append(result.schedule_result.makespan)
         stats['total_tardiness'].append(result.schedule_result.total_tardiness)
         stats['solve_times'].append(result.solve_time)
+        
+        # 添加DQN格式要求的字段
+        stats['tardy_penalty'].append(result.schedule_result.total_tardiness)  # 使用总延误作为延误惩罚
+        stats['total_weighted_tardiness'].append(result.schedule_result.total_tardiness)  # 使用总延误作为加权延误
+        stats['objective_value'].append(result.total_objective)
+        
+        # 明确标识为启发式算法
+        stats['heuristic_objective'] = [result.total_objective]
+        stats['algorithm_type'] = ['heuristic']
         
         # 算法特定的统计
         stats[f'{algo_name}_objective'] = [result.total_objective]
@@ -1644,129 +2026,31 @@ def run_all_heuristics_experiment(config, case, seed, **kwargs):
         stats[f'{algo_name}_solve_time'] = [result.solve_time]
         
         # 额外的性能指标
-        additional_metrics[algo_name] = {
-            'objective_value': result.total_objective,
-            'makespan': result.schedule_result.makespan,
-            'total_tardiness': result.schedule_result.total_tardiness,
-            'delivery_time': result.dispatch_result.total_delivery_time,
-            'on_time_rate': result.dispatch_result.on_time_delivery_rate,
-            'solve_time': result.solve_time,
-            'machine_utilization': result.schedule_result.machine_utilization
+        additional_metrics = {
+            algo_name: {
+                'objective_value': result.total_objective,
+                'makespan': result.schedule_result.makespan,
+                'total_tardiness': result.schedule_result.total_tardiness,
+                'delivery_time': result.dispatch_result.total_delivery_time,
+                'on_time_rate': result.dispatch_result.on_time_delivery_rate,
+                'solve_time': result.solve_time,
+                'machine_utilization': result.schedule_result.machine_utilization
+            }
         }
-    
-    # 找到最佳算法
-    best_algo = min(all_results.keys(), key=lambda x: all_results[x].total_objective)
-    best_result = all_results[best_algo]
-    
-    # 返回与DQN等算法一致的格式
-    return {
-        'stats': stats,
-        'env': case,  # 返回原始算例
-        'additional_metrics': additional_metrics,
-        'best_algorithm': best_algo,
-        'best_objective': best_result.total_objective,
-        'all_results': all_results  # 包含所有原始结果
-    }
-
-
-def run_heuristic_experiment(config, case, seed, algorithm_name=None, **kwargs):
-    """
-    运行单个启发式算法的实验函数
-    支持指定特定算法运行
-    
-    Args:
-        config: 配置对象
-        case: 算例对象
-        seed: 随机种子
-        algorithm_name: 算法名称，如果为None则运行所有算法
-        **kwargs: 算法特定参数
         
-    Returns:
-        Dict: 包含算法统计信息的结果字典
-    """
-    import random
-    import numpy as np
-    import time
-    
-    # 设置随机种子
-    random.seed(seed)
-    np.random.seed(seed)
-    
-    start_time = time.time()
-    
-    # 创建启发式求解器
-    solver = HeuristicSolver(case)
-    
-    if algorithm_name is None:
-        # 运行所有算法
-        return run_all_heuristics_experiment(config, case, seed, **kwargs)
-    
-    # 运行特定算法
-    if algorithm_name.lower() == 'priority_rule':
-        # 优先规则算法需要指定规则
-        job_rule = kwargs.get('job_priority_rule', 'EDD')
-        machine_rule = kwargs.get('machine_selection_rule', 'SPT')
-        result = solver.algorithms['priority_rule'].solve(job_rule, machine_rule)
-        algo_key = f'priority_rule_{job_rule}_{machine_rule}'
+        # 为每个算法创建独立的结果字典
+        algo_result = {
+            'stats': stats,
+            'env': case,  # 返回原始算例
+            'additional_metrics': additional_metrics,
+            'algorithm_name': algo_name,
+            'objective_value': result.total_objective
+        }
         
-    elif algorithm_name.lower() == 'greedy_construction':
-        result = solver.algorithms['greedy_construction'].solve()
-        algo_key = 'greedy_construction'
-        
-    elif algorithm_name.lower() == 'local_search':
-        max_iter = kwargs.get('max_iterations', 50)
-        initial_method = kwargs.get('initial_method', 'greedy')
-        result = solver.algorithms['local_search'].solve(max_iter, initial_method)
-        algo_key = f'local_search_{initial_method}_{max_iter}'
-        
-    elif algorithm_name.lower() == 'genetic_algorithm':
-        pop_size = kwargs.get('population_size', 30)
-        generations = kwargs.get('generations', 50)
-        mutation_rate = kwargs.get('mutation_rate', 0.1)
-        crossover_rate = kwargs.get('crossover_rate', 0.8)
-        result = solver.algorithms['genetic_algorithm'].solve(pop_size, generations, mutation_rate, crossover_rate)
-        algo_key = f'genetic_algorithm_{pop_size}_{generations}'
-        
-    else:
-        raise ValueError(f"不支持的启发式算法: {algorithm_name}")
+        results_list.append(algo_result)
     
-    total_time = time.time() - start_time
-    
-    # 转换为统一的统计格式
-    stats = defaultdict(list)
-    additional_metrics = {}
-    
-    # 收集统计信息
-    stats['episode_rewards'].append(result.total_objective)
-    stats['makespans'].append(result.schedule_result.makespan)
-    stats['total_tardiness'].append(result.schedule_result.total_tardiness)
-    stats['solve_times'].append(result.solve_time)
-    
-    # 算法特定的统计
-    stats[f'{algo_key}_objective'] = [result.total_objective]
-    stats[f'{algo_key}_makespan'] = [result.schedule_result.makespan]
-    stats[f'{algo_key}_tardiness'] = [result.schedule_result.total_tardiness]
-    stats[f'{algo_key}_solve_time'] = [result.solve_time]
-    
-    # 额外的性能指标
-    additional_metrics[algo_key] = {
-        'objective_value': result.total_objective,
-        'makespan': result.schedule_result.makespan,
-        'total_tardiness': result.schedule_result.total_tardiness,
-        'delivery_time': result.dispatch_result.total_delivery_time,
-        'on_time_rate': result.dispatch_result.on_time_delivery_rate,
-        'solve_time': result.solve_time,
-        'machine_utilization': result.schedule_result.machine_utilization
-    }
-    
-    return {
-        'stats': stats,
-        'env': case,
-        'additional_metrics': additional_metrics,
-        'algorithm_name': algo_key,
-        'objective_value': result.total_objective
-    }
-
+    # 返回多个算法的结果列表
+    return results_list
 
 if __name__ == "__main__":
     # 运行主要测试
