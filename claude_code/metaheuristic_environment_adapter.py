@@ -14,6 +14,7 @@ from environment import WarehouseEnvironment
 from case_generator import FlexibleJobShopScenario
 from config import Config
 from dispatch_heuristic import DispatchHeuristic
+from variable_neighborhood_search_heuristic import VariableNeighborhoodSearchAlgorithm
 
 
 class MetaheuristicAlgorithm(ABC):
