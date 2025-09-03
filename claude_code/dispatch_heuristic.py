@@ -75,13 +75,16 @@ class DispatchHeuristic:
             grouped = grouped[:available_windows]
             available_windows -= len(grouped)
     
-            # 将分批结果添加到全局批次ID中
+            # 将分批结果添加到全局批次ID中，批次ID包含配送商信息
             for group in grouped:
-                scheduled_batches[batch_id] = group
+                # 批次ID格式: distributor_id * 1000 + 子批次号
+                distributor_batch_id = distributor_id * 1000 + len(scheduled_batches)
+                scheduled_batches[distributor_batch_id] = group
                 batch_id += 1
+                
+                print(f"创建配送批次: 配送商 {distributor_id}, 批次ID {distributor_batch_id}, 作业数量 {len(group)}")
     
             if available_windows <= 0:
                 break
     
         return {'dispatch': scheduled_batches}
-    

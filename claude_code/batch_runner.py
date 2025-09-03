@@ -18,6 +18,8 @@ from case_generator import FlexibleJobShopScenario
 from algorithm_results_saver import save_algorithm_results_csv, set_random_seed
 from run_ruleDqn_dispatchHeuri import run_ruleDqn_dispatchHeuri_experiment
 from ppo_model import run_ppo_experiment
+from dqn_model import run_dqn_experiment
+from dynamic_priority_rule_heuristic import run_dynamic_priority_rule_experiment
 
 @dataclass
 class PaperInstanceConfig:
@@ -155,6 +157,9 @@ class UniversalAlgorithmRunner:
             'Greedy': 'greedy_model',
             'Random': 'random_model',
             'ALL_HEURISTICS': 'heuristics_model',  # 新增：运行所有启发式算法
+            
+            # 优先规则启发式算法
+            'DynamicPriorityRule': 'dynamic_priority_rule_heuristic',
         }
         
         # 论文算例生成器
@@ -207,6 +212,10 @@ class UniversalAlgorithmRunner:
                 'Random': 'run_random_experiment',
                 # 新增：所有启发式算法
                 'ALL_HEURISTICS': 'run_all_heuristics_experiment',
+                # 优先规则启发式算法
+                'DynamicPriorityRule': 'run_dynamic_priority_rule_experiment',
+                'Genetic': 'run_genetic_algorithm_experiment',
+                'VNS': 'run_variable_neighborhood_search_experiment',
             }
             
             # 获取函数名，如果没有映射则使用默认值

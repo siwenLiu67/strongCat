@@ -467,19 +467,28 @@ class WarehouseEnvironment:
         """完成一道工序"""
         job = next((j for j in self.available_jobs if j.job_id == machine.current_job), None)
         if job:
-            # 更新工序进度
-            job.current_operation += 1
-            self.operation_completed_this_step = True
-            operation = job.operations[job.current_operation - 1] 
-            operation.completed_time = self.t  # 设置工序完成时间
-            # 检查是否所有工序都完成
+            # 检查当前工序是否已经是最后一道工序
             if job.current_operation >= len(job.operations):
+                # 作业已经完成所有工序，直接标记为完成
                 job.status = 'completed'
                 if job not in self.completed_jobs:
+                    self.completed_jobs.append(job)
                     self.job_completed_this_step = True
-
             else:
-                job.status = 'waiting'
+                # 更新工序进度
+                job.current_operation += 1
+                self.operation_completed_this_step = True
+                operation = job.operations[job.current_operation - 1] 
+                operation.completed_time = self.t  # 设置工序完成时间
+                
+                # 检查是否所有工序都完成
+                if job.current_operation >= len(job.operations):
+                    job.status = 'completed'
+                    if job not in self.completed_jobs:
+                        self.completed_jobs.append(job)
+                        self.job_completed_this_step = True
+                else:
+                    job.status = 'waiting'
                 
             # 重置机器状态
             machine.status = 'waiting'

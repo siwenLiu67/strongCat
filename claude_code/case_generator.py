@@ -157,20 +157,22 @@ class FlexibleJobShopScenario:
     
     def _generate_distributors(self):
         """生成配送商分配"""
+        # 首先确保所有配送商都被创建，即使没有作业分配给他们
         for d in range(self.num_distributors):
             assigned_jobs = [j for j in self.jobs if j.distributor_id == d]
-            if not assigned_jobs:
-                continue
-                
-            """为指定配送商生成交付要求"""
-            # min_time = self.config.earliest_delivery_time
-            # max_time = self.config.latest_delivery_time
+            
             # 估算所有工件的最短和最长加工+配送时间
             min_proc = float('inf')
             max_proc = float('-inf')
-            for job in assigned_jobs:
-                min_proc = min(min_proc, sum([min(op.processing_times.values()) for op in job.operations]))
-                max_proc = max(max_proc, sum([max(op.processing_times.values()) for op in job.operations]))
+            
+            if assigned_jobs:
+                for job in assigned_jobs:
+                    min_proc = min(min_proc, sum([min(op.processing_times.values()) for op in job.operations]))
+                    max_proc = max(max_proc, sum([max(op.processing_times.values()) for op in job.operations]))
+            else:
+                # 如果没有作业分配给这个配送商，使用默认值
+                min_proc = self.config.min_processing_time * self.config.min_operations
+                max_proc = self.config.max_processing_time * self.config.max_operations
 
             # 交付要求数量n_req从U[2,3]中采样
             n_req = np.random.randint(2, 4)  # U[2,3] 均匀分布
