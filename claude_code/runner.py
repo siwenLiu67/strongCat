@@ -422,6 +422,6 @@ if __name__ == "__main__":
     # 直接调用，无需命令行参数
     print("🚀 启动批量实验...")
     run_batch_experiment(
-        algorithm="Rule",   # 修改为你要运行的法
+        algorithm="PPO",   # 修改为你要运行的法
         instance_type="all", # 可选: benchmark, all
     )

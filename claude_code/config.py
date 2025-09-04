@@ -27,14 +27,14 @@ class Config:
     earliest_arrival_time: int = 10  # 最早到达时间
    
     # 批量到达参数（可选）
-    batch_arrival_probability: float = 1  # 批量到达概率
+    batch_arrival_probability: float = 0  # 批量到达概率
     max_batch_size: int = 10  # 最大批量到达数量
 
     earliest_delivery_time = 1
     latest_delivery_time = 20
     min_delivery_requirements = 1
     max_delivery_requirements = 3
-    min_load_ratio = 0.2
+    min_load_ratio = 0.0
 
     # Due date相关配置
     dispatch_preparation_time: int = 5  # 配送准备时间
