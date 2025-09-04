@@ -51,4 +51,7 @@ class Config:
     
 
 
+    # CP-SAT相关参数
+    big_m = 10000  # 大M值
+    solver_time_limit = 30  # 求解器时间限制（秒）
     urgent_threshold = 0

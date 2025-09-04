@@ -173,7 +173,7 @@ def run_dynamic_priority_rule_experiment(config, case, seed, **kwargs):
     env = WarehouseEnvironment(config, case)
     
     # 从kwargs获取规则名称，默认为EDD
-    rule_name = kwargs.get('rule_name', 'VNS')
+    rule_name = kwargs.get('rule_name', 'EDD')
     
     # 创建求解器
     solver = DynamicPriorityRuleHeuristicSolver(env, config, rule_name)

@@ -15,7 +15,6 @@ import time
 # 导入算例生成器和配置
 from case_generator import FlexibleJobShopScenario
 from config import Config
-from data_structures import Job, Operation, Machine, Distributor, DeliveryRequirement
 
 
 @dataclass
@@ -35,7 +34,7 @@ class IFJSSPDPModel:
     
     def __init__(self, 
                  scenario: FlexibleJobShopScenario,
-                 max_batches: int = 10,
+                 max_batches: int = 100,
                  big_m: int = 10000):
         """
         初始化模型
@@ -118,7 +117,25 @@ class IFJSSPDPModel:
         
     def _create_variables(self):
         """创建决策变量"""
-        
+        # 在 _create_variables 方法中添加
+        self.is_batch_for_distributor = {}  # is_batch_for_distributor[b, r]: 批次b是否服务于配送商r
+        for batch_id in range(self.max_batches):
+            for distributor in self.distributors:
+                var_name = f"is_batch_for_dist_{batch_id}_{distributor.distributor_id}"
+                self.is_batch_for_distributor[batch_id, distributor.distributor_id] = self.model.NewBoolVar(var_name)
+
+        self.delivery_time_var = {}
+        for batch_id in range(self.max_batches):
+            var_name = f"delivery_time_{batch_id}"
+            self.delivery_time_var[batch_id] = self.model.NewIntVar(0, self.big_m * 2, var_name)
+            
+        # 新增变量: 作业的最终交付时间 job_delivery_time[j]
+        self.job_delivery_time = {}
+        for job in self.jobs:
+            var_name = f"job_delivery_time_{job.job_id}"
+            self.job_delivery_time[job.job_id] = self.model.NewIntVar(0, self.big_m * 3, var_name)
+
+
         # 工序分配变量 x[j,o,m]
         for job in self.jobs:
             for op_idx, operation in enumerate(job.operations):
@@ -130,14 +147,14 @@ class IFJSSPDPModel:
                     self.x[job.job_id, op_idx, machine_id] = self.model.NewBoolVar(var_name)
         
         # 计算最大时间
-        max_time = 1000  # 默认值
+        max_time = 10000  # 默认值
         if self.jobs:
             total_processing_time = 0
             for job in self.jobs:
                 for operation in job.operations:
                     if hasattr(operation, 'processing_times') and operation.processing_times:
                         total_processing_time += min(operation.processing_times.values())
-            max_time = total_processing_time + self.big_m
+            max_time = total_processing_time + self.big_m*10
         
         # 工序开始时间 s[j,o]
         for job in self.jobs:
@@ -205,7 +222,40 @@ class IFJSSPDPModel:
     
     def _add_constraints(self):
         """添加约束条件"""
-        
+        # 在 _add_constraints 方法中添加
+        # 新增约束：批次中的所有作业必须属于同一个配送商
+        for batch_id in range(self.max_batches):
+            for job in self.jobs:
+                # 如果作业 j 被分配到批次 b
+                self.model.AddImplication(self.y[job.job_id, batch_id], 
+                                        self.is_batch_for_distributor[batch_id, job.distributor_id])
+
+        # 额外约束：一个批次最多服务一个配送商
+        for batch_id in range(self.max_batches):
+            self.model.Add(sum(self.is_batch_for_distributor[batch_id, d.distributor_id] for d in self.distributors) <= 1)
+        # 约束8: 计算批次大小
+        batch_size_var = {}
+        for batch_id in range(self.max_batches):
+            var_name = f"batch_size_{batch_id}"
+            batch_size_var[batch_id] = self.model.NewIntVar(0, len(self.jobs), var_name)
+            
+            # 批次大小等于分配给该批次的作业数
+            self.model.Add(
+                batch_size_var[batch_id] == sum(self.y[job.job_id, batch_id] for job in self.jobs)
+            )
+
+        # 约束9: 计算批次配送完成时间
+        # 定义常量
+        BASE_DELIVERY_TIME = 10 
+        PER_JOB_TIME = 5
+
+        for batch_id in range(self.max_batches):
+            # 批次完成配送的时间 = 派遣时间 + 配送时间
+            self.model.Add(
+                self.delivery_time_var[batch_id] == 
+                self.d[batch_id] + BASE_DELIVERY_TIME + PER_JOB_TIME * batch_size_var[batch_id]
+            )
+
         # 约束1: 工序分配约束 - 每个工序必须分配给一台机器
         for job in self.jobs:
             for op_idx, operation in enumerate(job.operations):
@@ -238,62 +288,41 @@ class IFJSSPDPModel:
         # 约束3: 到达时间约束
         for job in self.jobs:
             arrival_time = getattr(job, 'arrival_time', 0)
+            
+            # 核心修复：将浮点数转换为整数
+            if isinstance(arrival_time, float):
+                arrival_time = int(arrival_time)
+            
             self.model.Add(self.s[job.job_id, 0] >= arrival_time)
-        
-        # 约束4&5: 析取约束 - 同一机器上的工序不能重叠
+
+        # 改进后的析取约束 (替换你原来的4 & 5)
+        # 约束4 & 5: 同一机器上的工序不能重叠
         for machine_id in self.machine_ids:
-            machine_operations = []
+            intervals = []
+            # 遍历所有作业和工序，找出分配给当前机器的工序
             for job in self.jobs:
                 for op_idx, operation in enumerate(job.operations):
                     eligible_machines = getattr(operation, 'available_machine_ids', 
-                                              getattr(operation, 'eligible_machines', []))
+                                                getattr(operation, 'eligible_machines', []))
+                    
                     if machine_id in eligible_machines:
-                        machine_operations.append((job.job_id, op_idx))
+                        # 确保处理时间是整数
+                        processing_time = int(operation.processing_times[machine_id])
+                        
+                        # 创建 IntervalVar，并只在工序分配给该机器时生效
+                        interval_var = self.model.NewOptionalIntervalVar(
+                            self.s[job.job_id, op_idx],
+                            processing_time,
+                            self.s[job.job_id, op_idx] + processing_time,
+                            self.x[job.job_id, op_idx, machine_id],
+                            f"interval_{job.job_id}_{op_idx}_{machine_id}"
+                        )
+                        intervals.append(interval_var)
             
-            for i, (j1, o1) in enumerate(machine_operations):
-                for j, (j2, o2) in enumerate(machine_operations):
-                    if i != j:
-                        # 获取处理时间
-                        job1 = next(job for job in self.jobs if job.job_id == j1)
-                        job2 = next(job for job in self.jobs if job.job_id == j2)
-                        
-                        op1 = job1.operations[o1]
-                        op2 = job2.operations[o2]
-                        
-                        eligible_machines_1 = getattr(op1, 'available_machine_ids', 
-                                                    getattr(op1, 'eligible_machines', []))
-                        eligible_machines_2 = getattr(op2, 'available_machine_ids', 
-                                                    getattr(op2, 'eligible_machines', []))
-                        
-                        processing_times_1 = getattr(op1, 'processing_times', {})
-                        processing_times_2 = getattr(op2, 'processing_times', {})
-                        
-                        if eligible_machines_1 and eligible_machines_2 and processing_times_1 and processing_times_2:
-                            proc_time_1 = sum(
-                                self.x[j1, o1, m] * processing_times_1.get(m, 0)
-                                for m in eligible_machines_1
-                            )
-                            proc_time_2 = sum(
-                                self.x[j2, o2, m] * processing_times_2.get(m, 0)
-                                for m in eligible_machines_2
-                            )
-                            
-                            # 如果两个工序都在同一机器上，则必须有先后顺序
-                            both_on_machine = self.model.NewBoolVar(f"both_on_{j1}_{o1}_{j2}_{o2}_{machine_id}")
-                            self.model.Add(both_on_machine >= 
-                                         self.x[j1, o1, machine_id] + self.x[j2, o2, machine_id] - 1)
-                            
-                            # 析取约束
-                            self.model.Add(
-                                self.s[j2, o2] >= self.s[j1, o1] + proc_time_1 - 
-                                self.big_m * (1 - self.seq[j1, o1, j2, o2, machine_id])
-                            ).OnlyEnforceIf(both_on_machine)
-                            
-                            self.model.Add(
-                                self.s[j1, o1] >= self.s[j2, o2] + proc_time_2 - 
-                                self.big_m * self.seq[j1, o1, j2, o2, machine_id]
-                            ).OnlyEnforceIf(both_on_machine)
-        
+            # 对当前机器上的所有工序添加无重叠约束
+            self.model.AddNoOverlap(intervals)
+
+
         # 约束6: 作业完成时间
         for job in self.jobs:
             if job.operations:
@@ -313,11 +342,7 @@ class IFJSSPDPModel:
                         self.s[job.job_id, last_op_idx] + processing_time_expr
                     )
         
-        # 约束7: 延误时间计算
-        for job in self.jobs:
-            due_date = getattr(job, 'due_date', 100)
-            self.model.Add(self.t[job.job_id] >= self.c[job.job_id] - due_date)
-            self.model.Add(self.t[job.job_id] >= 0)
+        
         
         # 约束9: 每个作业分配给一个批次
         for job in self.jobs:
@@ -372,7 +397,44 @@ class IFJSSPDPModel:
         # Makespan约束
         for job in self.jobs:
             self.model.Add(self.makespan_var >= self.c[job.job_id])
-    
+
+
+        # 定义一个辅助变量来表示作业所属的批次索引
+        self.job_batch_index = {}
+        for job in self.jobs:
+            var_name = f"job_batch_index_{job.job_id}"
+            self.job_batch_index[job.job_id] = self.model.NewIntVar(0, self.max_batches - 1, var_name)
+            
+            # 约束：job_batch_index 的值等于 y[job, batch_id] 为 1 的那个 batch_id
+            self.model.Add(self.job_batch_index[job.job_id] == sum(
+                b * self.y[job.job_id, b] for b in range(self.max_batches)
+            ))
+
+
+        # 修正后的作业最终交付时间计算（使用大M法）
+        # 新增约束: 作业的最终交付时间
+        self.job_delivery_time = {}
+        for job in self.jobs:
+            var_name = f"job_delivery_time_{job.job_id}"
+            self.job_delivery_time[job.job_id] = self.model.NewIntVar(0, self.big_m * 3, var_name)
+            
+            # 建立作业交付时间与批次交付时间之间的关系
+            for batch_id in range(self.max_batches):
+                # 如果 y[job.job_id, batch_id] == 1，则 job_delivery_time[job.job_id] == delivery_time_var[batch_id]
+                # 这个逻辑需要通过两个约束来实现
+                
+                # 约束1: T_j >= T_b - M * (1 - y_jb)
+                self.model.Add(self.job_delivery_time[job.job_id] >= self.delivery_time_var[batch_id] - self.big_m * (1 - self.y[job.job_id, batch_id]))
+                
+                # 2. T_j <= T_b + M * (1 - y_jb)
+                self.model.Add(self.job_delivery_time[job.job_id] <= self.delivery_time_var[batch_id] + self.big_m * (1 - self.y[job.job_id, batch_id]))
+
+        # 约束7: 延误时间计算
+        for job in self.jobs:
+            due_date = getattr(job, 'due_date', 100)
+            self.model.Add(self.t[job.job_id] >= self.job_delivery_time[job.job_id] - due_date)
+            self.model.Add(self.t[job.job_id] >= 0)
+            
     def set_objective(self, objective_type: str = "weighted"):
         """
         设置目标函数
@@ -381,30 +443,18 @@ class IFJSSPDPModel:
             objective_type: "tardiness" (最小化延误), "makespan" (最小化完工时间), 
                           "weighted" (加权目标)
         """
-        if objective_type == "tardiness":
-            # 最小化总延误时间
-            self.model.Minimize(sum(self.t[job.job_id] for job in self.jobs))
-            
-        elif objective_type == "makespan":
-            # 最小化最大完工时间
-            if self.makespan_var is not None:
-                self.model.Minimize(self.makespan_var)
-            else:
-                raise ValueError("makespan_var is None. Please ensure it is initialized before setting the objective.")
-            
-        elif objective_type == "weighted":
-            # 加权目标：延误 + 交付短缺惩罚
-            tardiness_term = sum(self.t[job.job_id] for job in self.jobs)
-            shortage_penalty = sum(
+        
+        # 加权目标：延误 + 交付短缺惩罚
+        tardiness_term = sum(self.t[job.job_id] for job in self.jobs)
+        shortage_penalty = sum(
                 req.penalty_weight * self.u[req.requirement_id]
                 for req in self.delivery_requirements
             )
-            self.model.Minimize(tardiness_term + shortage_penalty)
+        self.model.Minimize(tardiness_term + shortage_penalty)
         
-        else:
-            raise ValueError(f"Unknown objective type: {objective_type}")
+       
     
-    def solve(self, time_limit: int = 300) -> Dict:
+    def solve(self, time_limit) -> Dict:
         """
         求解模型
         
@@ -536,37 +586,61 @@ class IFJSSPDPModel:
                 print("无交付短缺")
 
 
+
 if __name__ == "__main__":
-    # 使用case_generator创建场景
-    config = Config()
-    
-    # 可以调整配置参数
-    config.num_initial_jobs = 5
-    config.num_machines = 3
-    config.num_distributors = 2
-    config.min_operations = 2
-    config.max_operations = 4
-    config.min_processing_time = 5
-    config.max_processing_time = 20
-    
-    print("生成FJSP-DP场景...")
-    scenario = FlexibleJobShopScenario(config=config)
-    
-    print(f"场景生成完成:")
-    print(f"- 作业数量: {len(scenario.jobs)}")
-    print(f"- 机器数量: {len(scenario.machines)}")
-    print(f"- 配送商数量: {len(scenario.distributors)}")
-    
-    # 创建数学模型
-    print("\n创建数学模型...")
-    model = IFJSSPDPModel(scenario, max_batches=8)
-    
-    # 设置目标函数
-    model.set_objective("weighted")
-    
-    # 求解
-    print("\n开始求解...")
-    result = model.solve(time_limit=60)
-    
-    # 打印结果
-    model.print_solution(result)
+    # 定义 runner.py 中的小规模算例配置
+    small_configs = [
+        (40, 10, 20, 5),
+        # (40, 10, 20, 10),
+        # (40, 10, 20, 15),
+        # (60, 10, 40, 5),
+        # (60, 10, 40, 10),
+        # (60, 10, 40, 15),
+        # (80, 10, 60, 5),
+        # (80, 10, 60, 10),
+        # (80, 10, 60, 15),
+        # (100, 10, 80, 5),
+        # (100, 10, 80, 10),
+        # (100, 10, 80, 15),
+    ]
+
+    for initial_jobs, machines, dynamic_jobs, distributors in small_configs:
+        print("\n" + "="*60)
+        print(f"🚀 开始运行算例: {initial_jobs}初始作业, {machines}机器, {dynamic_jobs}动态作业, {distributors}配送商")
+        print("="*60)
+
+        # 1. 创建配置实例并设置参数
+        config = Config()
+        config.num_initial_jobs = initial_jobs
+        config.num_machines = machines
+        config.num_distributors = distributors
+        config.num_dynamic_jobs = dynamic_jobs
+        
+        # 使用 runner.py 中的标准参数
+        config.min_operations = 1
+        config.max_operations = 3
+        config.min_processing_time = 5
+        config.max_processing_time = 15
+        config.min_job_amount = 50
+        config.max_job_amount = 100
+        config.min_delivery_requirements = 2
+        config.max_delivery_requirements = 3
+        config.earliest_delivery_time = 10
+        config.latest_delivery_time = 200
+        config.batch_arrival_probability = 0.5
+        config.max_batch_size = 5
+
+        # 2. 创建场景实例
+        scenario = FlexibleJobShopScenario(config=config)
+        
+        # 3. 创建数学模型
+        model = IFJSSPDPModel(scenario, max_batches=8)
+        
+        # 4. 设置目标函数
+        model.set_objective("weighted")
+        
+        # 5. 求解
+        result = model.solve(time_limit=config.solver_time_limit) # 可以增加时间限制以获得更好的解
+        
+        # 6. 打印结果
+        model.print_solution(result)
