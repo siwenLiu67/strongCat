@@ -48,10 +48,11 @@ def test_dynamic_priority_rule_with_dispatch():
         print(f"   - 总加权延迟时间: {stats.get('total_weighted_tardiness', 0):.2f}")
         print(f"   - 解决时间: {additional_metrics.get('solve_time', 0):.4f}秒")
         
-        # 检查派发状态
-        dispatched_jobs = len(env.dispatched_jobs)
-        completed_jobs = len(env.completed_jobs)
-        total_jobs = len(env.initial_jobs)
+        # 检查派发状态 - 使用result中的env而不是原始的env
+        result_env = result.get('env', env)
+        dispatched_jobs = len(result_env.dispatched_jobs)
+        completed_jobs = len(result_env.completed_jobs)
+        total_jobs = len(result_env.initial_jobs)
         
         print(f"📦 派发状态:")
         print(f"   - 总作业数: {total_jobs}")

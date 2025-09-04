@@ -516,19 +516,18 @@ class VariableNeighborhoodSearchHeuristicSolver:
     
     def _calculate_performance_metrics(self) -> Dict[str, float]:
         """计算性能指标"""
-        makespan = self._calculate_makespan()
-        total_tardiness = self._calculate_total_tardiness()
-        total_delivery_time = self._calculate_total_delivery_time()
-        on_time_delivery_rate = self._calculate_on_time_delivery_rate()
-        objective_value = self._calculate_objective_value()
-        tardy_penalty = self._calculate_tardy_penalty()
-        total_weighted_tardiness = self._calculate_total_weighted_tardiness()
+        makespan = self.current_time
+        total_weighted_tardiness = self.env_adapter.total_weighted_tardiness
+        tardy_penalty = self.env_adapter.tardy_penalty
+        objective_value = total_weighted_tardiness + tardy_penalty
+        
+        
         
         return {
             "makespan": makespan,
-            "total_tardiness": total_tardiness,
-            "total_delivery_time": total_delivery_time,
-            "on_time_delivery_rate": on_time_delivery_rate,
+            "total_tardiness": 0,
+            "total_delivery_time": 0,
+            "on_time_delivery_rate": 0,
             "objective_value": objective_value,
             "tardy_penalty": tardy_penalty,
             "total_weighted_tardiness": total_weighted_tardiness

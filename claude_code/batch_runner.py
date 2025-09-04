@@ -150,16 +150,11 @@ class UniversalAlgorithmRunner:
             'HRL_GAT': 'hrl_gnn_model',
             'RuleDQN_DispatchHeuri': 'run_ruleDqn_dispatchHeuri',
             
-            # 启发式算法
-            'GA': 'heuristics_model',
-            'PSO': 'pso_model',
-            'NSGA2': 'nsga2_model',
-            'Greedy': 'greedy_model',
-            'Random': 'random_model',
-            'ALL_HEURISTICS': 'heuristics_model',  # 新增：运行所有启发式算法
             
             # 优先规则启发式算法
-            'DynamicPriorityRule': 'dynamic_priority_rule_heuristic',
+            'Rule': 'dynamic_priority_rule_heuristic',
+            'Genetic': 'genetic_algorithm_heuristic',
+            'VNS': 'variable_neighborhood_search_heuristic',
         }
         
         # 论文算例生成器
@@ -204,16 +199,9 @@ class UniversalAlgorithmRunner:
                 # 特殊算法 - 自定义函数名
                 'HRL_GAT': 'run_hrl_gat_experiment',
                 'RuleDQN_DispatchHeuri': 'main',
-                # 启发式算法 - 使用标准命名模式
-                'GA': 'run_ga_experiment',
-                'PSO': 'run_pso_experiment',
-                'NSGA2': 'run_nsga2_experiment',
-                'Greedy': 'run_greedy_experiment',
-                'Random': 'run_random_experiment',
-                # 新增：所有启发式算法
-                'ALL_HEURISTICS': 'run_all_heuristics_experiment',
+                
                 # 优先规则启发式算法
-                'DynamicPriorityRule': 'run_dynamic_priority_rule_experiment',
+                'Rule': 'run_dynamic_priority_rule_experiment',
                 'Genetic': 'run_genetic_algorithm_experiment',
                 'VNS': 'run_variable_neighborhood_search_experiment',
             }
@@ -304,7 +292,7 @@ class UniversalAlgorithmRunner:
         
         try:
             # 生成算例
-            case = FlexibleJobShopScenario(config=config)
+            case = FlexibleJobShopScenario(config)
             
             # 获取算法函数
             algorithm_func = self.get_algorithm_function(algo_name)
@@ -374,7 +362,7 @@ class UniversalAlgorithmRunner:
         
         try:
             # 生成算例
-            case = FlexibleJobShopScenario(config=config)
+            case = FlexibleJobShopScenario(config)
             
             # 获取算法函数
             algorithm_func = self.get_algorithm_function('ALL_HEURISTICS')
@@ -541,6 +529,6 @@ def run_batch_experiment(
 if __name__ == "__main__":
     # 直接调用，无需命令行参数
     run_batch_experiment(
-        algorithm="PPO",   # 修改为你要运行的法
+        algorithm="Rule",   # 修改为你要运行的法
         instance_type="all", # 可选: benchmark, all
     )

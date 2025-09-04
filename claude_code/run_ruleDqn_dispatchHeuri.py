@@ -148,7 +148,7 @@ def main():
     seed = 42
     set_random_seed(seed)
     config = Config()
-    case = FlexibleJobShopScenario(config)
+    case = FlexibleJobShopScenario(config=config)
     result = run_ruleDqn_dispatchHeuri_experiment(config, case, seed)
     print("实验完成，结果已保存。")
 

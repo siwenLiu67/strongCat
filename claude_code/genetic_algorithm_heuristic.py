@@ -51,10 +51,8 @@ class GeneticAlgorithmHeuristicSolver:
         self.selection_method = selection_method
         self.fitness_function = fitness_function
         
-        # 使用环境适配器
-        self.env_adapter = DynamicPriorityRuleEnvironmentAdapter(config, env.case, "EDD")  # 使用EDD作为基础规则
-        self.env_adapter.register_machine_idle_callback(self._on_machine_idle)
-        self.env_adapter.register_job_arrival_callback(self._on_job_arrival)
+        # 使用环境适配器而不是直接使用环境
+        self.env_adapter = DynamicPriorityRuleEnvironmentAdapter(config, env.case, "GA")  # 使用EDD作为基础规则
 
         # 初始化调度信息跟踪
         self.schedule_records = []  # 存储所有调度记录
@@ -89,7 +87,7 @@ class GeneticAlgorithmHeuristicSolver:
         stats = self._calculate_performance_metrics()
         
         # 计算机器利用率
-        machine_utilization = self._calculate_machine_utilization()
+        machine_utilization = self.env_adapter.calculate_machine_utilization()
         
         # 计算解决时间
         solve_time = time.time() - start_time
@@ -113,10 +111,7 @@ class GeneticAlgorithmHeuristicSolver:
         done = False
         while not done:
             # 推进环境，这将自动处理事件并调用回调函数
-            _, _, done, _, _ = self.env_adapter.step({})  # 传递一个空的action
-            
-            # 派发逻辑可以在每个时间步后执行
-            self._dispatch_completed_jobs()
+            _, _, done, _ = self.env_adapter.step()  # 传递一个空的action
             
             # 更新当前时间
             self.current_time = self.env_adapter.current_time
@@ -128,66 +123,14 @@ class GeneticAlgorithmHeuristicSolver:
         max_time_steps = getattr(self.env_adapter.config, 'max_time_steps', 1000)
         if self.current_time > max_time_steps:
             print(f"⚠️ 警告：达到最大时间步 {max_time_steps}，但仍有作业未完成或未派发")
-    
-    def _dispatch_completed_jobs(self):
-        """派发已完成的作业"""
-        # 获取环境状态
-        state = {
-            'completed_jobs': self.env_adapter.completed_jobs,
-            'config': self.env_adapter.config,
-            't': self.current_time
-        }
-        
-        # 使用派发启发式算法选择派发动作
-        dispatch_action = self.dispatch_heuristic.select_action(state)
-        
-        # 执行派发动作
-        if dispatch_action and 'dispatch' in dispatch_action:
-            for batch_id, job_ids in dispatch_action['dispatch'].items():
-                # 执行派发逻辑
-                self._execute_dispatch(batch_id, job_ids)
-    
-    def _execute_dispatch(self, batch_id: int, job_ids: List[int]):
-        """执行派发操作"""
-        # 只处理已完成且未派发的作业
-        dispatch_jobs = [job for job in self.env_adapter.completed_jobs 
-                        if job.job_id in job_ids and job.status == 'completed']
-        
-        if dispatch_jobs:
-            # 设置配送时间
-            BASE_DELIVERY_TIME = 1
-            PER_JOB_TIME = 0
-            batch_size = len(dispatch_jobs)
-            delivery_time = BASE_DELIVERY_TIME + PER_JOB_TIME * batch_size
+            print(f"详细状态: 可用作业={len(self.env_adapter.available_jobs)}, 已完成作业={len(self.env_adapter.completed_jobs)}, 已派发作业={len(self.env_adapter.dispatched_jobs)}")
+            print(f"剩余动态作业: {self.env_adapter.remaining_dynamic_jobs}")
             
-            # 更新作业状态为配送中
-            for job in dispatch_jobs:
-                job.status = 'dispatching'
-                job.dispatch_remaining_time = delivery_time
-                job.dispatch_start_time = self.current_time
-    
-    def _on_machine_idle(self, machine_ids: List[int]):
-        """机器空闲时的回调函数"""
-        current_time = self.env_adapter.current_time
-        self._trigger_genetic_optimization(current_time)
+            for job in self.env_adapter.available_jobs + self.env_adapter.completed_jobs:
+                if not self._is_job_completed(job):
+                    print(f"作业 {job.job_id} 状态: {job.status}, 当前工序: {job.current_operation}/{len(job.operations)}")
 
-    def _on_job_arrival(self, new_jobs_count: int):
-        """作业到达时的回调函数"""
-        current_time = self.env_adapter.current_time
-        self._trigger_genetic_optimization(current_time)
 
-    def _trigger_genetic_optimization(self, current_time: float):
-        """
-        触发遗传算法优化
-        获取所有可用作业，使用遗传算法优化排序并分配给所有空闲机器
-        """
-        available_jobs = self._get_available_jobs(current_time)
-        if available_jobs:
-            # 使用遗传算法优化作业排序
-            optimized_order = self._genetic_algorithm_optimization(available_jobs, current_time)
-            
-            # 将优化后的排序应用到调度
-            self._schedule_to_all_idle_machines(optimized_order, current_time)
     
     def _genetic_algorithm_optimization(self, jobs: List[Job], current_time: float) -> List[Job]:
         """
@@ -500,131 +443,19 @@ class GeneticAlgorithmHeuristicSolver:
     
     def _calculate_performance_metrics(self) -> Dict[str, float]:
         """计算性能指标"""
-        makespan = self._calculate_makespan()
-        total_tardiness = self._calculate_total_tardiness()
-        total_delivery_time = self._calculate_total_delivery_time()
-        on_time_delivery_rate = self._calculate_on_time_delivery_rate()
-        objective_value = self._calculate_objective_value()
-        tardy_penalty = self._calculate_tardy_penalty()
-        total_weighted_tardiness = self._calculate_total_weighted_tardiness()
+        makespan = self.current_time
+        total_weighted_tardiness = self.env_adapter.total_weighted_tardiness
+        tardy_penalty = self.env_adapter.tardy_penalty
+        objective_value = total_weighted_tardiness + tardy_penalty
         
         return {
             "makespan": makespan,
-            "total_tardiness": total_tardiness,
-            "total_delivery_time": total_delivery_time,
-            "on_time_delivery_rate": on_time_delivery_rate,
             "objective_value": objective_value,
             "tardy_penalty": tardy_penalty,
             "total_weighted_tardiness": total_weighted_tardiness
         }
     
-    def _calculate_makespan(self) -> float:
-        """计算最大完成时间"""
-        if not self.schedule_records:
-            return 0
-        
-        # 找到所有作业的最后完成时间
-        job_completion_times = {}
-        for record in self.schedule_records:
-            job_id = record['job_id']
-            end_time = record.get('end_time', record['time'])
-            if job_id not in job_completion_times or end_time > job_completion_times[job_id]:
-                job_completion_times[job_id] = end_time
-        
-        return max(job_completion_times.values()) if job_completion_times else 0
-    
-    def _calculate_total_tardiness(self) -> float:
-        """计算总延迟时间"""
-        if not self.schedule_records:
-            return 0
-        
-        total_tardiness = 0
-        
-        # 找到每个作业的最后完成时间
-        job_completion_times = {}
-        for record in self.schedule_records:
-            job_id = record['job_id']
-            end_time = record.get('end_time', record['time'])
-            if job_id not in job_completion_times or end_time > job_completion_times[job_id]:
-                job_completion_times[job_id] = end_time
-        
-        # 计算每个作业的延迟时间
-        for job in self.env_adapter.available_jobs + self.env_adapter.completed_jobs:
-            if job.job_id in job_completion_times:
-                completion_time = job_completion_times[job.job_id]
-                tardiness = max(0, completion_time - job.due_date)
-                total_tardiness += tardiness
-        
-        return total_tardiness
-    
-    def _calculate_total_delivery_time(self) -> float:
-        """计算总交付时间"""
-        total_delivery_time = 0
-        for job in self.env_adapter.available_jobs + self.env_adapter.completed_jobs:
-            # 使用调度记录来计算完成时间
-            job_records = [r for r in self.schedule_records if r['job_id'] == job.job_id]
-            if job_records:
-                completion_time = max(record.get('end_time', record['time']) for record in job_records)
-                total_delivery_time += completion_time
-        return total_delivery_time
-    
-    def _calculate_on_time_delivery_rate(self) -> float:
-        """计算准时交付率"""
-        on_time_count = 0
-        total_jobs = len(self.env_adapter.available_jobs + self.env_adapter.completed_jobs)
-        
-        for job in self.env_adapter.available_jobs + self.env_adapter.completed_jobs:
-            # 使用调度记录来计算完成时间
-            job_records = [r for r in self.schedule_records if r['job_id'] == job.job_id]
-            if job_records:
-                completion_time = max(record.get('end_time', record['time']) for record in job_records)
-                if completion_time <= job.due_date:
-                    on_time_count += 1
-        
-        return on_time_count / total_jobs if total_jobs > 0 else 0
-    
-    def _calculate_objective_value(self) -> float:
-        """计算目标函数值"""
-        # 这里使用总加权延迟时间作为目标函数
-        return self._calculate_total_weighted_tardiness()
-    
-    def _calculate_tardy_penalty(self) -> float:
-        """计算延迟惩罚"""
-        # 简单实现：使用总延迟时间
-        return self._calculate_total_tardiness()
-    
-    def _calculate_total_weighted_tardiness(self) -> float:
-        """计算总加权延迟时间"""
-        total_weighted_tardiness = 0
-        for job in self.env_adapter.available_jobs + self.env_adapter.completed_jobs:
-            # 使用调度记录来计算完成时间
-            job_records = [r for r in self.schedule_records if r['job_id'] == job.job_id]
-            if job_records:
-                completion_time = max(record.get('end_time', record['time']) for record in job_records)
-                tardiness = max(0, completion_time - job.due_date)
-                weight = getattr(job, 'weight', 1.0)
-                total_weighted_tardiness += weight * tardiness
-        return total_weighted_tardiness
 
-    def _calculate_machine_utilization(self) -> Dict[int, float]:
-        """计算机器利用率"""
-        machine_utilization = {}
-        makespan = self._calculate_makespan()
-        
-        if makespan == 0:
-            return {machine.machine_id: 0.0 for machine in self.env_adapter.machines}
-        
-        for machine in self.env_adapter.machines:
-            busy_time = 0
-            # 统计该机器上所有操作的加工时间
-            for record in self.schedule_records:
-                if record['machine_id'] == machine.machine_id:
-                    busy_time += record.get('processing_time', 1)  # 默认处理时间为1
-            
-            utilization = busy_time / makespan if makespan > 0 else 0
-            machine_utilization[machine.machine_id] = utilization
-        
-        return machine_utilization
 
 
 def run_genetic_algorithm_heuristic(env_config: Dict, **kwargs) -> Dict[str, Any]:
