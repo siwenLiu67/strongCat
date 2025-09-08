@@ -17,6 +17,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 from icot_code.comparison_algorithms.heuristic_algorithms import SPTRule, EDDRule, CompositeRule
 from icot_code.comparison_algorithms.single_layer_drl import DQNAlgorithm, PPOAlgorithm, A2CAlgorithm
 from icot_code.data_loader import load_production_data, load_transportation_data
+from icot_code.models.production_env import FJSPEnv
+import icot_code.config
 
 
 def run_experiment_on_instance(instance_path: str, T_internal_values: List[int]) -> List[Dict]:

@@ -2,8 +2,8 @@ import gym
 from gym import spaces
 import numpy as np
 import copy
-import config
 from typing import Dict, Tuple, Optional
+import config
 
 EPS = 1e-8
 
