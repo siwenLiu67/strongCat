@@ -77,9 +77,9 @@ if __name__ == '__main__':
     import sys
     import os
     # 将项目根目录添加到 sys.path
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from data_loader import load_transportation_data, load_production_data
-    path = './instances/instance_m10_j20_s1.json'
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    from icot_code.data_loader import load_transportation_data, load_production_data
+    path = '/Users/siwenliu/Desktop/my_project/strongCat/icot_code/instances/instance_m10_j20_s1.json'
     trans_data = load_transportation_data(path)
     prod_data = load_production_data(path)
     

@@ -19,13 +19,15 @@ from icot_code.comparison_algorithms.single_layer_drl import DQNAlgorithm, PPOAl
 from icot_code.data_loader import load_production_data, load_transportation_data
 from icot_code.models.production_env import FJSPEnv
 import icot_code.config
+from icot_code.models.experiment_result import ExperimentResult, save_experiment_result
 
 
-def run_experiment_on_instance(instance_path: str, T_internal_values: List[int]) -> List[Dict]:
+def run_experiment_on_instance(instance:str, instance_path: str) -> List[Dict]:
     """
     在单个实例上运行所有算法（启发式 + 单层DRL）
     
     Args:
+        instance: 实例ID
         instance_path: 实例文件路径
         T_internal_values: 要测试的T_internal值列表
         
@@ -39,41 +41,31 @@ def run_experiment_on_instance(instance_path: str, T_internal_values: List[int])
     
     # 初始化算法
     algorithms = [
-        SPTRule(),
-        EDDRule(),
-        CompositeRule(),
+       # SPTRule(),
+      #  EDDRule(),
+       # CompositeRule(),
         DQNAlgorithm(),
-        PPOAlgorithm(),
-        A2CAlgorithm()
+       # PPOAlgorithm(),
+       # A2CAlgorithm()
     ]
     
     results = []
-    
-    for T_internal in T_internal_values:
-        for algorithm in algorithms:
-            print(f"运行 {algorithm.name} 在 T_internal={T_internal}")
+    for algorithm in algorithms:
+        print(f"运行 {algorithm.name}")  
             
-            start_time = time.time()
-            result = algorithm.solve(production_data, orders_data, T_internal)
-            end_time = time.time()
+        result = algorithm.solve(production_data, transportation_data, orders_data)
+        print(f"  - 调度完成 (总成本={result['metrics']['total_cost']}).")  
             
-            # 提取关键指标
-            metrics = result['metrics']
-            result_info = {
-                'instance': os.path.basename(instance_path),
-                'algorithm': algorithm.name,
-                'T_internal': T_internal,
-                'makespan': metrics['makespan'],
-                'total_cost': metrics['total_cost'],
-                'production_cost': metrics['production_cost'],
-                'transportation_cost': metrics['transportation_cost'],
-                'tardiness': metrics['tardiness'],
-                'feasible': metrics['feasible'],
-                'computation_time': end_time - start_time,
-                'schedule_length': len(result['schedule'])
-            }
-            
-            results.append(result_info)
+        # 提取关键指标
+        experiment_result = ExperimentResult(
+        algorithm_name= algorithm.name,
+        instance_id=instance,
+            metrics=result['metrics'],
+            extra_info={}
+            )
+                    
+        save_experiment_result(experiment_result, save_dir="results", filetype="csv")
+        results.append(experiment_result)
     
     return results
 
@@ -84,28 +76,38 @@ def main():
     
     # 定义要测试的实例（使用较小的实例以节省计算时间）
     instances = [
-        "icot_code/instances/instance_m10_j20_s1.json",
-        "icot_code/instances/instance_m10_j20_s2.json",
-        "icot_code/instances/instance_m10_j20_s3.json"
+        "instance_m10_j20_s1",
+        "instance_m10_j20_s2",
     ]
     
-    # 定义要测试的T_internal值
-    T_internal_values = [50, 100, 150]
     
     all_results = []
     
-    for instance_path in instances:
+    for instance in instances:
+        instance_path = '/Users/siwenliu/Desktop/my_project/strongCat/icot_code/instances/'+instance+'.json' #
         if not os.path.exists(instance_path):
             print(f"警告: 实例文件 {instance_path} 不存在，跳过")
             continue
         
-        print(f"\n处理实例: {os.path.basename(instance_path)}")
-        instance_results = run_experiment_on_instance(instance_path, T_internal_values)
+        print(f"\n=== 处理实例: {instance_path} ===")
+        instance_results = run_experiment_on_instance(instance, instance_path)
         all_results.extend(instance_results)
     
     # 保存结果到CSV文件
+    # 保存和汇总结果
     if all_results:
-        df = pd.DataFrame(all_results)
+        # 将结果列表（包含ExperimentResult对象）转换为字典列表
+        results_dicts = [res.to_dict() for res in all_results]
+        
+        # 创建一个基础信息的DataFrame
+        df_base = pd.DataFrame(results_dicts)[['algorithm_name', 'instance_id']]
+        
+        # 将metrics列展开为一个新的DataFrame
+        df_metrics = pd.json_normalize([d['metrics'] for d in results_dicts])
+        
+        # 合并两个DataFrame
+        df = pd.concat([df_base, df_metrics], axis=1)
+
         output_file = "results/single_layer_comparison_results.csv"
         os.makedirs(os.path.dirname(output_file), exist_ok=True)
         df.to_csv(output_file, index=False)
@@ -113,12 +115,16 @@ def main():
         
         # 打印汇总统计
         print("\n=== 汇总统计 ===")
-        summary = df.groupby(['algorithm', 'T_internal']).agg({
-            'makespan': ['mean', 'std'],
+        # 定义要统计的指标
+        agg_metrics = {
             'total_cost': ['mean', 'std'],
-            'feasible': 'mean',
             'computation_time': 'mean'
-        }).round(2)
+        }
+        # 检查 'transport_feasible' 列是否存在
+        if 'transport_feasible' in df.columns:
+            agg_metrics['transport_feasible'] = 'mean'
+
+        summary = df.groupby(['algorithm_name', 'instance_id']).agg(agg_metrics).round(2)
         
         print(summary)
         
@@ -127,20 +133,23 @@ def main():
         heuristic_algorithms = ['SPT_Rule', 'EDD_Rule', 'CompositeRule']
         drl_algorithms = ['DQN_Algorithm', 'PPO_Algorithm', 'A2C_Algorithm']
         
-        heuristic_df = df[df['algorithm'].isin(heuristic_algorithms)]
-        drl_df = df[df['algorithm'].isin(drl_algorithms)]
+        # 使用 'algorithm_name' 列进行筛选
+        heuristic_df = df[df['algorithm_name'].isin(heuristic_algorithms)]
+        drl_df = df[df['algorithm_name'].isin(drl_algorithms)]
         
-        print("启发式算法统计:")
-        print(heuristic_df.groupby('algorithm').agg({
-            'total_cost': ['mean', 'std'],
-            'computation_time': 'mean'
-        }).round(2))
+        if not heuristic_df.empty:
+            print("启发式算法统计:")
+            print(heuristic_df.groupby('algorithm_name').agg({
+                'total_cost': ['mean', 'std'],
+                'computation_time': 'mean'
+            }).round(2))
         
-        print("\n单层DRL算法统计:")
-        print(drl_df.groupby('algorithm').agg({
-            'total_cost': ['mean', 'std'],
-            'computation_time': 'mean'
-        }).round(2))
+        if not drl_df.empty:
+            print("\n单层DRL算法统计:")
+            print(drl_df.groupby('algorithm_name').agg({
+                'total_cost': ['mean', 'std'],
+                'computation_time': 'mean'
+            }).round(2))
         
     else:
         print("没有生成任何结果")

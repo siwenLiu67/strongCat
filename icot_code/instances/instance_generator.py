@@ -51,7 +51,7 @@ DISTANCE_RANGE = (2000, 10000)
 ORDER_WEIGHT_RANGE = (1, 10)  # 订单重量范围 (tons)
 
 # 订单截止因子范围：due = lower_bound_proc_time * factor, factor ~ U(1.2, 3.0)
-DUE_FACTOR_RANGE = (2.0, 4.0)
+DUE_FACTOR_RANGE = (2.0, 3.0)
 
 # 每组参数生成的实例数（默认每 (machines, jobs) 生成 N inst）
 DEFAULT_INSTANCES_PER_CFG = 3

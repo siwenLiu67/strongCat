@@ -7,12 +7,13 @@ import random
 from typing import Dict, List, Tuple, Any
 import os
 import sys
+import time
 
 # 添加项目根目录到路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from ..base_algorithm import BaseAlgorithm
-
-from icot_code.models.production_env import FJSPEnv
+from icot_code.comparison_algorithms.base_algorithm import BaseAlgorithm
+from icot_code.models.integrated_production_env import IntegratedFJSPEnv
+from icot_code.models.transportation_model import plan_transportation   
 class DQNNetwork(nn.Module):
     """DQN神经网络"""
     def __init__(self, state_size: int, action_size: int, hidden_size: int = 128):
@@ -52,22 +53,27 @@ class DQNAlgorithm(BaseAlgorithm):
         self.epsilon_min = 0.01
         self.epsilon_decay = 0.995
 
-    def solve(self, production_data: Dict, orders_data, t_internal) -> Dict:
+    def solve(self, production_data: Dict, transport_data: Dict, orders_data: Dict, num_episodes: int = 5) -> Dict:
         """
         使用DQN算法求解生产调度问题。
+        兼容统一接口：production_data, orders_data, T_internal
         """
-        env = FJSPEnv(production_data, orders_data, t_internal)
-        num_episodes = 500
-    
+        
+        # 创建环境实例
+        env = IntegratedFJSPEnv(production_data, orders_data, transport_data)
+        
         if self.q_network is None:
+            # 修复：直接从env实例获取状态和动作空间大小
             state_size = env.observation_space.shape[0]
             action_size = env.action_space.n
+            
             self.q_network = DQNNetwork(state_size, action_size, self.hidden_size)
             self.target_network = DQNNetwork(state_size, action_size, self.hidden_size)
             self.target_network.load_state_dict(self.q_network.state_dict())
             self.optimizer = optim.Adam(self.q_network.parameters(), lr=self.lr)
         
         all_rewards = []
+        start_time = time.time()
         for episode in range(num_episodes):
             state = env.reset()
             episode_reward = 0
@@ -86,25 +92,51 @@ class DQNAlgorithm(BaseAlgorithm):
                     if self.target_network is not None and self.q_network is not None:
                         self.target_network.load_state_dict(self.q_network.state_dict())
             all_rewards.append(episode_reward)
-            if episode % 50 == 0:
-                print(f"Episode: {episode}/{num_episodes}, Reward: {episode_reward:.2f}, Epsilon: {self.epsilon:.2f}")
+            print(f"Episode: {episode}, Reward: {episode_reward:.2f}, Epsilon: {self.epsilon:.2f}")
 
         final_state = env.reset()
         done = False
         while not done:
             action = self._select_best_action(final_state)
-            next_state, _, done, _ = env.step(action)
+            next_state, _, done, info = env.step(action)
             final_state = next_state
+
+        # 由于新环境已经集成了运输可行性检查，直接从环境中获取结果
+        end_time = time.time()
+        computation_time = end_time - start_time
+        
+        # b. 确定性运输规划
+        print(f"  - 开始确定性运输规划 (生产完成时间={env.C_max})...")
+        c_transport, s_trans = plan_transportation(env.C_max, transport_data['transport_data'], transport_data['orders'])
+        
+        transport_feasible = c_transport < float('inf')
+        penalty_cost = 0.0 if transport_feasible else 1e6  #    
+        print(f"  - 运输规划完成 (运输成本={c_transport}).")
+
+        if c_transport == float('inf'):
+            print(f"  - 对于生产完成时间={env.C_max} 没有可行的运输计划。返回无限大成本。")
+
+        # c. 评估总成本
+        c_production = env.C_max * production_data['c_unit_production']
+        total_cost = c_production + c_transport + penalty_cost
+        print(f"  - C_max: {env.C_max}, 生产成本: {c_production}, 运输成本: {c_transport}, 惩罚成本: {penalty_cost}, 总成本: {total_cost}")
+
+        metrics = {
+            "total_cost": total_cost,
+            "production_cost": c_production,
+            "transportation_cost": c_transport,
+            "computation_time": computation_time,
+            "transport_feasible": transport_feasible
+        }
 
         result = {
             'schedule': env.schedule,
-            'C_max': env.C_max,
+            'metrics': metrics,
             'algorithm': self.name,
-            'T_internal': env.T_internal
         }
         self.results = result
         return result
-
+    
     def _select_action(self, state: np.ndarray) -> int:
         """根据ε-贪心策略选择动作"""
         if self.q_network is None:

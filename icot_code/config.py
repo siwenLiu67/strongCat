@@ -3,8 +3,8 @@
 # DRL (深度强化学习) 超参数
 GAMMA = 0.99  # 折扣因子
 LEARNING_RATE = 0.001  # 学习率
-MAX_EPISODES = 1000  # 精细搜索或独立运行时的最大训练轮次
-COARSE_SEARCH_MAX_EPISODES = 30  # 粗略搜索阶段的最大训练轮次 (为进一步加速而减少)
+MAX_EPISODES = 10  # 精细搜索或独立运行时的最大训练轮次
+COARSE_SEARCH_MAX_EPISODES = 3  # 粗略搜索阶段的最大训练轮次 (为进一步加速而减少)
 K = 1000  # 用于惩罚的大的正常数
 ALPHA = 1.5  # 超出 T_internal 的惩罚系数
 BETA = 1.0  # 在 T_internal 内完成的奖励系数

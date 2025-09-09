@@ -1,24 +1,30 @@
-# main.py
+#!/usr/bin/env python3
+"""
+运行单层深度强化学习算法对比实验
+在多个实例上测试单层DRL算法的性能，并与启发式算法进行对比
+"""
 
 import sys
 import os
+import json
+import time
+from typing import Dict, List
+import pandas as pd
 
-# 将项目根目录添加到 sys.path，以便正确导入 config 模块
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# 添加项目根目录到路径
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+from icot_code.comparison_algorithms.heuristic_algorithms import SPTRule, EDDRule, CompositeRule
+from icot_code.comparison_algorithms.single_layer_drl import DQNAlgorithm, PPOAlgorithm, A2CAlgorithm
+from icot_code.data_loader import load_production_data, load_transportation_data, load_drl_hyperparameters, load_search_parameters
+from icot_code.models.production_env import FJSPEnv
+import icot_code.config
+from icot_code.models.experiment_result import ExperimentResult, save_experiment_result
+from agents.ppo_agent import PPOAgent
+from agents.ppo_agent import DRL_Scheduling_Agent
+from icot_code.models.transportation_model import plan_transportation
 import numpy as np
-import matplotlib.pyplot as plt
-import multiprocessing
-from functools import partial
-from data_loader import (
-    load_production_data,
-    load_transportation_data,
-    load_drl_hyperparameters,
-    load_search_parameters
-)
-from models.production_env import FJSPEnv
-from models.transportation_model import plan_transportation
-from agents.ppo_agent import PPOAgent, DRL_Scheduling_Agent
+
 
 def define_search_space(prod_data, trans_data):
     """
@@ -105,52 +111,17 @@ def evaluate_t_internal(t_internal, prod_data, trans_data, drl_params, max_episo
     plan = {'production': s_prod, 'transport': s_trans}
     return t_internal, total_cost, plan, c_max
 
-def plot_results(results):
-    """
-    将 T_internal 与总成本的关系可视化。
-    """
-    # 配置 matplotlib 以支持中文显示
-    plt.rcParams['font.sans-serif'] = ['SimHei']  # 指定默认字体
-    plt.rcParams['axes.unicode_minus'] = False  # 解决保存图像是负号'-'显示为方块的问题
-
-    t_internals = [res[0] for res in results]
-    total_costs = [res[1] for res in results if res[1] != float('inf')]
-    
-    if not total_costs:
-        print("没有有效的解决方案可供绘图。")
-        return
-
-    plt.figure(figsize=(12, 7))
-    plt.plot(t_internals, [res[1] if res[1] != float('inf') else max(total_costs) * 1.1 for res in results], 'bo-', label='总成本')
-    
-    best_t_internal = min(results, key=lambda x: x[1])[0]
-    best_cost = min(total_costs)
-    
-    plt.axvline(x=best_t_internal, color='r', linestyle='--', label=f'最优 T_internal = {best_t_internal}')
-    plt.scatter([best_t_internal], [best_cost], color='red', s=100, zorder=5, label=f'最低成本 = {best_cost:.2f}')
-    
-    plt.title('T_internal 对总成本的影响')
-    plt.xlabel('T_internal (内部生产截止时间)')
-    plt.ylabel('总成本')
-    plt.legend()
-    plt.grid(True)
-    
-    # 保存图表到文件
-    plt.savefig('t_internal_vs_total_cost.png')
-    print("\n结果图已保存到 't_internal_vs_total_cost.png'")
 
 def main():
     """
     运行 HD-DRL 算法的主函数。
     """
     # 打印 PPO 代理将使用的设备
-    try:
-        from agents.ppo_agent import device
-        print(f"DRL 代理将使用: {device}")
-    except ImportError:
-        print("无法导入 PPO 代理设备信息。")
+    from agents.ppo_agent import device
+    print(f"DRL 代理将使用: {device}")
 
-    file_path = './instances/instance_m10_j20_s1.json'  # 替换为你的实例文件路径
+    instance_id = "instance_m10_j20_s2"  # 替换为你的实例ID
+    file_path = '/Users/siwenliu/Desktop/my_project/strongCat/icot_code/instances/'+instance_id+'.json' # 替换为你的实例文件路径
     # 加载所有数据和参数
     prod_data = load_production_data(file_path)
     trans_data = load_transportation_data(file_path)
@@ -177,6 +148,7 @@ def main():
     print(f"min op time: {min_proc}, max op time: {max_proc}, sum of min times (LB): {sum_min_proc}")
 
 
+    start_time = time.time()
     # 1. 定义 T_internal 的搜索空间
     lower_bound, upper_bound = define_search_space(prod_data, trans_data)
     print(f"T_internal 搜索空间定义为: [{lower_bound}, {upper_bound}]")
@@ -244,10 +216,8 @@ def main():
                 best_t_internal = t_internal
                 best_plan = plan
                 print(f"*** 找到新的最佳解决方案! T_internal={best_t_internal}, 成本={best_total_cost} ***")
-
-    # 5. 可视化结果
-    if results:
-        plot_results(results)
+    endtime = time.time()
+    computation_time = endtime - start_time 
 
     # --- 最终结果 ---
     print("\n\n--- HD-DRL 算法完成 ---")
@@ -268,6 +238,24 @@ def main():
             print("未生成有效的运输计划。")
     else:
         print("在给定的搜索空间和参数中未找到可行的解决方案。")
+
+
+    # 进行结果的保存
+    # 伪代码，适用于所有算法
+    metrics = {
+        "total_cost": best_total_cost,
+        "production_cost": c_max_final * prod_data['c_unit_production'] if best_plan and best_plan.get('production') else float('inf'),
+        "transportation_cost": best_total_cost - c_max_final * prod_data['c_unit_production'] ,
+        "computation_time": computation_time,
+    }
+    result = ExperimentResult(
+        algorithm_name="hrl_ppo",
+        instance_id=instance_id,
+        metrics=metrics,
+        extra_info={}
+    )
+    save_experiment_result(result, save_dir="results", filetype="csv")
+
 
 if __name__ == '__main__':
     # 注意: 由于已切换到顺序执行，多处理启动方法不再需要。

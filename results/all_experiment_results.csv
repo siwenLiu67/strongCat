@@ -1,0 +1,28 @@
+algorithm_name,instance_id,metrics,extra_info
+hrl_ppo,instance_m10_j20_s2,"{'total_cost': 104458.292, 'production_cost': 1755.0, 'transportation_cost': 87876.638, 'computation_time': 40.56038498878479}",{}
+SPT_Rule,instance_m10_j20_s1,"{'makespan': 562.0, 'total_cost': 6620.0, 'production_cost': 5620.0, 'transportation_cost': 1000, 'tardiness': 512.0, 'feasible': False}",{}
+EDD_Rule,instance_m10_j20_s1,"{'makespan': 645.0, 'total_cost': 7450.0, 'production_cost': 6450.0, 'transportation_cost': 1000, 'tardiness': 595.0, 'feasible': False}",{}
+Composite_Rule,instance_m10_j20_s1,"{'makespan': 561.0, 'total_cost': 6610.0, 'production_cost': 5610.0, 'transportation_cost': 1000, 'tardiness': 511.0, 'feasible': False}",{}
+SPT_Rule,instance_m10_j20_s1,"{'makespan': 562.0, 'total_cost': 6620.0, 'production_cost': 5620.0, 'transportation_cost': 1000, 'tardiness': 512.0, 'feasible': False}",{}
+EDD_Rule,instance_m10_j20_s1,"{'makespan': 645.0, 'total_cost': 7450.0, 'production_cost': 6450.0, 'transportation_cost': 1000, 'tardiness': 595.0, 'feasible': False}",{}
+Composite_Rule,instance_m10_j20_s1,"{'makespan': 561.0, 'total_cost': 6610.0, 'production_cost': 5610.0, 'transportation_cost': 1000, 'tardiness': 511.0, 'feasible': False}",{}
+DQN_Algorithm,instance_m10_j20_s1,"{'total_cost': 1001797.5, 'production_cost': 1797.5, 'transportation_cost': 1000000.0, 'computation_time': 0.31092381477355957}",{}
+DQN_Algorithm,instance_m10_j20_s2,"{'total_cost': 1001920.0, 'production_cost': 1920.0, 'transportation_cost': 1000000.0, 'computation_time': 0.3576340675354004}",{}
+hrl_ppo,instance_m10_j20_s2,"{'total_cost': 89986.638, 'production_cost': 1847.5, 'transportation_cost': 87846.638, 'computation_time': 39.31609511375427}",{}
+hrl_ppo,instance_m10_j20_s2,"{'total_cost': 104523.292, 'production_cost': 1877.5, 'transportation_cost': 87801.638, 'computation_time': 39.8784499168396}",{}
+hrl_ppo,instance_m10_j20_s2,"{'total_cost': 89924.138, 'production_cost': 1907.5, 'transportation_cost': 87816.638, 'computation_time': 33.56842803955078}",{}
+DQN_Algorithm,instance_m10_j20_s1,"{'total_cost': inf, 'production_cost': 1745.0, 'transportation_cost': inf, 'computation_time': 0.35291099548339844, 'transport_feasible': False}",{}
+DQN_Algorithm,instance_m10_j20_s2,"{'total_cost': inf, 'production_cost': 2410.0, 'transportation_cost': inf, 'computation_time': 0.49249911308288574, 'transport_feasible': False}",{}
+DQN_Algorithm,instance_m10_j20_s1,"{'total_cost': inf, 'production_cost': 1805.0, 'transportation_cost': inf, 'computation_time': 0.3171830177307129, 'transport_feasible': False}",{}
+DQN_Algorithm,instance_m10_j20_s2,"{'total_cost': inf, 'production_cost': 1767.5, 'transportation_cost': inf, 'computation_time': 0.37164998054504395, 'transport_feasible': False}",{}
+DQN_Algorithm,instance_m10_j20_s1,"{'total_cost': inf, 'production_cost': 1972.5, 'transportation_cost': inf, 'computation_time': 0.3222222328186035, 'transport_feasible': False}",{}
+DQN_Algorithm,instance_m10_j20_s2,"{'total_cost': inf, 'production_cost': 2065.0, 'transportation_cost': inf, 'computation_time': 0.372830867767334, 'transport_feasible': False}",{}
+DQN_Algorithm,instance_m10_j20_s1,"{'total_cost': inf, 'production_cost': 1805.0, 'transportation_cost': inf, 'computation_time': 0.3215820789337158, 'transport_feasible': False}",{}
+DQN_Algorithm,instance_m10_j20_s2,"{'total_cost': inf, 'production_cost': 1810.0, 'transportation_cost': inf, 'computation_time': 0.3635687828063965, 'transport_feasible': False}",{}
+DQN_Algorithm,instance_m10_j20_s1,"{'total_cost': inf, 'production_cost': 1845.0, 'transportation_cost': inf, 'computation_time': 0.36757588386535645, 'transport_feasible': False}",{}
+DQN_Algorithm,instance_m10_j20_s1,"{'total_cost': 60276.332, 'production_cost': 1777.5, 'transportation_cost': 58498.832, 'computation_time': 0.2740201950073242, 'transport_feasible': True}",{}
+DQN_Algorithm,instance_m10_j20_s2,"{'total_cost': 89724.138, 'production_cost': 1810.0, 'transportation_cost': 87914.138, 'computation_time': 0.3777799606323242, 'transport_feasible': True}",{}
+hrl_ppo,instance_m10_j20_s2,"{'total_cost': 104473.292, 'production_cost': 1907.5, 'transportation_cost': 87816.638, 'computation_time': 35.88780331611633}",{}
+DQN_Algorithm,instance_m10_j20_s1,"{'total_cost': 60243.832, 'production_cost': 1745.0, 'transportation_cost': 58498.832, 'computation_time': 0.2814939022064209, 'transport_feasible': True}",{}
+DQN_Algorithm,instance_m10_j20_s2,"{'total_cost': 104473.292, 'production_cost': 2160.0, 'transportation_cost': 102313.292, 'computation_time': 0.38269495964050293, 'transport_feasible': True}",{}
+hrl_ppo,instance_m10_j20_s2,"{'total_cost': 89721.638, 'production_cost': 1875.0, 'transportation_cost': 87846.638, 'computation_time': 34.62164807319641}",{}

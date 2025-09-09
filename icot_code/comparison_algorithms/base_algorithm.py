@@ -13,7 +13,7 @@ class BaseAlgorithm(ABC):
         self.results = {}
     
     @abstractmethod
-    def solve(self, production_data: Dict, orders_data: Dict, T_internal: float) -> Dict:
+    def solve(self, production_data: Dict, transport_date: Dict, orders_data: Dict) -> Dict:
         """
         求解生产调度问题
         

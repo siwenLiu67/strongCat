@@ -17,7 +17,7 @@ class FJSPEnv(gym.Env):
 
     def __init__(self, production_data, orders_data, T_internal, normalize_obs: bool = False, seed: Optional[int] = None):
         super().__init__()
-
+        
         self.jobs_data: Dict[str, list] = production_data["jobs"]        # job_id -> [(op_id, {machine_id: time}), ...]
         self.machines_data: Dict[str, dict] = production_data["machines"] # machine_id -> {props...}
         self.precedence: Dict[str, dict] = production_data["precedence"]  # job_id -> {op_id: [pre_op_ids]}

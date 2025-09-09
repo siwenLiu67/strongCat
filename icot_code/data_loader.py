@@ -1,6 +1,6 @@
 # data_loader.py
 
-import icot_code.config as config
+import config
 # def load_production_data():
 #     """
 #     从配置文件加载所有与生产相关的数据。
@@ -50,6 +50,18 @@ def load_production_data(file_path):
     for job_id, job_data in config['jobs'].items():
         jobs[job_id] = job_data['ops']
     
+    # 构造 job_id -> market 和 job_id -> deadline 的映射
+    job_to_market = {}
+    job_to_deadline = {}
+    orders_data = config['orders']
+    for job_id, job_details in config['jobs'].items():
+        order_id = job_details.get('order_id')
+        if order_id and order_id in orders_data:
+            order_info = orders_data[order_id]
+            job_to_market[job_id] = order_info.get('market')
+            job_to_deadline[job_id] = order_info.get('due')
+
+    
     # 构建precedence约束（根据示例数据结构推断）
     precedence = {}
     for job_id, job_data in config['jobs'].items():
@@ -62,7 +74,9 @@ def load_production_data(file_path):
         'jobs': jobs,
         'machines': config['machines'],
         'precedence': precedence,
-        'c_unit_production': config['meta']['unit_production_cost']
+        'c_unit_production': config['meta']['unit_production_cost'],
+        'job_to_market': job_to_market,
+        'job_to_deadline': job_to_deadline
     }
 
 def load_transportation_data(file_path):
