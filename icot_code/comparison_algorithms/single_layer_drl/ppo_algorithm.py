@@ -2,8 +2,18 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from collections import deque
+import random
 from typing import Dict, List, Tuple, Any
-from ..base_algorithm import BaseAlgorithm
+import os
+import sys
+import time
+
+# 添加项目根目录到路径
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from icot_code.comparison_algorithms.base_algorithm import BaseAlgorithm
+from icot_code.models.integrated_production_env import IntegratedFJSPEnv
+from icot_code.models.transportation_model import plan_transportation
 
 class ActorCriticNetwork(nn.Module):
     """PPO算法的Actor-Critic网络"""
@@ -57,36 +67,169 @@ class PPOAlgorithm(BaseAlgorithm):
         self.epochs = 3
         self.batch_size = 64
     
-    def solve(self, production_data: Dict, orders_data: Dict, T_internal: float) -> Dict:
+    def solve(self, production_data: Dict, transport_data: Dict, orders_data: Dict, num_episodes: int = 5) -> Dict:
         """
-        使用PPO算法求解生产调度问题
+        使用PPO算法求解生产调度问题。
+        兼容统一接口：production_data, transport_data, orders_data, num_episodes
         """
-        # 初始化网络（如果尚未初始化）
+        
+        # 创建环境实例
+        env = IntegratedFJSPEnv(production_data, orders_data, transport_data)
+        
         if self.policy_network is None:
-            state_size = self._get_state_size(production_data)
-            action_size = self._get_action_size(production_data)
+            # 直接从env实例获取状态和动作空间大小
+            state_size = env.observation_space.shape[0]
+            action_size = env.action_space.n
+            
             self.policy_network = ActorCriticNetwork(state_size, action_size, self.hidden_size)
             self.optimizer = optim.Adam(self.policy_network.parameters(), lr=self.lr)
         
-        # 简化的PPO训练和调度过程
-        # 在实际实现中，这里应该有完整的训练循环
-        # 这里使用启发式规则作为PPO的替代，用于演示
+        all_rewards = []
+        start_time = time.time()
         
-        # 使用EDD规则生成调度（作为PPO的替代）
-        schedule = self._generate_schedule_with_heuristic(production_data, T_internal)
+        # PPO训练循环
+        for episode in range(num_episodes):
+            state = env.reset()
+            episode_reward = 0
+            done = False
+            step = 0
+            
+            # 存储轨迹数据
+            states, actions, rewards, log_probs, values = [], [], [], [], []
+            
+            while not done:
+                # 选择动作
+                action_probs, state_value = self.policy_network(torch.FloatTensor(state).unsqueeze(0))
+                action_dist = torch.distributions.Categorical(action_probs)
+                action = action_dist.sample()
+                log_prob = action_dist.log_prob(action)
+                
+                # 执行动作
+                next_state, reward, done, _ = env.step(action.item())
+                
+                # 存储轨迹
+                states.append(state)
+                actions.append(action.item())
+                rewards.append(reward)
+                log_probs.append(log_prob)
+                values.append(state_value.item())
+                
+                state = next_state
+                episode_reward += reward
+                step += 1
+            
+            # PPO更新
+            if len(states) > 0:
+                self._update_ppo(states, actions, rewards, log_probs, values, done)
+            
+            all_rewards.append(episode_reward)
+            print(f"Episode: {episode}, Reward: {episode_reward:.2f}")
+
+        # 最终评估
+        final_state = env.reset()
+        done = False
+        while not done:
+            action_probs, _ = self.policy_network(torch.FloatTensor(final_state).unsqueeze(0))
+            action = torch.argmax(action_probs).item()
+            next_state, _, done, info = env.step(action)
+            final_state = next_state
+
+        # 运输规划
+        end_time = time.time()
+        computation_time = end_time - start_time
         
-        # 评估解决方案
-        metrics = self.evaluate_solution(schedule, production_data, orders_data, T_internal)
+        print(f"  - 开始确定性运输规划 (生产完成时间={env.C_max})...")
+        c_transport, s_trans = plan_transportation(env.C_max, transport_data['transport_data'], transport_data['orders'])
         
+        transport_feasible = c_transport < float('inf')
+        penalty_cost = 0.0 if transport_feasible else 1e6
+        print(f"  - 运输规划完成 (运输成本={c_transport}).")
+
+        if c_transport == float('inf'):
+            print(f"  - 对于生产完成时间={env.C_max} 没有可行的运输计划。返回无限大成本。")
+
+        # 计算总成本
+        c_production = env.C_max * production_data['c_unit_production']
+        total_cost = c_production + c_transport + penalty_cost
+        print(f"  - C_max: {env.C_max}, 生产成本: {c_production}, 运输成本: {c_transport}, 惩罚成本: {penalty_cost}, 总成本: {total_cost}")
+
+        metrics = {
+            "total_cost": total_cost,
+            "production_cost": c_production,
+            "transportation_cost": c_transport,
+            "computation_time": computation_time,
+            "transport_feasible": transport_feasible
+        }
+
         result = {
-            'schedule': schedule,
+            'schedule': env.schedule,
             'metrics': metrics,
             'algorithm': self.name,
-            'T_internal': T_internal
         }
-        
         self.results = result
         return result
+    
+    def _update_ppo(self, states, actions, rewards, log_probs, values, done):
+        """PPO算法更新"""
+        if len(states) == 0 or self.optimizer is None:
+            return
+        
+        # 计算优势函数
+        returns = self._compute_returns(rewards, self.gamma)
+        advantages = self._compute_advantages(returns, values)
+        
+        # 转换为张量
+        states_tensor = torch.FloatTensor(np.array(states))
+        actions_tensor = torch.LongTensor(actions)
+        old_log_probs_tensor = torch.stack(log_probs)
+        returns_tensor = torch.FloatTensor(returns)
+        advantages_tensor = torch.FloatTensor(advantages)
+        
+        # PPO多轮更新
+        for _ in range(self.epochs):
+            # 获取新的动作概率和价值
+            action_probs, state_values = self.policy_network(states_tensor)
+            action_dist = torch.distributions.Categorical(action_probs)
+            new_log_probs = action_dist.log_prob(actions_tensor)
+            
+            # 计算概率比
+            ratio = torch.exp(new_log_probs - old_log_probs_tensor.detach())
+            
+            # 计算裁剪的PPO损失
+            surr1 = ratio * advantages_tensor
+            surr2 = torch.clamp(ratio, 1 - self.clip_epsilon, 1 + self.clip_epsilon) * advantages_tensor
+            policy_loss = -torch.min(surr1, surr2).mean()
+            
+            # 价值函数损失
+            value_loss = nn.MSELoss()(state_values.squeeze(), returns_tensor)
+            
+            # 熵奖励
+            entropy = action_dist.entropy().mean()
+            
+            # 总损失
+            loss = policy_loss + 0.5 * value_loss - 0.01 * entropy
+            
+            # 反向传播
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+    
+    def _compute_returns(self, rewards, gamma):
+        """计算回报"""
+        returns = []
+        R = 0
+        for r in reversed(rewards):
+            R = r + gamma * R
+            returns.insert(0, R)
+        return returns
+    
+    def _compute_advantages(self, returns, values):
+        """计算优势函数"""
+        advantages = []
+        for i in range(len(returns)):
+            advantage = returns[i] - values[i]
+            advantages.append(advantage)
+        return advantages
     
     def _get_state_size(self, production_data: Dict) -> int:
         """获取状态空间大小"""
@@ -99,137 +242,3 @@ class PPOAlgorithm(BaseAlgorithm):
         num_machines = len(production_data['machines'])
         max_ops_per_machine = 10
         return num_machines * max_ops_per_machine
-    
-    def _generate_schedule_with_heuristic(self, production_data: Dict, T_internal: float) -> List[Dict]:
-        """使用启发式规则生成调度（PPO的替代实现）"""
-        jobs_data = production_data["jobs"]
-        machines_data = production_data["machines"]
-        precedence = production_data.get("precedence", {})
-        
-        # 初始化状态
-        current_time = 0.0
-        machine_status = {m: {'idle': True, 'job': None, 'op': None, 'finish_time': -1.0} 
-                         for m in machines_data}
-        job_status = {}
-        schedule = []
-        completed_ops = {}
-        
-        # 初始化作业状态
-        for job_id, ops in jobs_data.items():
-            job_status[job_id] = {
-                'current_op_idx': 0,
-                'finished': False,
-                'release_time': 0.0,
-                'due_date': T_internal,
-                'remaining_proc_time': self._calculate_remaining_proc_time(jobs_data, job_id, 0)
-            }
-        
-        # 主调度循环
-        while not all(st['finished'] for st in job_status.values()):
-            # 推进时间到下一个事件
-            current_time = self._advance_time(machine_status, current_time, completed_ops, job_status)
-            
-            # 获取所有空闲机器
-            idle_machines = [m for m, s in machine_status.items() if s['idle']]
-            
-            if not idle_machines:
-                continue
-            
-            # 为每个空闲机器找到可用的工序
-            for machine_id in idle_machines:
-                available_ops = self._get_available_ops(jobs_data, precedence, job_status, 
-                                                       machine_id, current_time, completed_ops)
-                
-                if available_ops:
-                    # 使用EDD规则（最早交货期优先）
-                    selected_op = min(available_ops, key=lambda x: job_status[x[0]]['due_date'])
-                    job_id, op_id, proc_time = selected_op
-                    
-                    # 分配工序到机器
-                    machine_status[machine_id] = {
-                        'idle': False, 
-                        'job': job_id, 
-                        'op': op_id, 
-                        'finish_time': current_time + proc_time
-                    }
-                    
-                    # 更新作业状态
-                    job_st = job_status[job_id]
-                    job_st['current_op_idx'] += 1
-                    if job_st['current_op_idx'] >= len(jobs_data[job_id]):
-                        job_st['finished'] = True
-                    
-                    # 记录调度
-                    schedule.append({
-                        'job': job_id,
-                        'op': op_id,
-                        'machine': machine_id,
-                        'start': current_time,
-                        'end': current_time + proc_time
-                    })
-                    
-                    # 记录完成的操作
-                    completed_ops[(job_id, op_id)] = current_time + proc_time
-        
-        return schedule
-    
-    def _calculate_remaining_proc_time(self, jobs_data: Dict, job_id: str, op_idx: int) -> float:
-        """计算剩余处理时间"""
-        remaining_time = 0.0
-        ops = jobs_data[job_id]
-        for i in range(op_idx, len(ops)):
-            _, machine_times = ops[i]
-            if machine_times:
-                remaining_time += min(machine_times.values())
-        return remaining_time
-    
-    def _advance_time(self, machine_status: Dict, current_time: float, 
-                     completed_ops: Dict, job_status: Dict) -> float:
-        """推进时间到下一个事件"""
-        finish_times = [s['finish_time'] for s in machine_status.values() if not s['idle']]
-        if finish_times:
-            next_time = min(finish_times)
-        else:
-            release_times = [st['release_time'] for st in job_status.values() 
-                           if not st['finished'] and st['release_time'] > current_time]
-            if release_times:
-                next_time = min(release_times)
-            else:
-                return current_time
-        
-        for m_id, ms in machine_status.items():
-            if not ms['idle'] and ms['finish_time'] <= next_time + 1e-8:
-                completed_ops[(ms['job'], ms['op'])] = ms['finish_time']
-                machine_status[m_id] = {'idle': True, 'job': None, 'op': None, 'finish_time': -1.0}
-                if not job_status[ms['job']]['finished']:
-                    job_status[ms['job']]['release_time'] = next_time
-        
-        return next_time
-    
-    def _get_available_ops(self, jobs_data: Dict, precedence: Dict, job_status: Dict,
-                          machine_id: str, current_time: float, completed_ops: Dict) -> List[Tuple]:
-        """获取可用的工序"""
-        available_ops = []
-        
-        for job_id, st in job_status.items():
-            if st['finished'] or current_time < st['release_time']:
-                continue
-            
-            op_idx = st['current_op_idx']
-            if op_idx >= len(jobs_data[job_id]):
-                continue
-                
-            op_id, machine_times = jobs_data[job_id][op_idx]
-            
-            # 检查紧前工序约束
-            pre_list = precedence.get(job_id, {}).get(op_id, [])
-            precedents_met = True
-            for pre_op_id in pre_list:
-                if (job_id, pre_op_id) not in completed_ops:
-                    precedents_met = False
-                    break
-            
-            if precedents_met and machine_id in machine_times:
-                available_ops.append((job_id, op_id, float(machine_times[machine_id])))
-        
-        return available_ops
