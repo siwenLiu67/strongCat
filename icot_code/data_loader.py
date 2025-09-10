@@ -1,6 +1,6 @@
 # data_loader.py
 
-import config
+import icot_code.config as config
 # def load_production_data():
 #     """
 #     从配置文件加载所有与生产相关的数据。

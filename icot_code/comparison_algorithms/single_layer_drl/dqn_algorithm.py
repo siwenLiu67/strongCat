@@ -133,6 +133,7 @@ class DQNAlgorithm(BaseAlgorithm):
             'schedule': env.schedule,
             'metrics': metrics,
             'algorithm': self.name,
+            'extra_info': {'reward_curve': all_rewards}
         }
         self.results = result
         return result

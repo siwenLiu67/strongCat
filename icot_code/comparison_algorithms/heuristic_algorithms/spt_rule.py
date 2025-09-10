@@ -8,16 +8,27 @@ class SPTRule(BaseAlgorithm):
     总是选择处理时间最短的工序进行调度
     """
     
-    def __init__(self):
+    def __init__(self, production_data: Dict, orders_data: Dict, transportation_data: Dict):
         super().__init__("SPT_Rule")
+        self.production_data = production_data
+        self.orders_data = orders_data
+        self.transportation_data = transportation_data
+
+        # ---- 可选的显式映射（NEW）----
+        self.job_to_market = production_data.get("job_to_market", {})     # job_id -> market
+        self.job_to_deadline = production_data.get("job_to_deadline", {}) # job_id -> absolute deadline (float)
+        
     
-    def solve(self, production_data: Dict, orders_data: Dict, T_internal: float) -> Dict:
+    def solve(self) -> Dict:
         """
         使用SPT规则求解生产调度问题
         """
-        jobs_data = production_data["jobs"]
-        machines_data = production_data["machines"]
-        precedence = production_data.get("precedence", {})
+        jobs_data = self.production_data["jobs"]
+        orders_data = self.orders_data
+        machines_data = self.production_data["machines"]
+        precedence = self.production_data.get("precedence", {})
+        production_data = self.production_data
+        
         
         # 初始化状态
         current_time = 0.0
@@ -29,11 +40,12 @@ class SPTRule(BaseAlgorithm):
         
         # 初始化作业状态
         for job_id, ops in jobs_data.items():
+            
             job_status[job_id] = {
                 'current_op_idx': 0,
                 'finished': False,
                 'release_time': 0.0,
-                'due_date': T_internal,  # 简化处理
+                'due_date': self.job_to_deadline.get(job_id),
                 'remaining_proc_time': self._calculate_remaining_proc_time(jobs_data, job_id, 0)
             }
         
@@ -87,13 +99,12 @@ class SPTRule(BaseAlgorithm):
                     completed_ops[(job_id, op_id)] = current_time + proc_time
         
         # 评估解决方案
-        metrics = self.evaluate_solution(schedule, production_data, orders_data, T_internal)
+        metrics = self.evaluate_solution(schedule, production_data, orders_data)
         
         result = {
             'schedule': schedule,
             'metrics': metrics,
             'algorithm': self.name,
-            'T_internal': T_internal
         }
         
         self.results = result

@@ -45,8 +45,8 @@ def run_experiment_on_instance(instance:str, instance_path: str) -> List[Dict]:
       #  EDDRule(),
        # CompositeRule(),
         DQNAlgorithm(),
-       # PPOAlgorithm(),
-       # A2CAlgorithm()
+        PPOAlgorithm(),
+       #  A2CAlgorithm()
     ]
     
     results = []
@@ -61,7 +61,7 @@ def run_experiment_on_instance(instance:str, instance_path: str) -> List[Dict]:
         algorithm_name= algorithm.name,
         instance_id=instance,
             metrics=result['metrics'],
-            extra_info={}
+            extra_info={'reward_curve': result.get('extra_info', {}).get('reward_curve', [])}
             )
                     
         save_experiment_result(experiment_result, save_dir="results", filetype="csv")

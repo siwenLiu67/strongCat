@@ -16,10 +16,9 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from icot_code.comparison_algorithms.heuristic_algorithms import SPTRule, EDDRule, CompositeRule
 from icot_code.data_loader import load_production_data, load_transportation_data
-import icot_code.config
 
 
-def run_experiment_on_instance(instance_path: str, T_internal_values: List[int]) -> List[Dict]:
+def run_experiment_on_instance(instance_path: str) -> List[Dict]:
     """
     在单个实例上运行所有启发式算法
     
@@ -37,27 +36,26 @@ def run_experiment_on_instance(instance_path: str, T_internal_values: List[int])
     
     # 初始化算法
     algorithms = [
-        SPTRule(),
+        SPTRule(production_data=production_data, orders_data=orders_data, transportation_data=transportation_data),
         EDDRule(),
         CompositeRule()
     ]
     
     results = []
     
-    for T_internal in T_internal_values:
-        for algorithm in algorithms:
-            print(f"运行 {algorithm.name} 在 T_internal={T_internal}")
+   
+    for algorithm in algorithms:
+        print(f"运行 {algorithm.name}")
             
-            start_time = time.time()
-            result = algorithm.solve(production_data, orders_data, T_internal)
-            end_time = time.time()
+        start_time = time.time()
+        result = algorithm.solve()
+        end_time = time.time()
             
-            # 提取关键指标
-            metrics = result['metrics']
-            result_info = {
+        # 提取关键指标
+        metrics = result['metrics']
+        result_info = {
                 'instance': os.path.basename(instance_path),
                 'algorithm': algorithm.name,
-                'T_internal': T_internal,
                 'makespan': metrics['makespan'],
                 'total_cost': metrics['total_cost'],
                 'production_cost': metrics['production_cost'],
@@ -68,7 +66,7 @@ def run_experiment_on_instance(instance_path: str, T_internal_values: List[int])
                 'schedule_length': len(result['schedule'])
             }
             
-            results.append(result_info)
+        results.append(result_info)
     
     return results
 
@@ -84,9 +82,6 @@ def main():
         "icot_code/instances/instance_m10_j20_s3.json"
     ]
     
-    # 定义要测试的T_internal值
-    T_internal_values = [50, 100, 150]
-    
     all_results = []
     
     for instance_path in instances:
@@ -95,7 +90,7 @@ def main():
             continue
         
         print(f"\n处理实例: {os.path.basename(instance_path)}")
-        instance_results = run_experiment_on_instance(instance_path, T_internal_values)
+        instance_results = run_experiment_on_instance(instance_path)
         all_results.extend(instance_results)
     
     # 保存结果到CSV文件

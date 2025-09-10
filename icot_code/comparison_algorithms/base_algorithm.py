@@ -2,6 +2,7 @@ import numpy as np
 from typing import Dict, List, Tuple, Any, Optional
 import json
 from abc import ABC, abstractmethod
+from icot_code.models.transportation_model import plan_transportation
 
 class BaseAlgorithm(ABC):
     """
@@ -28,7 +29,7 @@ class BaseAlgorithm(ABC):
         pass
     
     def evaluate_solution(self, schedule: List[Dict], production_data: Dict, 
-                         orders_data: Dict, T_internal: float) -> Dict:
+                         orders_data: Dict) -> Dict:
         """
         评估调度解决方案
         
@@ -37,7 +38,6 @@ class BaseAlgorithm(ABC):
                       'machine': machine_id, 'start': start_time, 'end': end_time}
             production_data: 生产数据
             orders_data: 订单数据
-            T_internal: 内部生产截止时间
             
         Returns:
             性能指标字典
@@ -49,59 +49,32 @@ class BaseAlgorithm(ABC):
                 'total_cost': float('inf'),
                 'production_cost': float('inf'),
                 'transportation_cost': float('inf'),
-                'tardiness': float('inf'),
                 'feasible': False
             }
         
         makespan = max(op['end'] for op in schedule)
         
         # 计算生产总成本
-        production_cost = makespan * 10  # 假设单位时间成本为10
+        production_cost = makespan * production_data.get('unit_production_cost')
         
-        # 计算运输成本（简化计算）
-        transportation_cost = self._calculate_transportation_cost(schedule, production_data, orders_data)
+        # 计算运输成本
+        transportation_cost, production_plan = plan_transportation(schedule, production_data, orders_data)
         
         # 计算总成本
         total_cost = production_cost + transportation_cost
         
-        # 检查是否满足T_internal约束
-        feasible = makespan <= T_internal
         
-        # 计算延迟
-        tardiness = max(0, makespan - T_internal)
+        feasible = transportation_cost < float('inf')
         
         return {
             'makespan': makespan,
             'total_cost': total_cost,
             'production_cost': production_cost,
             'transportation_cost': transportation_cost,
-            'tardiness': tardiness,
             'feasible': feasible
         }
     
-    def _calculate_transportation_cost(self, schedule: List[Dict], 
-                                     production_data: Dict, orders_data: Dict) -> float:
-        """
-        简化计算运输成本
-        """
-        # 这里使用简化计算，实际应该调用运输模型
-        # 假设每个作业的运输成本为其重量的函数
-        total_weight = 0
-        job_completion_times = {}
-        
-        # 计算每个作业的完成时间
-        for op in schedule:
-            job_id = op['job']
-            if job_id not in job_completion_times or op['end'] > job_completion_times[job_id]:
-                job_completion_times[job_id] = op['end']
-        
-        # 计算总重量
-        for job_id in job_completion_times:
-            # 假设每个作业的重量为1（简化）
-            total_weight += 1
-        
-        # 简化运输成本计算
-        return total_weight * 50  # 假设单位重量运输成本为50
+    
     
     def save_results(self, filename: str):
         """保存结果到文件"""
