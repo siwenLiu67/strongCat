@@ -6,6 +6,7 @@ import numpy as np
 from collections import defaultdict
 import torch
 
+sys.path.append('./')
 
 from typing import Dict, List, Tuple
 from model.environment import WarehouseEnvironment

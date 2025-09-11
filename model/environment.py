@@ -1,7 +1,9 @@
-from config import Config
+import sys
+sys.path.append('./')
+from model.config import Config
 from typing import Dict, Tuple
-from data_structures import Job, Operation,Machine,Distributor,DeliveryRequirement
-from case_generator import FlexibleJobShopScenario
+from model.data_structures import Job, Operation,Machine,Distributor,DeliveryRequirement
+from instances.case_generator import FlexibleJobShopScenario
 import numpy as np
 from itertools import chain
 

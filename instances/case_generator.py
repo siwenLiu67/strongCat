@@ -5,12 +5,13 @@ import numpy as np
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 import sys
+sys.path.append('./')
 import os
 import pandas as pd
 import csv
 from pathlib import Path
-from config import Config
-from data_structures import Job, Operation, Distributor, Machine, DeliveryRequirement
+from model.config import Config
+from model.data_structures import Job, Operation, Distributor, Machine, DeliveryRequirement
 
 @dataclass
 class FlexibleJobShopScenario:
@@ -233,13 +234,3 @@ if __name__ == "__main__":
     
     case = FlexibleJobShopScenario(config=config)
     
-    # 测试单个算例导出到单个CSV文件
-    print("\n测试单个算例导出到单个CSV文件...")
-    csv_file = case.export_to_single_csv()
-    print(f"单个CSV文件已生成: {csv_file}")
-    
-    # 测试批量生成论文算例的单个CSV文件
-    print("\n测试批量生成论文算例的单个CSV文件...")
-    FlexibleJobShopScenario.generate_paper_instances_single_csv()
-    
-    print("\n所有功能测试完成!")
