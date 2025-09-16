@@ -75,12 +75,9 @@ def main():
     """主实验函数"""
     print("=== 启发式算法对比实验 ===")
     
-    # 定义要测试的实例
-    instances = [
-        # "icot_code/instances/instance_m10_j20_s1.json",
-        "icot_code/instances/instance_m10_j20_s2.json"
-        # "icot_code/instances/instance_m30_j140_s36.json"
-    ]
+    # 自动收集icot_code/instances目录下所有json文件
+    instances_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'instances')
+    instances = [os.path.join(instances_dir, f) for f in os.listdir(instances_dir) if f.endswith('.json')]
     
     all_results = []
     
