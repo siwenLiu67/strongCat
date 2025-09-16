@@ -61,6 +61,14 @@ def load_production_data(file_path):
             job_to_market[job_id] = order_info.get('market')
             job_to_deadline[job_id] = order_info.get('due')
 
+    # 构造 order_id -> job_id 的映射（如果需要）
+    order_to_job = {}
+    for job_id, job_details in config['jobs'].items():
+        order_id = job_details.get('order_id')
+        if order_id:
+            order_to_job[order_id] = job_id
+    job_to_order = {v: k for k, v in order_to_job.items()}
+
     
     # 构建precedence约束（根据示例数据结构推断）
     precedence = {}
@@ -76,7 +84,8 @@ def load_production_data(file_path):
         'precedence': precedence,
         'c_unit_production': config['meta']['unit_production_cost'],
         'job_to_market': job_to_market,
-        'job_to_deadline': job_to_deadline
+        'job_to_deadline': job_to_deadline,
+        'order_to_job': order_to_job,
     }
 
 def load_transportation_data(file_path):

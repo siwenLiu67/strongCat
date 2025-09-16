@@ -28,8 +28,7 @@ class BaseAlgorithm(ABC):
         """
         pass
     
-    def evaluate_solution(self, schedule: List[Dict], production_data: Dict, 
-                         orders_data: Dict) -> Dict:
+    def evaluate_solution(self, schedule: List[Dict], production_data: Dict, orders_data: Dict, transport_data: Dict) -> Dict:
         """
         评估调度解决方案
         
@@ -55,10 +54,10 @@ class BaseAlgorithm(ABC):
         makespan = max(op['end'] for op in schedule)
         
         # 计算生产总成本
-        production_cost = makespan * production_data.get('unit_production_cost')
+        production_cost = makespan * production_data['c_unit_production']
         
         # 计算运输成本
-        transportation_cost, production_plan = plan_transportation(schedule, production_data, orders_data)
+        transportation_cost, production_plan = plan_transportation(makespan, production_data, orders_data, transport_data)
         
         # 计算总成本
         total_cost = production_cost + transportation_cost

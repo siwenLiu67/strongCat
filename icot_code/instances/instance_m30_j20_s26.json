@@ -1,10 +1,10 @@
 {
   "meta": {
-    "generated_at": "2025-09-08T04:12:39.291458Z",
+    "generated_at": "2025-09-16T04:28:58.185391Z",
     "seed": 26,
     "num_machines": 30,
     "num_jobs": 20,
-    "unit_production_cost": 2.5,
+    "unit_production_cost": 10,
     "transport_types": [
       "Air",
       "Sea",
@@ -1693,161 +1693,161 @@
     "O1": {
       "market": "France",
       "qty": 1,
-      "due": 1625,
-      "weight": 6,
-      "priority": 3,
+      "due": 1327,
+      "weight": 0.3866638211906217,
+      "priority": 2,
       "can_split": false
     },
     "O2": {
-      "market": "UK",
+      "market": "Australia",
       "qty": 1,
-      "due": 918,
-      "weight": 4,
-      "priority": 3,
+      "due": 965,
+      "weight": 0.5647602613847487,
+      "priority": 2,
       "can_split": false
     },
     "O3": {
-      "market": "Netherlands",
+      "market": "UK",
       "qty": 1,
-      "due": 1711,
-      "weight": 4,
-      "priority": 3,
+      "due": 1025,
+      "weight": 0.45132697679295075,
+      "priority": 2,
       "can_split": false
     },
     "O4": {
-      "market": "Canada",
+      "market": "France",
       "qty": 1,
-      "due": 1060,
-      "weight": 10,
+      "due": 1138,
+      "weight": 0.19729296027470583,
       "priority": 3,
       "can_split": false
     },
     "O5": {
-      "market": "France",
-      "qty": 1,
-      "due": 1271,
-      "weight": 2,
-      "priority": 3,
-      "can_split": false
-    },
-    "O6": {
       "market": "Germany",
       "qty": 1,
-      "due": 1691,
-      "weight": 3,
+      "due": 1353,
+      "weight": 0.9936421303465763,
       "priority": 1,
       "can_split": false
     },
-    "O7": {
-      "market": "Germany",
+    "O6": {
+      "market": "Japan",
       "qty": 1,
-      "due": 1238,
-      "weight": 6,
+      "due": 1173,
+      "weight": 0.26413298247334605,
+      "priority": 3,
+      "can_split": false
+    },
+    "O7": {
+      "market": "Netherlands",
+      "qty": 1,
+      "due": 1343,
+      "weight": 0.9446198711301648,
       "priority": 1,
       "can_split": false
     },
     "O8": {
-      "market": "Australia",
+      "market": "US",
       "qty": 1,
-      "due": 1687,
-      "weight": 4,
+      "due": 1002,
+      "weight": 0.8335180602000033,
       "priority": 3,
       "can_split": false
     },
     "O9": {
       "market": "France",
       "qty": 1,
-      "due": 1160,
-      "weight": 5,
+      "due": 1079,
+      "weight": 0.3546349382755807,
       "priority": 2,
       "can_split": false
     },
     "O10": {
-      "market": "Netherlands",
+      "market": "Germany",
       "qty": 1,
-      "due": 1588,
-      "weight": 10,
+      "due": 1175,
+      "weight": 0.5542286071814365,
       "priority": 3,
       "can_split": false
     },
     "O11": {
       "market": "UK",
       "qty": 1,
-      "due": 1290,
-      "weight": 7,
+      "due": 1151,
+      "weight": 0.4817535203028558,
       "priority": 2,
       "can_split": false
     },
     "O12": {
-      "market": "Canada",
+      "market": "France",
       "qty": 1,
-      "due": 1501,
-      "weight": 4,
-      "priority": 3,
+      "due": 1319,
+      "weight": 0.7906928048035429,
+      "priority": 1,
       "can_split": false
     },
     "O13": {
-      "market": "US",
+      "market": "Canada",
       "qty": 1,
-      "due": 1626,
-      "weight": 9,
-      "priority": 3,
+      "due": 1039,
+      "weight": 0.5025003260735028,
+      "priority": 1,
       "can_split": false
     },
     "O14": {
-      "market": "Canada",
+      "market": "France",
       "qty": 1,
-      "due": 1088,
-      "weight": 8,
-      "priority": 1,
+      "due": 1008,
+      "weight": 0.20077520332063425,
+      "priority": 2,
       "can_split": false
     },
     "O15": {
-      "market": "US",
+      "market": "Australia",
       "qty": 1,
-      "due": 1089,
-      "weight": 4,
-      "priority": 1,
+      "due": 1034,
+      "weight": 0.19962855831225085,
+      "priority": 3,
       "can_split": false
     },
     "O16": {
-      "market": "Netherlands",
+      "market": "UK",
       "qty": 1,
-      "due": 1670,
-      "weight": 4,
-      "priority": 1,
+      "due": 1238,
+      "weight": 0.3111409699521907,
+      "priority": 3,
       "can_split": false
     },
     "O17": {
-      "market": "UK",
+      "market": "France",
       "qty": 1,
-      "due": 1320,
-      "weight": 4,
-      "priority": 1,
+      "due": 1219,
+      "weight": 0.7174975639492467,
+      "priority": 2,
       "can_split": false
     },
     "O18": {
-      "market": "France",
+      "market": "Netherlands",
       "qty": 1,
-      "due": 1422,
-      "weight": 4,
+      "due": 1216,
+      "weight": 0.6646005969011712,
       "priority": 2,
       "can_split": false
     },
     "O19": {
-      "market": "Netherlands",
+      "market": "Japan",
       "qty": 1,
-      "due": 1414,
-      "weight": 8,
+      "due": 1285,
+      "weight": 0.15577420952102072,
       "priority": 1,
       "can_split": false
     },
     "O20": {
-      "market": "US",
+      "market": "Netherlands",
       "qty": 1,
-      "due": 912,
-      "weight": 2,
-      "priority": 2,
+      "due": 1153,
+      "weight": 0.3917543737651642,
+      "priority": 3,
       "can_split": false
     }
   },
@@ -1855,44 +1855,44 @@
     "US": {
       "Air": {
         "P1": {
-          "cost_per_unit": 1.2,
-          "speed": 949.46,
+          "cost_per_unit": 0.12,
+          "speed": 524.19,
           "distance": 3622.02,
-          "lead_time_hours": 57.36,
+          "lead_time_hours": 60.45,
           "capacity": 357
         },
         "P2": {
-          "cost_per_unit": 1.2,
-          "speed": 908.8,
+          "cost_per_unit": 0.12,
+          "speed": 463.2,
           "distance": 3022.98,
-          "lead_time_hours": 164.29,
+          "lead_time_hours": 167.49,
           "capacity": 294
         },
         "P3": {
-          "cost_per_unit": 1.2,
-          "speed": 808.35,
+          "cost_per_unit": 0.12,
+          "speed": 312.52,
           "distance": 7467.16,
-          "lead_time_hours": 105.63,
+          "lead_time_hours": 120.29,
           "capacity": 375
         }
       },
       "Sea": {
         "P1": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 31.44,
           "distance": 3939.6,
           "lead_time_hours": 256.96,
           "capacity": 7617
         },
         "P2": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 36.79,
           "distance": 9774.04,
           "lead_time_hours": 293.78,
           "capacity": 8283
         },
         "P3": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 27.16,
           "distance": 3731.95,
           "lead_time_hours": 230.97,
@@ -1901,24 +1901,24 @@
       },
       "Land": {
         "P1": {
-          "cost_per_unit": 0.5,
-          "speed": 74.57,
+          "cost_per_unit": 0.05,
+          "speed": 47.29,
           "distance": 8621.52,
-          "lead_time_hours": 144.05,
+          "lead_time_hours": 210.76,
           "capacity": 2904
         },
         "P2": {
-          "cost_per_unit": 0.5,
-          "speed": 93.79,
+          "cost_per_unit": 0.05,
+          "speed": 56.89,
           "distance": 6293.54,
-          "lead_time_hours": 164.47,
+          "lead_time_hours": 207.99,
           "capacity": 562
         },
         "P3": {
-          "cost_per_unit": 0.5,
-          "speed": 78.57,
+          "cost_per_unit": 0.05,
+          "speed": 49.29,
           "distance": 7259.28,
-          "lead_time_hours": 161.55,
+          "lead_time_hours": 216.45,
           "capacity": 3114
         }
       }
@@ -1926,44 +1926,44 @@
     "Australia": {
       "Air": {
         "P1": {
-          "cost_per_unit": 1.2,
-          "speed": 970.23,
+          "cost_per_unit": 0.12,
+          "speed": 555.34,
           "distance": 5387.62,
-          "lead_time_hours": 151.57,
+          "lead_time_hours": 155.72,
           "capacity": 152
         },
         "P2": {
-          "cost_per_unit": 1.2,
-          "speed": 811.24,
+          "cost_per_unit": 0.12,
+          "speed": 316.86,
           "distance": 9607.85,
-          "lead_time_hours": 64.27,
+          "lead_time_hours": 82.74,
           "capacity": 369
         },
         "P3": {
-          "cost_per_unit": 1.2,
-          "speed": 876.86,
+          "cost_per_unit": 0.12,
+          "speed": 415.29,
           "distance": 5424.5,
-          "lead_time_hours": 104.82,
+          "lead_time_hours": 111.7,
           "capacity": 80
         }
       },
       "Sea": {
         "P1": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 26.49,
           "distance": 3006.63,
           "lead_time_hours": 216.5,
           "capacity": 2466
         },
         "P2": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 25.71,
           "distance": 3744.35,
           "lead_time_hours": 255.51,
           "capacity": 3968
         },
         "P3": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 37.82,
           "distance": 4614.32,
           "lead_time_hours": 204.67,
@@ -1972,24 +1972,24 @@
       },
       "Land": {
         "P1": {
-          "cost_per_unit": 0.5,
-          "speed": 97.69,
+          "cost_per_unit": 0.05,
+          "speed": 58.84,
           "distance": 7651.8,
-          "lead_time_hours": 186.07,
+          "lead_time_hours": 237.78,
           "capacity": 831
         },
         "P2": {
-          "cost_per_unit": 0.5,
-          "speed": 74.09,
+          "cost_per_unit": 0.05,
+          "speed": 47.05,
           "distance": 7403.71,
-          "lead_time_hours": 238.16,
+          "lead_time_hours": 295.61,
           "capacity": 1595
         },
         "P3": {
-          "cost_per_unit": 0.5,
-          "speed": 87.15,
+          "cost_per_unit": 0.05,
+          "speed": 53.57,
           "distance": 4211.74,
-          "lead_time_hours": 199.11,
+          "lead_time_hours": 229.4,
           "capacity": 4073
         }
       }
@@ -1997,44 +1997,44 @@
     "Germany": {
       "Air": {
         "P1": {
-          "cost_per_unit": 1.2,
-          "speed": 869.53,
+          "cost_per_unit": 0.12,
+          "speed": 404.29,
           "distance": 5757.37,
-          "lead_time_hours": 86.79,
+          "lead_time_hours": 94.41,
           "capacity": 66
         },
         "P2": {
-          "cost_per_unit": 1.2,
-          "speed": 993.3,
+          "cost_per_unit": 0.12,
+          "speed": 589.95,
           "distance": 3215.5,
-          "lead_time_hours": 28.41,
+          "lead_time_hours": 30.62,
           "capacity": 107
         },
         "P3": {
-          "cost_per_unit": 1.2,
-          "speed": 994.49,
+          "cost_per_unit": 0.12,
+          "speed": 591.73,
           "distance": 6964.87,
-          "lead_time_hours": 148.89,
+          "lead_time_hours": 153.66,
           "capacity": 293
         }
       },
       "Sea": {
         "P1": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 25.5,
           "distance": 3464.28,
           "lead_time_hours": 247.83,
           "capacity": 1627
         },
         "P2": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 37.12,
           "distance": 2389.57,
           "lead_time_hours": 228.41,
           "capacity": 6370
         },
         "P3": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 25.96,
           "distance": 3351.13,
           "lead_time_hours": 167.26,
@@ -2043,24 +2043,24 @@
       },
       "Land": {
         "P1": {
-          "cost_per_unit": 0.5,
-          "speed": 95.2,
+          "cost_per_unit": 0.05,
+          "speed": 57.6,
           "distance": 8755.94,
-          "lead_time_hours": 248.27,
+          "lead_time_hours": 308.31,
           "capacity": 4969
         },
         "P2": {
-          "cost_per_unit": 0.5,
-          "speed": 60.91,
+          "cost_per_unit": 0.05,
+          "speed": 40.46,
           "distance": 9523.4,
-          "lead_time_hours": 251.0,
+          "lead_time_hours": 330.05,
           "capacity": 3134
         },
         "P3": {
-          "cost_per_unit": 0.5,
-          "speed": 85.94,
+          "cost_per_unit": 0.05,
+          "speed": 52.97,
           "distance": 6375.44,
-          "lead_time_hours": 155.09,
+          "lead_time_hours": 201.27,
           "capacity": 1324
         }
       }
@@ -2068,44 +2068,44 @@
     "Japan": {
       "Air": {
         "P1": {
-          "cost_per_unit": 1.2,
-          "speed": 822.17,
+          "cost_per_unit": 0.12,
+          "speed": 333.26,
           "distance": 3655.11,
-          "lead_time_hours": 62.7,
+          "lead_time_hours": 69.22,
           "capacity": 169
         },
         "P2": {
-          "cost_per_unit": 1.2,
-          "speed": 829.1,
+          "cost_per_unit": 0.12,
+          "speed": 343.65,
           "distance": 6766.27,
-          "lead_time_hours": 173.75,
+          "lead_time_hours": 185.28,
           "capacity": 255
         },
         "P3": {
-          "cost_per_unit": 1.2,
-          "speed": 924.7,
+          "cost_per_unit": 0.12,
+          "speed": 487.05,
           "distance": 4530.47,
-          "lead_time_hours": 40.63,
+          "lead_time_hours": 45.04,
           "capacity": 384
         }
       },
       "Sea": {
         "P1": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 25.99,
           "distance": 3235.24,
           "lead_time_hours": 247.66,
           "capacity": 1776
         },
         "P2": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 27.16,
           "distance": 3938.81,
           "lead_time_hours": 178.72,
           "capacity": 10212
         },
         "P3": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 29.86,
           "distance": 5762.69,
           "lead_time_hours": 311.51,
@@ -2114,24 +2114,24 @@
       },
       "Land": {
         "P1": {
-          "cost_per_unit": 0.5,
-          "speed": 60.27,
+          "cost_per_unit": 0.05,
+          "speed": 40.13,
           "distance": 9311.5,
-          "lead_time_hours": 281.39,
+          "lead_time_hours": 358.9,
           "capacity": 1348
         },
         "P2": {
-          "cost_per_unit": 0.5,
-          "speed": 60.93,
+          "cost_per_unit": 0.05,
+          "speed": 40.46,
           "distance": 3695.06,
-          "lead_time_hours": 98.99,
+          "lead_time_hours": 129.66,
           "capacity": 1600
         },
         "P3": {
-          "cost_per_unit": 0.5,
-          "speed": 61.51,
+          "cost_per_unit": 0.05,
+          "speed": 40.76,
           "distance": 6975.93,
-          "lead_time_hours": 235.4,
+          "lead_time_hours": 293.16,
           "capacity": 4935
         }
       }
@@ -2139,44 +2139,44 @@
     "France": {
       "Air": {
         "P1": {
-          "cost_per_unit": 1.2,
-          "speed": 833.04,
+          "cost_per_unit": 0.12,
+          "speed": 349.57,
           "distance": 3312.62,
-          "lead_time_hours": 103.38,
+          "lead_time_hours": 108.88,
           "capacity": 78
         },
         "P2": {
-          "cost_per_unit": 1.2,
-          "speed": 810.63,
+          "cost_per_unit": 0.12,
+          "speed": 315.94,
           "distance": 5876.55,
-          "lead_time_hours": 47.96,
+          "lead_time_hours": 59.31,
           "capacity": 431
         },
         "P3": {
-          "cost_per_unit": 1.2,
-          "speed": 947.33,
+          "cost_per_unit": 0.12,
+          "speed": 521.0,
           "distance": 4738.34,
-          "lead_time_hours": 62.22,
+          "lead_time_hours": 66.31,
           "capacity": 330
         }
       },
       "Sea": {
         "P1": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 25.23,
           "distance": 4091.45,
           "lead_time_hours": 214.26,
           "capacity": 18162
         },
         "P2": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 31.56,
           "distance": 6670.79,
           "lead_time_hours": 306.27,
           "capacity": 9389
         },
         "P3": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 36.42,
           "distance": 8298.8,
           "lead_time_hours": 381.84,
@@ -2185,24 +2185,24 @@
       },
       "Land": {
         "P1": {
-          "cost_per_unit": 0.5,
-          "speed": 98.82,
+          "cost_per_unit": 0.05,
+          "speed": 59.41,
           "distance": 6642.8,
-          "lead_time_hours": 159.31,
+          "lead_time_hours": 203.9,
           "capacity": 902
         },
         "P2": {
-          "cost_per_unit": 0.5,
-          "speed": 93.35,
+          "cost_per_unit": 0.05,
+          "speed": 56.68,
           "distance": 5236.12,
-          "lead_time_hours": 207.42,
+          "lead_time_hours": 243.72,
           "capacity": 943
         },
         "P3": {
-          "cost_per_unit": 0.5,
-          "speed": 99.91,
+          "cost_per_unit": 0.05,
+          "speed": 59.96,
           "distance": 8382.69,
-          "lead_time_hours": 134.69,
+          "lead_time_hours": 190.6,
           "capacity": 2929
         }
       }
@@ -2210,44 +2210,44 @@
     "Netherlands": {
       "Air": {
         "P1": {
-          "cost_per_unit": 1.2,
-          "speed": 846.48,
+          "cost_per_unit": 0.12,
+          "speed": 369.71,
           "distance": 3758.5,
-          "lead_time_hours": 64.72,
+          "lead_time_hours": 70.44,
           "capacity": 415
         },
         "P2": {
-          "cost_per_unit": 1.2,
-          "speed": 883.82,
+          "cost_per_unit": 0.12,
+          "speed": 425.73,
           "distance": 6851.13,
-          "lead_time_hours": 119.31,
+          "lead_time_hours": 127.65,
           "capacity": 213
         },
         "P3": {
-          "cost_per_unit": 1.2,
-          "speed": 952.5,
+          "cost_per_unit": 0.12,
+          "speed": 528.76,
           "distance": 5743.78,
-          "lead_time_hours": 43.66,
+          "lead_time_hours": 48.5,
           "capacity": 56
         }
       },
       "Sea": {
         "P1": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 36.43,
           "distance": 6123.44,
           "lead_time_hours": 312.77,
           "capacity": 2977
         },
         "P2": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 36.16,
           "distance": 7481.95,
           "lead_time_hours": 316.75,
           "capacity": 3365
         },
         "P3": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 27.02,
           "distance": 7462.87,
           "lead_time_hours": 437.62,
@@ -2256,24 +2256,24 @@
       },
       "Land": {
         "P1": {
-          "cost_per_unit": 0.5,
-          "speed": 90.56,
+          "cost_per_unit": 0.05,
+          "speed": 55.28,
           "distance": 7539.49,
-          "lead_time_hours": 124.29,
+          "lead_time_hours": 177.42,
           "capacity": 3742
         },
         "P2": {
-          "cost_per_unit": 0.5,
-          "speed": 79.81,
+          "cost_per_unit": 0.05,
+          "speed": 49.9,
           "distance": 8087.43,
-          "lead_time_hours": 250.32,
+          "lead_time_hours": 311.04,
           "capacity": 3920
         },
         "P3": {
-          "cost_per_unit": 0.5,
-          "speed": 70.07,
+          "cost_per_unit": 0.05,
+          "speed": 45.04,
           "distance": 6780.26,
-          "lead_time_hours": 229.4,
+          "lead_time_hours": 283.19,
           "capacity": 4530
         }
       }
@@ -2281,44 +2281,44 @@
     "Canada": {
       "Air": {
         "P1": {
-          "cost_per_unit": 1.2,
-          "speed": 930.02,
+          "cost_per_unit": 0.12,
+          "speed": 495.03,
           "distance": 4952.15,
-          "lead_time_hours": 96.58,
+          "lead_time_hours": 101.26,
           "capacity": 186
         },
         "P2": {
-          "cost_per_unit": 1.2,
-          "speed": 828.44,
+          "cost_per_unit": 0.12,
+          "speed": 342.66,
           "distance": 2873.39,
-          "lead_time_hours": 137.42,
+          "lead_time_hours": 142.33,
           "capacity": 162
         },
         "P3": {
-          "cost_per_unit": 1.2,
-          "speed": 984.5,
+          "cost_per_unit": 0.12,
+          "speed": 576.75,
           "distance": 7258.55,
-          "lead_time_hours": 81.97,
+          "lead_time_hours": 87.19,
           "capacity": 119
         }
       },
       "Sea": {
         "P1": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 37.42,
           "distance": 9785.7,
           "lead_time_hours": 370.32,
           "capacity": 16310
         },
         "P2": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 26.61,
           "distance": 5859.56,
           "lead_time_hours": 276.31,
           "capacity": 15580
         },
         "P3": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 36.18,
           "distance": 5853.66,
           "lead_time_hours": 209.19,
@@ -2327,24 +2327,24 @@
       },
       "Land": {
         "P1": {
-          "cost_per_unit": 0.5,
-          "speed": 63.06,
+          "cost_per_unit": 0.05,
+          "speed": 41.53,
           "distance": 3862.85,
-          "lead_time_hours": 191.75,
+          "lead_time_hours": 223.5,
           "capacity": 2095
         },
         "P2": {
-          "cost_per_unit": 0.5,
-          "speed": 90.83,
+          "cost_per_unit": 0.05,
+          "speed": 55.41,
           "distance": 2848.8,
-          "lead_time_hours": 167.35,
+          "lead_time_hours": 187.39,
           "capacity": 2514
         },
         "P3": {
-          "cost_per_unit": 0.5,
-          "speed": 82.82,
+          "cost_per_unit": 0.05,
+          "speed": 51.41,
           "distance": 8963.04,
-          "lead_time_hours": 157.77,
+          "lead_time_hours": 223.89,
           "capacity": 3387
         }
       }
@@ -2352,44 +2352,44 @@
     "UK": {
       "Air": {
         "P1": {
-          "cost_per_unit": 1.2,
-          "speed": 915.24,
+          "cost_per_unit": 0.12,
+          "speed": 472.87,
           "distance": 5523.5,
-          "lead_time_hours": 172.46,
+          "lead_time_hours": 178.11,
           "capacity": 310
         },
         "P2": {
-          "cost_per_unit": 1.2,
-          "speed": 839.36,
+          "cost_per_unit": 0.12,
+          "speed": 359.04,
           "distance": 3733.33,
-          "lead_time_hours": 42.92,
+          "lead_time_hours": 48.87,
           "capacity": 407
         },
         "P3": {
-          "cost_per_unit": 1.2,
-          "speed": 924.96,
+          "cost_per_unit": 0.12,
+          "speed": 487.44,
           "distance": 9379.53,
-          "lead_time_hours": 113.59,
+          "lead_time_hours": 122.69,
           "capacity": 202
         }
       },
       "Sea": {
         "P1": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 32.32,
           "distance": 9605.45,
           "lead_time_hours": 386.05,
           "capacity": 18402
         },
         "P2": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 32.55,
           "distance": 2263.24,
           "lead_time_hours": 137.12,
           "capacity": 12970
         },
         "P3": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 34.62,
           "distance": 5972.86,
           "lead_time_hours": 248.34,
@@ -2398,24 +2398,24 @@
       },
       "Land": {
         "P1": {
-          "cost_per_unit": 0.5,
-          "speed": 94.81,
+          "cost_per_unit": 0.05,
+          "speed": 57.41,
           "distance": 7733.95,
-          "lead_time_hours": 187.03,
+          "lead_time_hours": 240.18,
           "capacity": 632
         },
         "P2": {
-          "cost_per_unit": 0.5,
-          "speed": 86.95,
+          "cost_per_unit": 0.05,
+          "speed": 53.47,
           "distance": 9872.14,
-          "lead_time_hours": 247.24,
+          "lead_time_hours": 318.31,
           "capacity": 722
         },
         "P3": {
-          "cost_per_unit": 0.5,
-          "speed": 89.74,
+          "cost_per_unit": 0.05,
+          "speed": 54.87,
           "distance": 2090.82,
-          "lead_time_hours": 70.36,
+          "lead_time_hours": 85.17,
           "capacity": 3353
         }
       }

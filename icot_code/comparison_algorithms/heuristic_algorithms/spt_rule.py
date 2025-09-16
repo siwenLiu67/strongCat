@@ -17,7 +17,7 @@ class SPTRule(BaseAlgorithm):
         # ---- 可选的显式映射（NEW）----
         self.job_to_market = production_data.get("job_to_market", {})     # job_id -> market
         self.job_to_deadline = production_data.get("job_to_deadline", {}) # job_id -> absolute deadline (float)
-        
+        self.job_to_order = production_data.get("job_to_order", {})   # job_id -> order_id
     
     def solve(self) -> Dict:
         """
@@ -28,6 +28,7 @@ class SPTRule(BaseAlgorithm):
         machines_data = self.production_data["machines"]
         precedence = self.production_data.get("precedence", {})
         production_data = self.production_data
+        transport_data = self.transportation_data
         
         
         # 初始化状态
@@ -99,7 +100,8 @@ class SPTRule(BaseAlgorithm):
                     completed_ops[(job_id, op_id)] = current_time + proc_time
         
         # 评估解决方案
-        metrics = self.evaluate_solution(schedule, production_data, orders_data)
+        metrics = self.evaluate_solution(schedule, production_data, 
+                                         orders_data, transport_data)
         
         result = {
             'schedule': schedule,

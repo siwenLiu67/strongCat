@@ -23,20 +23,20 @@ DEFAULT_MACHINES_SET = [10, 20, 30]
 DEFAULT_JOBS_SET = [20, 60, 100, 140]
 OPS_PER_JOB_RANGE = (1, 20)              # n_i ~ U[1,20]
 PROC_TIME_RANGE = (10, 50)               # t_ij ~ U[10,50]
-UNIT_PRODUCTION_COST = 2.5               # C_(unit_production)
+UNIT_PRODUCTION_COST = 10               # C_(unit_production)
 
 TRANSPORT_TYPES = ['Air', 'Sea', 'Land']
 # 速度范围 (units: km/h)
 SPEED_RANGES = {
-    'Air': (800, 1000),
-    'Land': (60, 100),
+    'Air': (300, 600),
+    'Land': (40, 60),
     'Sea': (25, 40)
 }
 # unit transportation cost mapping per type (you specified {1.2,0.5,0.2})
 UNIT_TRANSPORT_COST = {
-    'Air': 1.2,
-    'Land': 0.5,
-    'Sea': 0.2
+    'Air': 0.12,
+    'Land': 0.05,
+    'Sea': 0.02
 }
 
 # markets (example set; 你可以修改或传入自定义列表)
@@ -48,7 +48,7 @@ PROVIDERS_PER_MODE = 3
 # 距离范围 (km) 随机化（可据实际场景调整）
 DISTANCE_RANGE = (2000, 10000)
 
-ORDER_WEIGHT_RANGE = (1, 10)  # 订单重量范围 (tons)
+ORDER_WEIGHT_RANGE = (0.1, 1)  # 订单重量范围 (tons)
 
 # 订单截止因子范围：due = lower_bound_proc_time * factor, factor ~ U(1.2, 3.0)
 DUE_FACTOR_RANGE = (2.0, 3.0)
@@ -57,7 +57,7 @@ DUE_FACTOR_RANGE = (2.0, 3.0)
 DEFAULT_INSTANCES_PER_CFG = 3
 
 # 输出目录
-OUT_DIR = "instances"
+OUT_DIR = "icot_code/instances"
 
 # -----------------------
 # 辅助函数
@@ -173,7 +173,7 @@ def generate_jobs_and_orders(num_machines, num_jobs, rnd, markets, transport_dat
             continue
             
         # 核心修改：使用全局生产下限 lb_production_time 来计算 due
-        lb_total_time = lb_production_time + min_transport_time_market
+        lb_total_time = lb_production_time + min_transport_time_market + 24  # 加 1 天缓冲
         factor = rnd.uniform(*DUE_FACTOR_RANGE)
         due = ceil(lb_total_time * factor)
         
@@ -181,7 +181,7 @@ def generate_jobs_and_orders(num_machines, num_jobs, rnd, markets, transport_dat
             'market': market,
             'qty': 1,
             'due': int(due),
-            'weight': rnd.randint(*ORDER_WEIGHT_RANGE),  # 随机订单重量
+            'weight': rnd.uniform(*ORDER_WEIGHT_RANGE),  # 随机订单重量
             'priority': rnd.randint(1, 3),
             'can_split': False
         }

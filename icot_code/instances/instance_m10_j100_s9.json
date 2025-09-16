@@ -1,10 +1,10 @@
 {
   "meta": {
-    "generated_at": "2025-09-08T04:12:39.012840Z",
+    "generated_at": "2025-09-16T04:28:57.588059Z",
     "seed": 9,
     "num_machines": 10,
     "num_jobs": 100,
-    "unit_production_cost": 2.5,
+    "unit_production_cost": 10,
     "transport_types": [
       "Air",
       "Sea",
@@ -8946,800 +8946,800 @@
     "O1": {
       "market": "Japan",
       "qty": 1,
-      "due": 6726,
-      "weight": 7,
+      "due": 5924,
+      "weight": 0.9396102677225195,
       "priority": 2,
       "can_split": false
     },
     "O2": {
       "market": "Netherlands",
       "qty": 1,
-      "due": 9076,
-      "weight": 5,
-      "priority": 1,
+      "due": 7111,
+      "weight": 0.8232895777331564,
+      "priority": 2,
       "can_split": false
     },
     "O3": {
-      "market": "Germany",
+      "market": "Japan",
       "qty": 1,
-      "due": 5641,
-      "weight": 10,
-      "priority": 1,
+      "due": 6990,
+      "weight": 0.21794617264924532,
+      "priority": 3,
       "can_split": false
     },
     "O4": {
-      "market": "UK",
+      "market": "Germany",
       "qty": 1,
-      "due": 7800,
-      "weight": 3,
+      "due": 6270,
+      "weight": 0.8431059417102561,
       "priority": 1,
       "can_split": false
     },
     "O5": {
       "market": "Japan",
       "qty": 1,
-      "due": 7879,
-      "weight": 8,
+      "due": 6507,
+      "weight": 0.5203293031030952,
       "priority": 3,
       "can_split": false
     },
     "O6": {
       "market": "UK",
       "qty": 1,
-      "due": 5210,
-      "weight": 2,
-      "priority": 3,
+      "due": 5146,
+      "weight": 0.16122489147912114,
+      "priority": 1,
       "can_split": false
     },
     "O7": {
-      "market": "Japan",
+      "market": "UK",
       "qty": 1,
-      "due": 7832,
-      "weight": 1,
+      "due": 6987,
+      "weight": 0.15334361028999918,
       "priority": 1,
       "can_split": false
     },
     "O8": {
       "market": "US",
       "qty": 1,
-      "due": 6003,
-      "weight": 6,
+      "due": 5554,
+      "weight": 0.4139969904690415,
       "priority": 1,
       "can_split": false
     },
     "O9": {
-      "market": "Germany",
+      "market": "UK",
       "qty": 1,
-      "due": 7274,
-      "weight": 3,
-      "priority": 3,
+      "due": 5652,
+      "weight": 0.2532517973972169,
+      "priority": 1,
       "can_split": false
     },
     "O10": {
-      "market": "Australia",
+      "market": "UK",
       "qty": 1,
-      "due": 7440,
-      "weight": 5,
-      "priority": 1,
+      "due": 7024,
+      "weight": 0.2714354339212109,
+      "priority": 2,
       "can_split": false
     },
     "O11": {
-      "market": "Netherlands",
+      "market": "UK",
       "qty": 1,
-      "due": 9844,
-      "weight": 4,
-      "priority": 1,
+      "due": 7005,
+      "weight": 0.18991377536297716,
+      "priority": 3,
       "can_split": false
     },
     "O12": {
-      "market": "US",
+      "market": "UK",
       "qty": 1,
-      "due": 8223,
-      "weight": 8,
+      "due": 6333,
+      "weight": 0.47083508116732853,
       "priority": 3,
       "can_split": false
     },
     "O13": {
-      "market": "Canada",
+      "market": "US",
       "qty": 1,
-      "due": 8055,
-      "weight": 9,
-      "priority": 1,
+      "due": 5200,
+      "weight": 0.876567108033382,
+      "priority": 2,
       "can_split": false
     },
     "O14": {
-      "market": "Australia",
+      "market": "Germany",
       "qty": 1,
-      "due": 7091,
-      "weight": 6,
-      "priority": 1,
+      "due": 6360,
+      "weight": 0.31101613431187575,
+      "priority": 2,
       "can_split": false
     },
     "O15": {
-      "market": "Japan",
+      "market": "UK",
       "qty": 1,
-      "due": 8957,
-      "weight": 8,
-      "priority": 2,
+      "due": 7200,
+      "weight": 0.9736467959239505,
+      "priority": 3,
       "can_split": false
     },
     "O16": {
-      "market": "Australia",
+      "market": "Japan",
       "qty": 1,
-      "due": 9810,
-      "weight": 4,
-      "priority": 2,
+      "due": 6071,
+      "weight": 0.25260875768972335,
+      "priority": 3,
       "can_split": false
     },
     "O17": {
       "market": "Germany",
       "qty": 1,
-      "due": 5826,
-      "weight": 3,
+      "due": 6609,
+      "weight": 0.13048174830009435,
       "priority": 3,
       "can_split": false
     },
     "O18": {
-      "market": "Japan",
+      "market": "Canada",
       "qty": 1,
-      "due": 5149,
-      "weight": 7,
-      "priority": 2,
+      "due": 5811,
+      "weight": 0.7997439027912292,
+      "priority": 1,
       "can_split": false
     },
     "O19": {
-      "market": "Japan",
+      "market": "Netherlands",
       "qty": 1,
-      "due": 9578,
-      "weight": 3,
-      "priority": 2,
-      "can_split": false
-    },
-    "O20": {
-      "market": "Germany",
-      "qty": 1,
-      "due": 6122,
-      "weight": 10,
+      "due": 5467,
+      "weight": 0.7857397095395813,
       "priority": 3,
       "can_split": false
     },
-    "O21": {
+    "O20": {
       "market": "France",
       "qty": 1,
-      "due": 5384,
-      "weight": 8,
+      "due": 5242,
+      "weight": 0.670163016947075,
+      "priority": 2,
+      "can_split": false
+    },
+    "O21": {
+      "market": "Canada",
+      "qty": 1,
+      "due": 6911,
+      "weight": 0.7190618207067684,
       "priority": 2,
       "can_split": false
     },
     "O22": {
-      "market": "France",
+      "market": "US",
       "qty": 1,
-      "due": 8405,
-      "weight": 6,
+      "due": 6925,
+      "weight": 0.24749912012521616,
       "priority": 1,
       "can_split": false
     },
     "O23": {
-      "market": "Germany",
+      "market": "UK",
       "qty": 1,
-      "due": 5797,
-      "weight": 4,
-      "priority": 2,
-      "can_split": false
-    },
-    "O24": {
-      "market": "Australia",
-      "qty": 1,
-      "due": 9369,
-      "weight": 2,
+      "due": 5259,
+      "weight": 0.8780816784150478,
       "priority": 3,
       "can_split": false
     },
-    "O25": {
+    "O24": {
       "market": "Canada",
       "qty": 1,
-      "due": 9402,
-      "weight": 5,
+      "due": 7265,
+      "weight": 0.3656628204484099,
       "priority": 2,
       "can_split": false
     },
-    "O26": {
+    "O25": {
       "market": "France",
       "qty": 1,
-      "due": 7556,
-      "weight": 3,
+      "due": 5371,
+      "weight": 0.30572630256865974,
+      "priority": 1,
+      "can_split": false
+    },
+    "O26": {
+      "market": "US",
+      "qty": 1,
+      "due": 6816,
+      "weight": 0.9111384688718999,
       "priority": 2,
       "can_split": false
     },
     "O27": {
-      "market": "Japan",
+      "market": "Canada",
       "qty": 1,
-      "due": 9521,
-      "weight": 10,
-      "priority": 1,
+      "due": 7360,
+      "weight": 0.8820578685863902,
+      "priority": 2,
       "can_split": false
     },
     "O28": {
-      "market": "UK",
+      "market": "US",
       "qty": 1,
-      "due": 7836,
-      "weight": 7,
-      "priority": 3,
+      "due": 7090,
+      "weight": 0.9004945021024243,
+      "priority": 2,
       "can_split": false
     },
     "O29": {
       "market": "Canada",
       "qty": 1,
-      "due": 5109,
-      "weight": 2,
-      "priority": 3,
+      "due": 5232,
+      "weight": 0.4377112856862244,
+      "priority": 1,
       "can_split": false
     },
     "O30": {
-      "market": "UK",
+      "market": "Netherlands",
       "qty": 1,
-      "due": 7098,
-      "weight": 7,
+      "due": 5236,
+      "weight": 0.1902603001393426,
       "priority": 2,
       "can_split": false
     },
     "O31": {
-      "market": "Japan",
+      "market": "France",
       "qty": 1,
-      "due": 5196,
-      "weight": 2,
+      "due": 7454,
+      "weight": 0.6212202406724338,
       "priority": 1,
       "can_split": false
     },
     "O32": {
       "market": "Australia",
       "qty": 1,
-      "due": 7817,
-      "weight": 8,
+      "due": 6112,
+      "weight": 0.34238677957090435,
       "priority": 3,
       "can_split": false
     },
     "O33": {
-      "market": "France",
+      "market": "Japan",
       "qty": 1,
-      "due": 9757,
-      "weight": 10,
-      "priority": 1,
+      "due": 5694,
+      "weight": 0.3155438245348341,
+      "priority": 2,
       "can_split": false
     },
     "O34": {
-      "market": "Australia",
+      "market": "Germany",
       "qty": 1,
-      "due": 5538,
-      "weight": 8,
+      "due": 6143,
+      "weight": 0.9952772982263469,
       "priority": 2,
       "can_split": false
     },
     "O35": {
-      "market": "Japan",
+      "market": "France",
       "qty": 1,
-      "due": 6272,
-      "weight": 4,
+      "due": 5187,
+      "weight": 0.535992165110497,
       "priority": 2,
       "can_split": false
     },
     "O36": {
       "market": "Germany",
       "qty": 1,
-      "due": 7168,
-      "weight": 8,
-      "priority": 2,
+      "due": 6428,
+      "weight": 0.16711888034176703,
+      "priority": 3,
       "can_split": false
     },
     "O37": {
-      "market": "US",
+      "market": "Netherlands",
       "qty": 1,
-      "due": 6879,
-      "weight": 5,
-      "priority": 2,
+      "due": 5247,
+      "weight": 0.4943336619040152,
+      "priority": 3,
       "can_split": false
     },
     "O38": {
       "market": "Germany",
       "qty": 1,
-      "due": 7732,
-      "weight": 2,
-      "priority": 3,
+      "due": 6949,
+      "weight": 0.1856256605862533,
+      "priority": 1,
       "can_split": false
     },
     "O39": {
-      "market": "Netherlands",
+      "market": "Canada",
       "qty": 1,
-      "due": 5390,
-      "weight": 8,
-      "priority": 3,
+      "due": 7054,
+      "weight": 0.3968387012294273,
+      "priority": 2,
       "can_split": false
     },
     "O40": {
-      "market": "Germany",
+      "market": "Australia",
       "qty": 1,
-      "due": 8763,
-      "weight": 2,
+      "due": 7156,
+      "weight": 0.42474587083186,
       "priority": 1,
       "can_split": false
     },
     "O41": {
-      "market": "Japan",
+      "market": "Canada",
       "qty": 1,
-      "due": 9341,
-      "weight": 7,
-      "priority": 1,
+      "due": 5292,
+      "weight": 0.4845907772293767,
+      "priority": 2,
       "can_split": false
     },
     "O42": {
-      "market": "Netherlands",
+      "market": "Australia",
       "qty": 1,
-      "due": 8092,
-      "weight": 5,
-      "priority": 1,
+      "due": 5534,
+      "weight": 0.9536670258170977,
+      "priority": 2,
       "can_split": false
     },
     "O43": {
-      "market": "Netherlands",
+      "market": "US",
       "qty": 1,
-      "due": 6979,
-      "weight": 7,
+      "due": 5395,
+      "weight": 0.25834485207666513,
       "priority": 1,
       "can_split": false
     },
     "O44": {
-      "market": "Canada",
+      "market": "Japan",
       "qty": 1,
-      "due": 8456,
-      "weight": 2,
+      "due": 5126,
+      "weight": 0.38559497740605164,
       "priority": 1,
       "can_split": false
     },
     "O45": {
-      "market": "Germany",
+      "market": "US",
       "qty": 1,
-      "due": 9706,
-      "weight": 6,
+      "due": 5565,
+      "weight": 0.27656541996796585,
       "priority": 1,
       "can_split": false
     },
     "O46": {
-      "market": "Germany",
+      "market": "Canada",
       "qty": 1,
-      "due": 9449,
-      "weight": 2,
-      "priority": 3,
-      "can_split": false
-    },
-    "O47": {
-      "market": "Japan",
-      "qty": 1,
-      "due": 5150,
-      "weight": 6,
+      "due": 5989,
+      "weight": 0.9261992556401133,
       "priority": 1,
       "can_split": false
     },
-    "O48": {
-      "market": "US",
+    "O47": {
+      "market": "Canada",
       "qty": 1,
-      "due": 6025,
-      "weight": 4,
+      "due": 6494,
+      "weight": 0.891790575249368,
+      "priority": 3,
+      "can_split": false
+    },
+    "O48": {
+      "market": "Canada",
+      "qty": 1,
+      "due": 6601,
+      "weight": 0.6660684490569124,
       "priority": 1,
       "can_split": false
     },
     "O49": {
-      "market": "Canada",
+      "market": "Japan",
       "qty": 1,
-      "due": 6877,
-      "weight": 5,
+      "due": 5454,
+      "weight": 0.6859491009724217,
       "priority": 1,
       "can_split": false
     },
     "O50": {
-      "market": "Canada",
+      "market": "Germany",
       "qty": 1,
-      "due": 7876,
-      "weight": 10,
+      "due": 6240,
+      "weight": 0.1685804986384087,
       "priority": 2,
       "can_split": false
     },
     "O51": {
-      "market": "Germany",
+      "market": "Netherlands",
       "qty": 1,
-      "due": 8114,
-      "weight": 2,
-      "priority": 3,
+      "due": 6232,
+      "weight": 0.604498785099767,
+      "priority": 2,
       "can_split": false
     },
     "O52": {
       "market": "Japan",
       "qty": 1,
-      "due": 5797,
-      "weight": 7,
+      "due": 5579,
+      "weight": 0.33895634251017664,
       "priority": 1,
       "can_split": false
     },
     "O53": {
-      "market": "Germany",
+      "market": "US",
       "qty": 1,
-      "due": 7361,
-      "weight": 2,
-      "priority": 1,
+      "due": 5045,
+      "weight": 0.8361311705459722,
+      "priority": 3,
       "can_split": false
     },
     "O54": {
-      "market": "Canada",
+      "market": "Japan",
       "qty": 1,
-      "due": 9299,
-      "weight": 8,
-      "priority": 2,
+      "due": 5738,
+      "weight": 0.8180809790160014,
+      "priority": 1,
       "can_split": false
     },
     "O55": {
-      "market": "Netherlands",
+      "market": "US",
       "qty": 1,
-      "due": 6216,
-      "weight": 10,
+      "due": 7550,
+      "weight": 0.19448985531890584,
       "priority": 2,
       "can_split": false
     },
     "O56": {
-      "market": "Germany",
+      "market": "Australia",
       "qty": 1,
-      "due": 5168,
-      "weight": 4,
+      "due": 6114,
+      "weight": 0.24815534851846066,
       "priority": 3,
       "can_split": false
     },
     "O57": {
-      "market": "Japan",
+      "market": "Australia",
       "qty": 1,
-      "due": 6359,
-      "weight": 4,
-      "priority": 1,
+      "due": 6476,
+      "weight": 0.783498172933796,
+      "priority": 2,
       "can_split": false
     },
     "O58": {
       "market": "US",
       "qty": 1,
-      "due": 9950,
-      "weight": 2,
-      "priority": 3,
+      "due": 7282,
+      "weight": 0.29804254531232266,
+      "priority": 2,
       "can_split": false
     },
     "O59": {
-      "market": "Canada",
+      "market": "UK",
       "qty": 1,
-      "due": 7577,
-      "weight": 10,
+      "due": 5249,
+      "weight": 0.8579955638404059,
       "priority": 1,
       "can_split": false
     },
     "O60": {
-      "market": "Canada",
+      "market": "Germany",
       "qty": 1,
-      "due": 5008,
-      "weight": 2,
-      "priority": 3,
+      "due": 5562,
+      "weight": 0.8477111015639351,
+      "priority": 2,
       "can_split": false
     },
     "O61": {
-      "market": "Japan",
+      "market": "Netherlands",
       "qty": 1,
-      "due": 8762,
-      "weight": 8,
-      "priority": 3,
+      "due": 6943,
+      "weight": 0.7538848868488172,
+      "priority": 1,
       "can_split": false
     },
     "O62": {
-      "market": "US",
+      "market": "Canada",
       "qty": 1,
-      "due": 9420,
-      "weight": 4,
-      "priority": 2,
+      "due": 5108,
+      "weight": 0.8588116023333489,
+      "priority": 1,
       "can_split": false
     },
     "O63": {
       "market": "UK",
       "qty": 1,
-      "due": 5414,
-      "weight": 10,
-      "priority": 1,
+      "due": 6799,
+      "weight": 0.531958625724811,
+      "priority": 2,
       "can_split": false
     },
     "O64": {
-      "market": "Germany",
+      "market": "France",
       "qty": 1,
-      "due": 6020,
-      "weight": 7,
+      "due": 6041,
+      "weight": 0.4074527635907893,
       "priority": 2,
       "can_split": false
     },
     "O65": {
-      "market": "Netherlands",
+      "market": "Japan",
       "qty": 1,
-      "due": 8745,
-      "weight": 2,
-      "priority": 1,
+      "due": 7077,
+      "weight": 0.2829903143231395,
+      "priority": 3,
       "can_split": false
     },
     "O66": {
       "market": "Canada",
       "qty": 1,
-      "due": 5133,
-      "weight": 1,
-      "priority": 1,
+      "due": 7221,
+      "weight": 0.3733583079370889,
+      "priority": 2,
       "can_split": false
     },
     "O67": {
-      "market": "UK",
+      "market": "Netherlands",
       "qty": 1,
-      "due": 8482,
-      "weight": 8,
-      "priority": 2,
+      "due": 6766,
+      "weight": 0.8704181488826389,
+      "priority": 1,
       "can_split": false
     },
     "O68": {
-      "market": "Canada",
+      "market": "UK",
       "qty": 1,
-      "due": 6516,
-      "weight": 8,
-      "priority": 2,
+      "due": 6635,
+      "weight": 0.8519862950490458,
+      "priority": 1,
       "can_split": false
     },
     "O69": {
-      "market": "Netherlands",
+      "market": "US",
       "qty": 1,
-      "due": 9227,
-      "weight": 4,
+      "due": 6229,
+      "weight": 0.10529445196294768,
       "priority": 3,
       "can_split": false
     },
     "O70": {
-      "market": "Japan",
+      "market": "UK",
       "qty": 1,
-      "due": 7938,
-      "weight": 7,
+      "due": 5562,
+      "weight": 0.6473842814008902,
       "priority": 1,
       "can_split": false
     },
     "O71": {
-      "market": "France",
+      "market": "Australia",
       "qty": 1,
-      "due": 7864,
-      "weight": 8,
-      "priority": 2,
+      "due": 7068,
+      "weight": 0.9550419424311252,
+      "priority": 3,
       "can_split": false
     },
     "O72": {
-      "market": "Canada",
+      "market": "Netherlands",
       "qty": 1,
-      "due": 9235,
-      "weight": 3,
-      "priority": 2,
-      "can_split": false
-    },
-    "O73": {
-      "market": "UK",
-      "qty": 1,
-      "due": 6188,
-      "weight": 10,
+      "due": 6258,
+      "weight": 0.5138615150539383,
       "priority": 1,
       "can_split": false
     },
-    "O74": {
-      "market": "UK",
+    "O73": {
+      "market": "Netherlands",
       "qty": 1,
-      "due": 6674,
-      "weight": 9,
+      "due": 6763,
+      "weight": 0.8795543211183454,
+      "priority": 2,
+      "can_split": false
+    },
+    "O74": {
+      "market": "France",
+      "qty": 1,
+      "due": 6186,
+      "weight": 0.7558529024415317,
       "priority": 3,
       "can_split": false
     },
     "O75": {
-      "market": "UK",
+      "market": "France",
       "qty": 1,
-      "due": 6034,
-      "weight": 10,
-      "priority": 3,
+      "due": 6276,
+      "weight": 0.7951663731713714,
+      "priority": 1,
       "can_split": false
     },
     "O76": {
-      "market": "Australia",
+      "market": "Netherlands",
       "qty": 1,
-      "due": 8223,
-      "weight": 5,
+      "due": 5578,
+      "weight": 0.6769859162037517,
       "priority": 3,
       "can_split": false
     },
     "O77": {
-      "market": "Netherlands",
+      "market": "UK",
       "qty": 1,
-      "due": 7390,
-      "weight": 8,
+      "due": 6646,
+      "weight": 0.7834866734082722,
       "priority": 3,
       "can_split": false
     },
     "O78": {
-      "market": "US",
+      "market": "Germany",
       "qty": 1,
-      "due": 8262,
-      "weight": 6,
-      "priority": 3,
+      "due": 7488,
+      "weight": 0.24393340324068855,
+      "priority": 2,
       "can_split": false
     },
     "O79": {
       "market": "France",
       "qty": 1,
-      "due": 9293,
-      "weight": 8,
-      "priority": 2,
+      "due": 5839,
+      "weight": 0.9070332526542765,
+      "priority": 3,
       "can_split": false
     },
     "O80": {
       "market": "UK",
       "qty": 1,
-      "due": 5764,
-      "weight": 5,
-      "priority": 2,
+      "due": 7087,
+      "weight": 0.10900190273626006,
+      "priority": 1,
       "can_split": false
     },
     "O81": {
-      "market": "Canada",
+      "market": "UK",
       "qty": 1,
-      "due": 8819,
-      "weight": 1,
+      "due": 6950,
+      "weight": 0.9578267002876033,
       "priority": 2,
       "can_split": false
     },
     "O82": {
-      "market": "Japan",
+      "market": "Canada",
       "qty": 1,
-      "due": 8724,
-      "weight": 7,
+      "due": 6770,
+      "weight": 0.6681172363990984,
       "priority": 3,
       "can_split": false
     },
     "O83": {
-      "market": "UK",
+      "market": "Netherlands",
       "qty": 1,
-      "due": 8179,
-      "weight": 8,
-      "priority": 3,
+      "due": 6962,
+      "weight": 0.2768562573689789,
+      "priority": 1,
       "can_split": false
     },
     "O84": {
-      "market": "Germany",
+      "market": "Netherlands",
       "qty": 1,
-      "due": 9829,
-      "weight": 3,
+      "due": 5362,
+      "weight": 0.9896271349940685,
       "priority": 2,
       "can_split": false
     },
     "O85": {
-      "market": "France",
+      "market": "UK",
       "qty": 1,
-      "due": 6565,
-      "weight": 10,
-      "priority": 2,
+      "due": 6796,
+      "weight": 0.4502003296569944,
+      "priority": 3,
       "can_split": false
     },
     "O86": {
-      "market": "US",
+      "market": "Australia",
       "qty": 1,
-      "due": 5163,
-      "weight": 8,
+      "due": 6788,
+      "weight": 0.6825047800563446,
       "priority": 1,
       "can_split": false
     },
     "O87": {
-      "market": "France",
+      "market": "Netherlands",
       "qty": 1,
-      "due": 7060,
-      "weight": 1,
+      "due": 7081,
+      "weight": 0.7790575569604439,
       "priority": 3,
       "can_split": false
     },
     "O88": {
-      "market": "Netherlands",
+      "market": "France",
       "qty": 1,
-      "due": 8781,
-      "weight": 4,
+      "due": 6470,
+      "weight": 0.7995604799410811,
       "priority": 3,
       "can_split": false
     },
     "O89": {
-      "market": "US",
-      "qty": 1,
-      "due": 6807,
-      "weight": 5,
-      "priority": 2,
-      "can_split": false
-    },
-    "O90": {
       "market": "UK",
       "qty": 1,
-      "due": 8477,
-      "weight": 7,
-      "priority": 2,
-      "can_split": false
-    },
-    "O91": {
-      "market": "Australia",
-      "qty": 1,
-      "due": 8454,
-      "weight": 1,
+      "due": 6524,
+      "weight": 0.34398759966333636,
       "priority": 1,
       "can_split": false
     },
-    "O92": {
-      "market": "Netherlands",
+    "O90": {
+      "market": "Germany",
       "qty": 1,
-      "due": 9017,
-      "weight": 9,
+      "due": 5531,
+      "weight": 0.5478273732351395,
       "priority": 3,
       "can_split": false
     },
-    "O93": {
-      "market": "France",
+    "O91": {
+      "market": "Netherlands",
       "qty": 1,
-      "due": 7812,
-      "weight": 4,
+      "due": 7407,
+      "weight": 0.19646723559178336,
+      "priority": 2,
+      "can_split": false
+    },
+    "O92": {
+      "market": "US",
+      "qty": 1,
+      "due": 7010,
+      "weight": 0.10503168913011966,
+      "priority": 2,
+      "can_split": false
+    },
+    "O93": {
+      "market": "Germany",
+      "qty": 1,
+      "due": 7383,
+      "weight": 0.5974951242164936,
       "priority": 3,
       "can_split": false
     },
     "O94": {
-      "market": "UK",
+      "market": "Netherlands",
       "qty": 1,
-      "due": 7937,
-      "weight": 5,
-      "priority": 1,
-      "can_split": false
-    },
-    "O95": {
-      "market": "Australia",
-      "qty": 1,
-      "due": 8779,
-      "weight": 3,
-      "priority": 1,
-      "can_split": false
-    },
-    "O96": {
-      "market": "UK",
-      "qty": 1,
-      "due": 7451,
-      "weight": 10,
+      "due": 6030,
+      "weight": 0.18048468595434514,
       "priority": 3,
       "can_split": false
     },
-    "O97": {
-      "market": "Netherlands",
+    "O95": {
+      "market": "Canada",
       "qty": 1,
-      "due": 9662,
-      "weight": 2,
+      "due": 5029,
+      "weight": 0.3591861202694685,
+      "priority": 2,
+      "can_split": false
+    },
+    "O96": {
+      "market": "Canada",
+      "qty": 1,
+      "due": 5551,
+      "weight": 0.2302241386225154,
+      "priority": 2,
+      "can_split": false
+    },
+    "O97": {
+      "market": "US",
+      "qty": 1,
+      "due": 6428,
+      "weight": 0.612678382599458,
       "priority": 2,
       "can_split": false
     },
     "O98": {
-      "market": "US",
+      "market": "Japan",
       "qty": 1,
-      "due": 8882,
-      "weight": 1,
-      "priority": 2,
+      "due": 5270,
+      "weight": 0.5944153755904651,
+      "priority": 1,
       "can_split": false
     },
     "O99": {
-      "market": "Germany",
+      "market": "Canada",
       "qty": 1,
-      "due": 9621,
-      "weight": 9,
-      "priority": 2,
+      "due": 7532,
+      "weight": 0.8630036927524495,
+      "priority": 1,
       "can_split": false
     },
     "O100": {
-      "market": "Netherlands",
+      "market": "France",
       "qty": 1,
-      "due": 6940,
-      "weight": 2,
+      "due": 5089,
+      "weight": 0.23753465795983617,
       "priority": 2,
       "can_split": false
     }
@@ -9748,44 +9748,44 @@
     "US": {
       "Air": {
         "P1": {
-          "cost_per_unit": 1.2,
-          "speed": 892.6,
+          "cost_per_unit": 0.12,
+          "speed": 438.9,
           "distance": 4986.5,
-          "lead_time_hours": 49.54,
+          "lead_time_hours": 55.31,
           "capacity": 493
         },
         "P2": {
-          "cost_per_unit": 1.2,
-          "speed": 935.33,
+          "cost_per_unit": 0.12,
+          "speed": 502.99,
           "distance": 4706.6,
-          "lead_time_hours": 95.81,
+          "lead_time_hours": 100.13,
           "capacity": 359
         },
         "P3": {
-          "cost_per_unit": 1.2,
-          "speed": 816.16,
+          "cost_per_unit": 0.12,
+          "speed": 324.24,
           "distance": 6434.16,
-          "lead_time_hours": 120.68,
+          "lead_time_hours": 132.64,
           "capacity": 70
         }
       },
       "Sea": {
         "P1": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 35.92,
           "distance": 3355.31,
           "lead_time_hours": 253.66,
           "capacity": 14847
         },
         "P2": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 27.36,
           "distance": 3904.1,
           "lead_time_hours": 182.68,
           "capacity": 17589
         },
         "P3": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 38.08,
           "distance": 9927.87,
           "lead_time_hours": 293.86,
@@ -9794,24 +9794,24 @@
       },
       "Land": {
         "P1": {
-          "cost_per_unit": 0.5,
-          "speed": 91.58,
+          "cost_per_unit": 0.05,
+          "speed": 55.79,
           "distance": 9098.11,
-          "lead_time_hours": 255.67,
+          "lead_time_hours": 319.4,
           "capacity": 2179
         },
         "P2": {
-          "cost_per_unit": 0.5,
-          "speed": 86.97,
+          "cost_per_unit": 0.05,
+          "speed": 53.48,
           "distance": 7805.65,
-          "lead_time_hours": 174.48,
+          "lead_time_hours": 230.67,
           "capacity": 1218
         },
         "P3": {
-          "cost_per_unit": 0.5,
-          "speed": 90.9,
+          "cost_per_unit": 0.05,
+          "speed": 55.45,
           "distance": 9291.03,
-          "lead_time_hours": 183.31,
+          "lead_time_hours": 248.65,
           "capacity": 3298
         }
       }
@@ -9819,44 +9819,44 @@
     "Australia": {
       "Air": {
         "P1": {
-          "cost_per_unit": 1.2,
-          "speed": 961.9,
+          "cost_per_unit": 0.12,
+          "speed": 542.85,
           "distance": 3595.87,
-          "lead_time_hours": 155.38,
+          "lead_time_hours": 158.27,
           "capacity": 500
         },
         "P2": {
-          "cost_per_unit": 1.2,
-          "speed": 882.24,
+          "cost_per_unit": 0.12,
+          "speed": 423.36,
           "distance": 9166.5,
-          "lead_time_hours": 156.19,
+          "lead_time_hours": 167.45,
           "capacity": 121
         },
         "P3": {
-          "cost_per_unit": 1.2,
-          "speed": 804.7,
+          "cost_per_unit": 0.12,
+          "speed": 307.04,
           "distance": 5397.8,
-          "lead_time_hours": 161.23,
+          "lead_time_hours": 172.1,
           "capacity": 107
         }
       },
       "Sea": {
         "P1": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 39.46,
           "distance": 2031.0,
           "lead_time_hours": 185.54,
           "capacity": 7477
         },
         "P2": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 38.43,
           "distance": 3624.43,
           "lead_time_hours": 119.5,
           "capacity": 3736
         },
         "P3": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 27.0,
           "distance": 9341.26,
           "lead_time_hours": 442.12,
@@ -9865,24 +9865,24 @@
       },
       "Land": {
         "P1": {
-          "cost_per_unit": 0.5,
-          "speed": 79.87,
+          "cost_per_unit": 0.05,
+          "speed": 49.93,
           "distance": 9367.41,
-          "lead_time_hours": 201.78,
+          "lead_time_hours": 272.09,
           "capacity": 3761
         },
         "P2": {
-          "cost_per_unit": 0.5,
-          "speed": 67.69,
+          "cost_per_unit": 0.05,
+          "speed": 43.84,
           "distance": 8119.18,
-          "lead_time_hours": 244.87,
+          "lead_time_hours": 310.11,
           "capacity": 1690
         },
         "P3": {
-          "cost_per_unit": 0.5,
-          "speed": 66.9,
+          "cost_per_unit": 0.05,
+          "speed": 43.45,
           "distance": 6871.11,
-          "lead_time_hours": 264.7,
+          "lead_time_hours": 320.13,
           "capacity": 943
         }
       }
@@ -9890,44 +9890,44 @@
     "Germany": {
       "Air": {
         "P1": {
-          "cost_per_unit": 1.2,
-          "speed": 854.0,
+          "cost_per_unit": 0.12,
+          "speed": 381.0,
           "distance": 7465.8,
-          "lead_time_hours": 155.43,
+          "lead_time_hours": 166.28,
           "capacity": 431
         },
         "P2": {
-          "cost_per_unit": 1.2,
-          "speed": 853.66,
+          "cost_per_unit": 0.12,
+          "speed": 380.49,
           "distance": 9959.07,
-          "lead_time_hours": 179.37,
+          "lead_time_hours": 193.88,
           "capacity": 112
         },
         "P3": {
-          "cost_per_unit": 1.2,
-          "speed": 973.73,
+          "cost_per_unit": 0.12,
+          "speed": 560.6,
           "distance": 5218.94,
-          "lead_time_hours": 159.84,
+          "lead_time_hours": 163.79,
           "capacity": 132
         }
       },
       "Sea": {
         "P1": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 34.17,
           "distance": 2344.25,
           "lead_time_hours": 145.31,
           "capacity": 18106
         },
         "P2": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 33.85,
           "distance": 8197.0,
           "lead_time_hours": 278.62,
           "capacity": 12376
         },
         "P3": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 26.65,
           "distance": 9053.67,
           "lead_time_hours": 416.37,
@@ -9936,24 +9936,24 @@
       },
       "Land": {
         "P1": {
-          "cost_per_unit": 0.5,
-          "speed": 76.09,
+          "cost_per_unit": 0.05,
+          "speed": 48.04,
           "distance": 9888.57,
-          "lead_time_hours": 236.68,
+          "lead_time_hours": 312.54,
           "capacity": 650
         },
         "P2": {
-          "cost_per_unit": 0.5,
-          "speed": 75.16,
+          "cost_per_unit": 0.05,
+          "speed": 47.58,
           "distance": 6861.97,
-          "lead_time_hours": 115.39,
+          "lead_time_hours": 168.31,
           "capacity": 1415
         },
         "P3": {
-          "cost_per_unit": 0.5,
-          "speed": 68.54,
+          "cost_per_unit": 0.05,
+          "speed": 44.27,
           "distance": 5552.12,
-          "lead_time_hours": 151.77,
+          "lead_time_hours": 196.18,
           "capacity": 1227
         }
       }
@@ -9961,44 +9961,44 @@
     "Japan": {
       "Air": {
         "P1": {
-          "cost_per_unit": 1.2,
-          "speed": 861.43,
+          "cost_per_unit": 0.12,
+          "speed": 392.15,
           "distance": 4279.1,
-          "lead_time_hours": 103.49,
+          "lead_time_hours": 109.43,
           "capacity": 78
         },
         "P2": {
-          "cost_per_unit": 1.2,
-          "speed": 805.08,
+          "cost_per_unit": 0.12,
+          "speed": 307.62,
           "distance": 8245.77,
-          "lead_time_hours": 150.53,
+          "lead_time_hours": 167.09,
           "capacity": 304
         },
         "P3": {
-          "cost_per_unit": 1.2,
-          "speed": 869.22,
+          "cost_per_unit": 0.12,
+          "speed": 403.82,
           "distance": 8222.26,
-          "lead_time_hours": 114.97,
+          "lead_time_hours": 125.87,
           "capacity": 83
         }
       },
       "Sea": {
         "P1": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 31.38,
           "distance": 3847.63,
           "lead_time_hours": 285.46,
           "capacity": 14136
         },
         "P2": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 32.65,
           "distance": 9646.73,
           "lead_time_hours": 400.18,
           "capacity": 5559
         },
         "P3": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 35.01,
           "distance": 3368.48,
           "lead_time_hours": 241.64,
@@ -10007,24 +10007,24 @@
       },
       "Land": {
         "P1": {
-          "cost_per_unit": 0.5,
-          "speed": 61.17,
+          "cost_per_unit": 0.05,
+          "speed": 40.59,
           "distance": 9515.77,
-          "lead_time_hours": 296.13,
+          "lead_time_hours": 375.03,
           "capacity": 2654
         },
         "P2": {
-          "cost_per_unit": 0.5,
-          "speed": 97.86,
+          "cost_per_unit": 0.05,
+          "speed": 58.93,
           "distance": 9889.33,
-          "lead_time_hours": 212.4,
+          "lead_time_hours": 279.16,
           "capacity": 597
         },
         "P3": {
-          "cost_per_unit": 0.5,
-          "speed": 61.95,
+          "cost_per_unit": 0.05,
+          "speed": 40.98,
           "distance": 5603.5,
-          "lead_time_hours": 227.71,
+          "lead_time_hours": 274.02,
           "capacity": 2910
         }
       }
@@ -10032,44 +10032,44 @@
     "France": {
       "Air": {
         "P1": {
-          "cost_per_unit": 1.2,
-          "speed": 922.31,
+          "cost_per_unit": 0.12,
+          "speed": 483.46,
           "distance": 9731.47,
-          "lead_time_hours": 85.6,
+          "lead_time_hours": 95.18,
           "capacity": 122
         },
         "P2": {
-          "cost_per_unit": 1.2,
-          "speed": 896.18,
+          "cost_per_unit": 0.12,
+          "speed": 444.27,
           "distance": 4221.81,
-          "lead_time_hours": 167.21,
+          "lead_time_hours": 172.0,
           "capacity": 432
         },
         "P3": {
-          "cost_per_unit": 1.2,
-          "speed": 911.19,
+          "cost_per_unit": 0.12,
+          "speed": 466.79,
           "distance": 7567.91,
-          "lead_time_hours": 41.75,
+          "lead_time_hours": 49.66,
           "capacity": 281
         }
       },
       "Sea": {
         "P1": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 27.14,
           "distance": 6495.4,
           "lead_time_hours": 377.81,
           "capacity": 6540
         },
         "P2": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 34.95,
           "distance": 4193.24,
           "lead_time_hours": 230.0,
           "capacity": 17201
         },
         "P3": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 30.23,
           "distance": 9385.51,
           "lead_time_hours": 374.31,
@@ -10078,24 +10078,24 @@
       },
       "Land": {
         "P1": {
-          "cost_per_unit": 0.5,
-          "speed": 66.93,
+          "cost_per_unit": 0.05,
+          "speed": 43.47,
           "distance": 7037.47,
-          "lead_time_hours": 141.28,
+          "lead_time_hours": 198.04,
           "capacity": 2321
         },
         "P2": {
-          "cost_per_unit": 0.5,
-          "speed": 94.36,
+          "cost_per_unit": 0.05,
+          "speed": 57.18,
           "distance": 3623.15,
-          "lead_time_hours": 130.6,
+          "lead_time_hours": 155.57,
           "capacity": 4968
         },
         "P3": {
-          "cost_per_unit": 0.5,
-          "speed": 75.53,
+          "cost_per_unit": 0.05,
+          "speed": 47.77,
           "distance": 3384.4,
-          "lead_time_hours": 138.22,
+          "lead_time_hours": 164.27,
           "capacity": 2649
         }
       }
@@ -10103,44 +10103,44 @@
     "Netherlands": {
       "Air": {
         "P1": {
-          "cost_per_unit": 1.2,
-          "speed": 907.09,
+          "cost_per_unit": 0.12,
+          "speed": 460.63,
           "distance": 9530.3,
-          "lead_time_hours": 38.65,
+          "lead_time_hours": 48.83,
           "capacity": 349
         },
         "P2": {
-          "cost_per_unit": 1.2,
-          "speed": 977.8,
+          "cost_per_unit": 0.12,
+          "speed": 566.7,
           "distance": 6354.83,
-          "lead_time_hours": 105.88,
+          "lead_time_hours": 110.6,
           "capacity": 325
         },
         "P3": {
-          "cost_per_unit": 1.2,
-          "speed": 928.32,
+          "cost_per_unit": 0.12,
+          "speed": 492.48,
           "distance": 8368.96,
-          "lead_time_hours": 159.36,
+          "lead_time_hours": 167.34,
           "capacity": 343
         }
       },
       "Sea": {
         "P1": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 33.13,
           "distance": 4402.55,
           "lead_time_hours": 261.27,
           "capacity": 5504
         },
         "P2": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 26.55,
           "distance": 7596.16,
           "lead_time_hours": 375.44,
           "capacity": 17063
         },
         "P3": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 38.33,
           "distance": 7820.0,
           "lead_time_hours": 325.75,
@@ -10149,24 +10149,24 @@
       },
       "Land": {
         "P1": {
-          "cost_per_unit": 0.5,
-          "speed": 74.93,
+          "cost_per_unit": 0.05,
+          "speed": 47.46,
           "distance": 9029.87,
-          "lead_time_hours": 177.8,
+          "lead_time_hours": 247.53,
           "capacity": 4562
         },
         "P2": {
-          "cost_per_unit": 0.5,
-          "speed": 95.03,
+          "cost_per_unit": 0.05,
+          "speed": 57.52,
           "distance": 2287.99,
-          "lead_time_hours": 134.04,
+          "lead_time_hours": 149.74,
           "capacity": 884
         },
         "P3": {
-          "cost_per_unit": 0.5,
-          "speed": 87.12,
+          "cost_per_unit": 0.05,
+          "speed": 53.56,
           "distance": 5253.41,
-          "lead_time_hours": 94.23,
+          "lead_time_hours": 132.01,
           "capacity": 2049
         }
       }
@@ -10174,44 +10174,44 @@
     "Canada": {
       "Air": {
         "P1": {
-          "cost_per_unit": 1.2,
-          "speed": 806.82,
+          "cost_per_unit": 0.12,
+          "speed": 310.23,
           "distance": 8021.21,
-          "lead_time_hours": 46.1,
+          "lead_time_hours": 62.01,
           "capacity": 65
         },
         "P2": {
-          "cost_per_unit": 1.2,
-          "speed": 870.96,
+          "cost_per_unit": 0.12,
+          "speed": 406.44,
           "distance": 5761.93,
-          "lead_time_hours": 107.74,
+          "lead_time_hours": 115.3,
           "capacity": 63
         },
         "P3": {
-          "cost_per_unit": 1.2,
-          "speed": 940.71,
+          "cost_per_unit": 0.12,
+          "speed": 511.06,
           "distance": 2602.52,
-          "lead_time_hours": 38.95,
+          "lead_time_hours": 41.27,
           "capacity": 214
         }
       },
       "Sea": {
         "P1": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 25.13,
           "distance": 9632.32,
           "lead_time_hours": 492.32,
           "capacity": 13651
         },
         "P2": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 39.79,
           "distance": 8662.28,
           "lead_time_hours": 256.97,
           "capacity": 12428
         },
         "P3": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 35.07,
           "distance": 5611.87,
           "lead_time_hours": 202.66,
@@ -10220,24 +10220,24 @@
       },
       "Land": {
         "P1": {
-          "cost_per_unit": 0.5,
-          "speed": 64.35,
+          "cost_per_unit": 0.05,
+          "speed": 42.18,
           "distance": 2421.85,
-          "lead_time_hours": 72.38,
+          "lead_time_hours": 92.17,
           "capacity": 1176
         },
         "P2": {
-          "cost_per_unit": 0.5,
-          "speed": 74.9,
+          "cost_per_unit": 0.05,
+          "speed": 47.45,
           "distance": 7928.45,
-          "lead_time_hours": 197.18,
+          "lead_time_hours": 258.42,
           "capacity": 4776
         },
         "P3": {
-          "cost_per_unit": 0.5,
-          "speed": 68.03,
+          "cost_per_unit": 0.05,
+          "speed": 44.01,
           "distance": 8994.62,
-          "lead_time_hours": 167.9,
+          "lead_time_hours": 240.04,
           "capacity": 544
         }
       }
@@ -10245,44 +10245,44 @@
     "UK": {
       "Air": {
         "P1": {
-          "cost_per_unit": 1.2,
-          "speed": 851.27,
+          "cost_per_unit": 0.12,
+          "speed": 376.91,
           "distance": 6142.62,
-          "lead_time_hours": 59.64,
+          "lead_time_hours": 68.72,
           "capacity": 274
         },
         "P2": {
-          "cost_per_unit": 1.2,
-          "speed": 850.65,
+          "cost_per_unit": 0.12,
+          "speed": 375.98,
           "distance": 6886.04,
-          "lead_time_hours": 170.44,
+          "lead_time_hours": 180.66,
           "capacity": 315
         },
         "P3": {
-          "cost_per_unit": 1.2,
-          "speed": 959.99,
+          "cost_per_unit": 0.12,
+          "speed": 539.99,
           "distance": 2462.43,
-          "lead_time_hours": 62.74,
+          "lead_time_hours": 64.74,
           "capacity": 486
         }
       },
       "Sea": {
         "P1": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 29.73,
           "distance": 8998.77,
           "lead_time_hours": 418.73,
           "capacity": 10017
         },
         "P2": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 26.98,
           "distance": 2311.13,
           "lead_time_hours": 136.53,
           "capacity": 12581
         },
         "P3": {
-          "cost_per_unit": 0.2,
+          "cost_per_unit": 0.02,
           "speed": 36.79,
           "distance": 9214.0,
           "lead_time_hours": 408.44,
@@ -10291,24 +10291,24 @@
       },
       "Land": {
         "P1": {
-          "cost_per_unit": 0.5,
-          "speed": 98.7,
+          "cost_per_unit": 0.05,
+          "speed": 59.35,
           "distance": 2755.32,
-          "lead_time_hours": 97.66,
+          "lead_time_hours": 116.17,
           "capacity": 2524
         },
         "P2": {
-          "cost_per_unit": 0.5,
-          "speed": 76.66,
+          "cost_per_unit": 0.05,
+          "speed": 48.33,
           "distance": 4573.99,
-          "lead_time_hours": 164.79,
+          "lead_time_hours": 199.77,
           "capacity": 3769
         },
         "P3": {
-          "cost_per_unit": 0.5,
-          "speed": 77.2,
+          "cost_per_unit": 0.05,
+          "speed": 48.6,
           "distance": 2628.45,
-          "lead_time_hours": 101.37,
+          "lead_time_hours": 121.41,
           "capacity": 4322
         }
       }

@@ -107,7 +107,9 @@ class DQNAlgorithm(BaseAlgorithm):
         
         # b. 确定性运输规划
         print(f"  - 开始确定性运输规划 (生产完成时间={env.C_max})...")
-        c_transport, s_trans = plan_transportation(env.C_max, transport_data['transport_data'], transport_data['orders'])
+        c_transport, s_trans = plan_transportation(env.C_max, production_data=production_data,
+                                                    orders=orders_data,
+                                                    transport_data= transport_data)
         
         transport_feasible = c_transport < float('inf')
         penalty_cost = 0.0 if transport_feasible else 1e6  #    

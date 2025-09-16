@@ -37,8 +37,8 @@ def run_experiment_on_instance(instance_path: str) -> List[Dict]:
     # 初始化算法
     algorithms = [
         SPTRule(production_data=production_data, orders_data=orders_data, transportation_data=transportation_data),
-        EDDRule(),
-        CompositeRule()
+        EDDRule(production_data=production_data, orders_data=orders_data, transportation_data=transportation_data),
+        CompositeRule(production_data=production_data, orders_data=orders_data, transportation_data=transportation_data)
     ]
     
     results = []
@@ -60,7 +60,7 @@ def run_experiment_on_instance(instance_path: str) -> List[Dict]:
                 'total_cost': metrics['total_cost'],
                 'production_cost': metrics['production_cost'],
                 'transportation_cost': metrics['transportation_cost'],
-                'tardiness': metrics['tardiness'],
+              #  'tardiness': metrics['tardiness'],
                 'feasible': metrics['feasible'],
                 'computation_time': end_time - start_time,
                 'schedule_length': len(result['schedule'])
@@ -77,9 +77,9 @@ def main():
     
     # 定义要测试的实例
     instances = [
-        "icot_code/instances/instance_m10_j20_s1.json",
-        "icot_code/instances/instance_m10_j20_s2.json",
-        "icot_code/instances/instance_m10_j20_s3.json"
+        # "icot_code/instances/instance_m10_j20_s1.json",
+        "icot_code/instances/instance_m10_j20_s2.json"
+        # "icot_code/instances/instance_m30_j140_s36.json"
     ]
     
     all_results = []
@@ -103,10 +103,11 @@ def main():
         
         # 打印汇总统计
         print("\n=== 汇总统计 ===")
-        summary = df.groupby(['algorithm', 'T_internal']).agg({
+        summary = df.groupby(['algorithm']).agg({
             'makespan': ['mean', 'std'],
             'total_cost': ['mean', 'std'],
-            'feasible': 'mean',
+            'transportation_cost': ['mean', 'std'],
+            'production_cost': ['mean', 'std'],
             'computation_time': 'mean'
         }).round(2)
         

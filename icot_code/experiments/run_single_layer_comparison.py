@@ -46,7 +46,7 @@ def run_experiment_on_instance(instance:str, instance_path: str) -> List[Dict]:
        # CompositeRule(),
         DQNAlgorithm(),
         PPOAlgorithm(),
-       #  A2CAlgorithm()
+      #  A2CAlgorithm()
     ]
     
     results = []
@@ -76,7 +76,7 @@ def main():
     
     # 定义要测试的实例（使用较小的实例以节省计算时间）
     instances = [
-        "instance_m10_j20_s1",
+      #  "instance_m10_j20_s1",
         "instance_m10_j20_s2",
     ]
     

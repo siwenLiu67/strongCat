@@ -96,7 +96,8 @@ def evaluate_t_internal(t_internal, prod_data, trans_data, drl_params, max_episo
 
     # b. 确定性运输规划
     print(f"  - 开始确定性运输规划 (生产完成时间={c_max_for_transport})...")
-    c_transport, s_trans = plan_transportation(c_max_for_transport, trans_data['transport_data'], trans_data['orders'])
+    c_transport, s_trans = plan_transportation(c_max_for_transport, production_data=prod_data, orders=trans_data['orders'], transport_data=trans_data)
+
     print(f"  - 运输规划完成 (运输成本={c_transport}).")
 
     if c_transport == float('inf'):
@@ -105,8 +106,8 @@ def evaluate_t_internal(t_internal, prod_data, trans_data, drl_params, max_episo
 
     # c. 评估总成本
     c_production = c_max * prod_data['c_unit_production']
-    total_cost = c_production + c_transport + penalty_cost
-    print(f"  - C_max: {c_max}, 生产成本: {c_production}, 运输成本: {c_transport}, 惩罚成本: {penalty_cost}, 总成本: {total_cost}")
+    total_cost = c_production + c_transport
+    print(f"  - C_max: {c_max}, 生产成本:{c_production}, 运输成本: {c_transport}, 惩罚成本: {penalty_cost}, 总成本: {total_cost}")
 
     plan = {'production': s_prod, 'transport': s_trans}
     return t_internal, total_cost, plan, c_max
