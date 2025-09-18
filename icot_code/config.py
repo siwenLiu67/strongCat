@@ -4,15 +4,15 @@
 GAMMA = 0.95  # 折扣因子
 LEARNING_RATE = 0.001  # 学习率
 MAX_EPISODES = 500  # 精细搜索或独立运行时的最大训练轮次
-COARSE_SEARCH_MAX_EPISODES = 20  # 粗略搜索阶段的最大训练轮次 (为进一步加速而减少)
+COARSE_SEARCH_MAX_EPISODES = 30  # 自动调参
 K = 1000  # 用于惩罚的大的正常数
 ALPHA = 1.5  # 超出 T_internal 的惩罚系数
 BETA = 1.0  # 在 T_internal 内完成的奖励系数
 
 # T_internal (内部生产截止时间) 的搜索空间参数
-T_INTERNAL_COARSE_STEP = 50  # 粗略搜索步长 (小时) (为加速而增加)
-T_INTERNAL_FINE_STEP = 4  # 精细搜索步长 (小时)
-T_INTERNAL_FINE_SEARCH_RANGE = 16 # 精细搜索范围 (小时)
+T_INTERNAL_COARSE_STEP = 50  # 自动调参
+T_INTERNAL_FINE_STEP = 5  # 自动调参
+T_INTERNAL_FINE_SEARCH_RANGE = 30  # 自动调参
 
 # 生产参数
 C_UNIT_PRODUCTION = 10  # 单位时间生产成本
