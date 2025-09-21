@@ -13,7 +13,6 @@ import pandas as pd
 
 # 添加项目根目录到路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
 from icot_code.comparison_algorithms.heuristic_algorithms import SPTRule, EDDRule, CompositeRule
 from icot_code.comparison_algorithms.single_layer_drl import DQNAlgorithm, PPOAlgorithm, A2CAlgorithm
 from icot_code.data_loader import load_production_data, load_transportation_data
@@ -44,7 +43,7 @@ def run_experiment_on_instance(instance:str, instance_path: str) -> List[Dict]:
        # SPTRule(),
       #  EDDRule(),
        # CompositeRule(),
-        DQNAlgorithm(),
+      #  DQNAlgorithm(),
         PPOAlgorithm(),
       #  A2CAlgorithm()
     ]
@@ -84,7 +83,7 @@ def main():
     all_results = []
     
     for instance in instances:
-        instance_path = '/Users/siwenliu/Desktop/my_project/strongCat/icot_code/instances/'+instance+'.json' #
+        instance_path = "F://research_lsw//instances//instance_m10_j20_s1.json"
         if not os.path.exists(instance_path):
             print(f"警告: 实例文件 {instance_path} 不存在，跳过")
             continue

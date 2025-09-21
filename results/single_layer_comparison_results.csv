@@ -1,3 +1,2 @@
 algorithm_name,instance_id,total_cost,production_cost,transportation_cost,computation_time,transport_feasible
-DQN_Algorithm,instance_m10_j20_s2,9506.262590554643,8640.0,866.2625905546429,0.5764589309692383,True
-PPO_Algorithm,instance_m10_j20_s2,11935.749901281852,10510.0,1425.7499012818525,0.9772810935974121,True
+PPO_Algorithm,instance_m10_j20_s2,52664.81964672255,1892.5,50772.31964672255,6.372097015380859,True

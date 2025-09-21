@@ -7,13 +7,14 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 from icot_code.data_loader import load_production_data, load_transportation_data
 from icot_code.models.experiment_result import ExperimentResult, save_experiment_result
 from icot_code.comparison_algorithms.single_layer_drl import DQNAlgorithm
+from icot_code.comparison_algorithms.single_layer_drl import PPOAlgorithm
 
 def run_single_instance_dqn(file_path, instance_id):
     production_data = load_production_data(file_path)
     transportation_data = load_transportation_data(file_path)
     orders_data = transportation_data['orders']
-    print(f"[{instance_id}] 开始运行 DQN 算法...")
-    dqn = DQNAlgorithm()
+    print(f"[{instance_id}] 开始运行 DQN/PPO 算法...")
+    dqn = PPOAlgorithm()
     result = dqn.solve(production_data, transportation_data, orders_data)
     print(f"[{instance_id}] DQN 调度完成 (总成本={result['metrics']['total_cost']})")
     experiment_result = ExperimentResult(

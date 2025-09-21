@@ -318,35 +318,26 @@ class IntegratedFJSPEnv(gym.Env):
         # slack时间越充裕，奖励越高（鼓励提前完成）
         total_slack = sum(max(st['due_date'] - self.current_time - st['remaining_proc_time'], 0.0)
                           for st in self.job_status.values() if not st['finished'])
-        reward += total_slack / (1.0 + self.num_jobs)
+        reward += total_slack / (1.0 + self.num_jobs) / 1000
+      
 
         # 2. 最终奖励 (Terminal Reward)
-         # 2. 最终奖励 (Terminal Reward)
         if self._is_done():
             C_max = self.current_time
-            
             # 计算生产成本
-            # 从 production_data 的 meta 中获取单位生产成本
             unit_production_cost = self.production_data.get('meta', {}).get('unit_production_cost', 0.0)
             production_cost = unit_production_cost * C_max
 
             # 计算运输成本和可行性
-            # 注意：这里假设运输在生产全部结束后立即开始
             transport_cost, _ = self.plan_transportation(C_max)
-            
-            # 如果运输不可行，plan_transportation 会返回极大值
             if transport_cost == float('inf'):
                 # 对不可行的最终状态给予巨大的负奖励
-                return -10000.0
+                return -1000.0
 
             total_cost = production_cost + transport_cost
-            
-            # 将总成本转化为奖励。我们希望成本越低，奖励越高。
-            # 可以设计一个与成本成反比的奖励函数。
-            # 例如：奖励 = 基础奖励 - a * 总成本
-            # 这里的 10000 是一个基准值，确保成本较低时奖励为正。
-            reward = 10000.0 - total_cost
-            
+            # 缩小奖励数值范围：基准值1000，成本缩放10倍
+            # reward = 1000.0 - total_cost / 10
+            reward = 1000.0 - total_cost / 10.0
         return float(reward)
 
     def plan_transportation(self, production_finish_time: float) -> tuple[float, dict]:

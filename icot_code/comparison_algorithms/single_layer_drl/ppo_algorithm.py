@@ -18,11 +18,12 @@ from icot_code.models.transportation_model import plan_transportation
 class ActorCriticNetwork(nn.Module):
     """PPO算法的Actor-Critic网络"""
     
-    def __init__(self, state_size: int, action_size: int, hidden_size: int = 128):
+    def __init__(self, state_size: int, action_size: int, hidden_size: int = 256):
         super(ActorCriticNetwork, self).__init__()
         # 共享的特征提取层
         self.shared_fc1 = nn.Linear(state_size, hidden_size)
         self.shared_fc2 = nn.Linear(hidden_size, hidden_size)
+        self.shared_fc3 = nn.Linear(hidden_size, hidden_size)
         
         # Actor网络（策略网络）
         self.actor_fc = nn.Linear(hidden_size, action_size)
@@ -31,11 +32,24 @@ class ActorCriticNetwork(nn.Module):
         self.critic_fc = nn.Linear(hidden_size, 1)
         
         self.relu = nn.ReLU()
+        self.tanh = nn.Tanh()
         self.softmax = nn.Softmax(dim=-1)
+        
+        # 初始化权重
+        self.apply(self._init_weights)
+    
+    def _init_weights(self, module):
+        if isinstance(module, nn.Linear):
+            if module == self.actor_fc:
+                torch.nn.init.orthogonal_(module.weight, gain=0.01)
+            else:
+                torch.nn.init.orthogonal_(module.weight, gain=1.0)
+            torch.nn.init.constant_(module.bias, 0)
     
     def forward(self, x):
-        x = self.relu(self.shared_fc1(x))
-        x = self.relu(self.shared_fc2(x))
+        x = self.tanh(self.shared_fc1(x))
+        x = self.tanh(self.shared_fc2(x))
+        x = self.tanh(self.shared_fc3(x))
         
         # Actor输出动作概率
         action_probs = self.softmax(self.actor_fc(x))
@@ -51,21 +65,33 @@ class PPOAlgorithm(BaseAlgorithm):
     使用近端策略优化算法学习生产调度策略
     """
     
-    def __init__(self, hidden_size: int = 128, lr: float = 0.001, 
-                 gamma: float = 0.99, clip_epsilon: float = 0.2):
+    def __init__(self, hidden_size: int = 256, lr: float = 3e-4, 
+                 gamma: float = 0.99, clip_epsilon: float = 0.2, gae_lambda: float = 0.95):
         super().__init__("PPO_Algorithm")
         self.hidden_size = hidden_size
         self.lr = lr
         self.gamma = gamma
         self.clip_epsilon = clip_epsilon
+        self.gae_lambda = gae_lambda
         
         # 网络将在第一次调用solve时初始化
         self.policy_network = None
         self.optimizer = None
+        self.scheduler = None
         
         # 训练参数
-        self.epochs = 3
+        self.epochs = 10
         self.batch_size = 64
+        
+        # 奖励标准化参数
+        self.reward_mean = 0
+        self.reward_std = 1
+        self.reward_count = 1e-4
+        
+        # 价值函数标准化参数
+        self.value_mean = 0
+        self.value_std = 1
+        self.value_count = 1e-4
     
     def solve(self, production_data: Dict, transport_data: Dict, orders_data: Dict, num_episodes: int = 500) -> Dict:
         """
@@ -82,7 +108,8 @@ class PPOAlgorithm(BaseAlgorithm):
             action_size = env.action_space.n
             
             self.policy_network = ActorCriticNetwork(state_size, action_size, self.hidden_size)
-            self.optimizer = optim.Adam(self.policy_network.parameters(), lr=self.lr)
+            self.optimizer = optim.Adam(self.policy_network.parameters(), lr=self.lr, eps=1e-5)
+            self.scheduler = optim.lr_scheduler.LinearLR(self.optimizer, start_factor=1.0, end_factor=0.1, total_iters=num_episodes)
         
         all_rewards = []
         start_time = time.time()
@@ -95,11 +122,12 @@ class PPOAlgorithm(BaseAlgorithm):
             step = 0
             
             # 存储轨迹数据
-            states, actions, rewards, log_probs, values = [], [], [], [], []
+            states, actions, rewards, log_probs, values, dones = [], [], [], [], [], []
             
             while not done:
                 # 选择动作
-                action_probs, state_value = self.policy_network(torch.FloatTensor(state).unsqueeze(0))
+                state_tensor = torch.FloatTensor(state).unsqueeze(0)
+                action_probs, state_value = self.policy_network(state_tensor)
                 action_dist = torch.distributions.Categorical(action_probs)
                 action = action_dist.sample()
                 log_prob = action_dist.log_prob(action)
@@ -107,23 +135,33 @@ class PPOAlgorithm(BaseAlgorithm):
                 # 执行动作
                 next_state, reward, done, _ = env.step(action.item())
                 
+                # 更新奖励标准化参数
+                self._update_reward_stats(reward)
+                
+                # 标准化奖励
+                normalized_reward = (reward - self.reward_mean) / (self.reward_std + 1e-8)
+                
                 # 存储轨迹
                 states.append(state)
                 actions.append(action.item())
-                rewards.append(reward)
+                rewards.append(normalized_reward)
                 log_probs.append(log_prob)
                 values.append(state_value.item())
+                dones.append(done)
                 
                 state = next_state
                 episode_reward += reward
                 step += 1
             
-            # PPO更新
+            # 每集结束后进行PPO更新
             if len(states) > 0:
-                self._update_ppo(states, actions, rewards, log_probs, values, done)
+                self._update_ppo(states, actions, rewards, log_probs, values, dones)
+            
+            # 更新学习率
+            self.scheduler.step()
             
             all_rewards.append(episode_reward)
-            print(f"Episode: {episode}, Reward: {episode_reward:.2f}")
+            print(f"Episode: {episode}, Reward: {episode_reward:.2f}, Steps: {step}")
 
         # 最终评估
         final_state = env.reset()
@@ -171,67 +209,149 @@ class PPOAlgorithm(BaseAlgorithm):
         self.results = result
         return result
     
-    def _update_ppo(self, states, actions, rewards, log_probs, values, done):
+    def _update_reward_stats(self, reward):
+        """更新奖励统计信息用于标准化"""
+        self.reward_count += 1
+        delta = reward - self.reward_mean
+        self.reward_mean += delta / self.reward_count
+        delta2 = reward - self.reward_mean
+        self.reward_std += delta * delta2
+    
+    def _update_ppo(self, states, actions, rewards, log_probs, values, dones):
         """PPO算法更新"""
         if len(states) == 0 or self.optimizer is None:
             return
+
+        # 计算GAE优势函数
+        advantages = self._compute_gae(rewards, values, dones, self.gamma, self.gae_lambda)
         
-        # 计算优势函数
-        returns = self._compute_returns(rewards, self.gamma)
-        advantages = self._compute_advantages(returns, values)
+        # 计算回报
+        returns = advantages + np.array(values)
         
+        # 更新价值函数标准化参数
+        self._update_value_stats(returns)
+        
+        # 标准化advantages和returns
+        advantages = (advantages - np.mean(advantages)) / (np.std(advantages) + 1e-8)
+        returns = (returns - self.value_mean) / (self.value_std + 1e-8)
+
         # 转换为张量
         states_tensor = torch.FloatTensor(np.array(states))
         actions_tensor = torch.LongTensor(actions)
-        old_log_probs_tensor = torch.stack(log_probs)
+        old_log_probs_tensor = torch.FloatTensor([lp.item() for lp in log_probs])
         returns_tensor = torch.FloatTensor(returns)
         advantages_tensor = torch.FloatTensor(advantages)
-        
+        old_values_tensor = torch.FloatTensor(values)
+
         # PPO多轮更新
         for _ in range(self.epochs):
-            # 获取新的动作概率和价值
-            action_probs, state_values = self.policy_network(states_tensor)
-            action_dist = torch.distributions.Categorical(action_probs)
-            new_log_probs = action_dist.log_prob(actions_tensor)
+            # 随机打乱数据
+            indices = np.arange(len(states))
+            np.random.shuffle(indices)
             
-            # 计算概率比
-            ratio = torch.exp(new_log_probs - old_log_probs_tensor.detach())
-            
-            # 计算裁剪的PPO损失
-            surr1 = ratio * advantages_tensor
-            surr2 = torch.clamp(ratio, 1 - self.clip_epsilon, 1 + self.clip_epsilon) * advantages_tensor
-            policy_loss = -torch.min(surr1, surr2).mean()
-            
-            # 价值函数损失
-            value_loss = nn.MSELoss()(state_values.squeeze(), returns_tensor)
-            
-            # 熵奖励
-            entropy = action_dist.entropy().mean()
-            
-            # 总损失
-            loss = policy_loss + 0.5 * value_loss - 0.01 * entropy
-            
-            # 反向传播
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
+            # 小批量更新
+            for start in range(0, len(states), self.batch_size):
+                end = min(start + self.batch_size, len(states))
+                batch_indices = indices[start:end]
+                
+                if len(batch_indices) == 0:
+                    continue
+                
+                batch_states = states_tensor[batch_indices]
+                batch_actions = actions_tensor[batch_indices]
+                batch_old_log_probs = old_log_probs_tensor[batch_indices]
+                batch_returns = returns_tensor[batch_indices]
+                batch_advantages = advantages_tensor[batch_indices]
+                batch_old_values = old_values_tensor[batch_indices]
+                
+                # 前向传播
+                action_probs, state_values = self.policy_network(batch_states)
+                action_dist = torch.distributions.Categorical(action_probs)
+                new_log_probs = action_dist.log_prob(batch_actions)
+                
+                # 计算比率和策略损失
+                ratio = torch.exp(new_log_probs - batch_old_log_probs)
+                surr1 = ratio * batch_advantages
+                surr2 = torch.clamp(ratio, 1 - self.clip_epsilon, 1 + self.clip_epsilon) * batch_advantages
+                policy_loss = -torch.min(surr1, surr2).mean()
+                
+                # 价值函数损失（带裁剪）
+                value_pred_clipped = batch_old_values + torch.clamp(
+                    state_values.squeeze() - batch_old_values, -self.clip_epsilon, self.clip_epsilon
+                )
+                value_loss1 = (state_values.squeeze() - batch_returns).pow(2)
+                value_loss2 = (value_pred_clipped - batch_returns).pow(2)
+                value_loss = 0.5 * torch.max(value_loss1, value_loss2).mean()
+                
+                # 熵奖励
+                entropy = action_dist.entropy().mean()
+                
+                # 总损失
+                loss = policy_loss + value_loss - 0.01 * entropy
+                
+                # 反向传播
+                self.optimizer.zero_grad()
+                loss.backward()
+                
+                # 梯度裁剪
+                torch.nn.utils.clip_grad_norm_(self.policy_network.parameters(), max_norm=0.5)
+                
+                self.optimizer.step()
+                
+                # 打印调试信息
+                if start == 0 and _ == 0:
+                    print(f"[PPO DEBUG] rewards: mean={np.mean(rewards):.4f}, std={np.std(rewards):.4f}, "
+                          f"min={np.min(rewards):.4f}, max={np.max(rewards):.4f}")
+                    print(f"[PPO DEBUG] advantages: mean={np.mean(advantages):.4f}, std={np.std(advantages):.4f}, "
+                          f"min={np.min(advantages):.4f}, max={np.max(advantages):.4f}")
+                    
+                    # 检查参数更新
+                    for name, param in self.policy_network.named_parameters():
+                        if "weight" in name and "shared_fc1" in name:
+                            print(f"[PPO DEBUG] After update, {name} mean: {param.data.mean():.6f}, std: {param.data.std():.6f}")
+                            break
     
-    def _compute_returns(self, rewards, gamma):
-        """计算回报"""
-        returns = []
-        R = 0
-        for r in reversed(rewards):
-            R = r + gamma * R
-            returns.insert(0, R)
-        return returns
+    def _update_value_stats(self, values):
+        """更新价值函数统计信息用于标准化"""
+        batch_mean = np.mean(values)
+        batch_std = np.std(values)
+        batch_count = len(values)
+        
+        # 更新运行统计
+        total_count = self.value_count + batch_count
+        delta = batch_mean - self.value_mean
+        new_mean = self.value_mean + delta * batch_count / total_count
+        
+        # 更新标准差
+        m_a = self.value_std * self.value_count
+        m_b = batch_std * batch_count
+        M2 = m_a + m_b + delta**2 * self.value_count * batch_count / total_count
+        new_std = np.sqrt(M2 / total_count)
+        
+        self.value_mean = new_mean
+        self.value_std = new_std
+        self.value_count = total_count
     
-    def _compute_advantages(self, returns, values):
-        """计算优势函数"""
+    def _compute_gae(self, rewards, values, dones, gamma, gae_lambda):
+        """使用GAE计算优势函数"""
         advantages = []
-        for i in range(len(returns)):
-            advantage = returns[i] - values[i]
-            advantages.append(advantage)
-        return advantages
+        last_advantage = 0
+        next_value = 0
+        
+        # 反向计算
+        for t in reversed(range(len(rewards))):
+            if t == len(rewards) - 1:
+                next_non_terminal = 1.0 - int(dones[t])
+                next_value = values[t]  # 使用当前值作为下一个状态的估计
+            else:
+                next_non_terminal = 1.0 - int(dones[t+1])
+                next_value = values[t+1]
+            
+            delta = rewards[t] + gamma * next_value * next_non_terminal - values[t]
+            last_advantage = delta + gamma * gae_lambda * next_non_terminal * last_advantage
+            advantages.insert(0, last_advantage)
+        
+        return np.array(advantages)
     
     def _get_state_size(self, production_data: Dict) -> int:
         """获取状态空间大小"""
