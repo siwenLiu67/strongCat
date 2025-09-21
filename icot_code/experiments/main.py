@@ -82,7 +82,7 @@ def evaluate_t_internal(t_internal, prod_data, trans_data, drl_params, max_episo
     # --- 底层战术执行 ---
     # a. 用于生产调度的 DRL
     print(f"  - 开始 DRL 生产调度 (T_internal={t_internal}, 轮次={max_episodes})...")
-    s_prod, c_max = DRL_Scheduling_Agent(env, agent, max_episodes)
+    s_prod, c_max, rewards = DRL_Scheduling_Agent(env, agent, max_episodes)
     print(f"  - DRL 生产调度完成 (C_max={c_max}).")
     
     # 如果 DRL 代理未能满足 t_internal，则应用惩罚
@@ -109,7 +109,7 @@ def evaluate_t_internal(t_internal, prod_data, trans_data, drl_params, max_episo
     total_cost = c_production + c_transport
     print(f"  - C_max: {c_max}, 生产成本:{c_production}, 运输成本: {c_transport}, 惩罚成本: {penalty_cost}, 总成本: {total_cost}")
 
-    plan = {'production': s_prod, 'transport': s_trans}
+    plan = {'production': s_prod, 'transport': s_trans, 'reward_curve': rewards}  # 新增reward_curve
     return t_internal, total_cost, plan, c_max
 
 

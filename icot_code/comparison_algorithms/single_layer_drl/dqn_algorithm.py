@@ -53,7 +53,7 @@ class DQNAlgorithm(BaseAlgorithm):
         self.epsilon_min = 0.01
         self.epsilon_decay = 0.995
 
-    def solve(self, production_data: Dict, transport_data: Dict, orders_data: Dict, num_episodes: int = 5) -> Dict:
+    def solve(self, production_data: Dict, transport_data: Dict, orders_data: Dict, num_episodes: int = 500) -> Dict:
         """
         使用DQN算法求解生产调度问题。
         兼容统一接口：production_data, orders_data, T_internal

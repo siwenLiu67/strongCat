@@ -67,7 +67,7 @@ class PPOAlgorithm(BaseAlgorithm):
         self.epochs = 3
         self.batch_size = 64
     
-    def solve(self, production_data: Dict, transport_data: Dict, orders_data: Dict, num_episodes: int = 5) -> Dict:
+    def solve(self, production_data: Dict, transport_data: Dict, orders_data: Dict, num_episodes: int = 500) -> Dict:
         """
         使用PPO算法求解生产调度问题。
         兼容统一接口：production_data, transport_data, orders_data, num_episodes

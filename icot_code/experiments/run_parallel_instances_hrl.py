@@ -37,6 +37,7 @@ def run_single_instance_parallel(file_path, instance_id):
     import numpy as np
     coarse_search_space = np.arange(lower_bound, upper_bound, search_params['coarse_step'])
     results = []
+    best_rewards_curve = []  # 新增：记录每次粗略/精细搜索的reward曲线
     for t_internal in coarse_search_space:
         result = evaluate_t_internal(
             t_internal,
@@ -72,6 +73,7 @@ def run_single_instance_parallel(file_path, instance_id):
                 drl_params=drl_params,
                 max_episodes=drl_params['max_episodes']
             )
+        
             fine_results.append(result)
         results.extend(fine_results)
         results.sort(key=lambda x: x[0])
@@ -98,7 +100,7 @@ def run_single_instance_parallel(file_path, instance_id):
         algorithm_name="hrl_ppo",
         instance_id=instance_id,
         metrics=metrics,
-        extra_info={}
+        extra_info={"reward_curve": best_plan.get('reward_curve', [])}  # 新增：保存reward曲线  
     )
     save_experiment_result(result, save_dir="results", filetype="csv")
     print(f"[{instance_id}] 结果已保存。")

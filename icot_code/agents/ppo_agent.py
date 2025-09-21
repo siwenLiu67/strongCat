@@ -187,6 +187,7 @@ def DRL_Scheduling_Agent(env, agent, max_episodes):
     """
     best_c_max = float('inf')
     best_schedule = None
+    rewards = []
 
     for episode in range(max_episodes):
         state = env.reset()
@@ -196,6 +197,8 @@ def DRL_Scheduling_Agent(env, agent, max_episodes):
             next_state, reward, done, _ = env.step(action)
             agent.store_transition(state, action, log_prob, reward, done)
             state = next_state
+        
+        rewards.append(reward)
 
         agent.update()
         
@@ -206,7 +209,7 @@ def DRL_Scheduling_Agent(env, agent, max_episodes):
         # 在每个轮次后打印日志，以显示详细的训练进度
         print(f"    - 轮次 {episode+1}/{max_episodes}, C_max: {env.C_max:.2f}, 当前最佳 C_max: {best_c_max:.2f}")
 
-    return best_schedule, best_c_max
+    return best_schedule, best_c_max, rewards
 
 if __name__ == '__main__':
     import sys
