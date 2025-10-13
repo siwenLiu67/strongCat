@@ -1,0 +1,16 @@
+# FJSP 智能调度算法比较框架 - 依赖项
+
+# 核心计算与数据处理
+numpy
+pandas
+
+# 深度学习 (用于 DQN)
+# 注意：请根据您的硬件（CPU/GPU）从 PyTorch 官网安装合适的版本
+# https://pytorch.org/get-started/locally/
+torch
+torchvision
+torchaudio
+
+# 数据可视化
+matplotlib
+seaborn
