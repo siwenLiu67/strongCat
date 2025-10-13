@@ -1,0 +1,2 @@
+instance,algorithm,objective_value,makespan,total_transportation_time,total_energy,total_carbon,is_feasible,execution_time_s,max_wip
+generated_m5_j10_s1.json,DQN,349.0,349.0,142,2329.25,1393.34,True,51.8,0

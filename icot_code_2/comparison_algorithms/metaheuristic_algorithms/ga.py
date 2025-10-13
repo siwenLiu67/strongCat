@@ -80,6 +80,14 @@ class GA_Agent(BaseAlgorithm):
         }
         
         results = self.env.evaluate_solution(solution)
+        print('GA op_sequence:', chromosome)
+        print('GA machine_assignment:', machine_assignment)
+        print('GA transport_assignment:', transport_assignment)
+        print('GA makespan:', results.get('makespan'))
+        print('GA objective_value:', results.get('objective_value'))
+        print('GA job_final_completion_times:', results.get('job_final_completion_times', 'N/A'))
+        print('GA machine_release_times:', machine_release_times)
+        print('GA op_completion_times:', op_completion_times)
         return results['objective_value'], solution, results
 
     def _selection(self, population, fitnesses):

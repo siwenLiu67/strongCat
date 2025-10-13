@@ -29,14 +29,14 @@ ANALYSIS_FIGURES_DIR = os.path.join(RESULTS_DIR, 'figures')
 
 # 深度强化学习 (Deep Reinforcement Learning)
 DQN_CONFIG = {
-    "episodes": 50,
-    "batch_size": 128,
+    "episodes": 500,
+    "batch_size": 256,
     "gamma": 0.99,
-    "eps_start": 0.9,
-    "eps_end": 0.05,
-    "eps_decay": 200,  # 较快的衰减 for demo
+    "eps_start": 0.99,
+    "eps_end": 0.001,
+    "eps_decay": 3000,  # 较快的衰减 for demo
     "lr": 1e-4,
-    "memory_size": 10000
+    "memory_size": 50000
 }
 
 A2C_CONFIG = {
