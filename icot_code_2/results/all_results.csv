@@ -1,2 +1,7 @@
 instance,algorithm,objective_value,makespan,total_transportation_time,total_energy,total_carbon,is_feasible,execution_time_s,max_wip
-generated_m5_j10_s1.json,DQN,349.0,349.0,142,2329.25,1393.34,True,51.8,0
+generated_m5_j10_s1.json,DQN,365.0,365.0,140,2271.02,1371.88,True,59.63,0
+generated_m5_j10_s1.json,GA,291.0,291.0,146,2358.19,1427.6,True,1.35,0
+generated_m5_j20_s10.json,DQN,659.0,659.0,220,4720.92,3081.1,True,172.73,0
+generated_m5_j20_s10.json,GA,645.0,645.0,212,5112.73,3262.12,True,1.83,0
+generated_m5_j30_s19.json,DQN,1091.0,1091.0,392,8298.35,4680.75,True,270.39,0
+generated_m5_j30_s19.json,GA,1041.0,1041.0,360,8747.62,4993.58,True,3.02,0
