@@ -81,5 +81,8 @@ class Distributor:
     completed_times: Dict[int, float]  # batchID到完成时间的映射
     overdue_times: Dict[int, int]  # batchID到逾期数量的映射
 
+    # 用于强化学习奖励函数的计算标识
+    calculated: bool = False
+
     status: str = "waiting"  # 状态: waiting, completed
 

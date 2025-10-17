@@ -48,9 +48,9 @@ class PaperBasedInstanceGenerator:
         # 小规模算例 (40-100作业): 初始作业20, 机器10
         small_configs = [
             # 动态作业20, 配送商[5, 10, 15]
-            (40, 10, 0, 5),
+           #  (40, 10, 0, 5),
             # (20, 10, 20, 10),
-            # (20, 10, 20, 15),
+             (20, 10, 20, 15),
             # # 动态作业40, 配送商[5, 10, 15]
             # (20, 10, 40, 5),
             # (20, 10, 40, 10),
@@ -422,6 +422,6 @@ if __name__ == "__main__":
     # 直接调用，无需命令行参数
     print("🚀 启动批量实验...")
     run_batch_experiment(
-        algorithm="DQN",   # 修改为你要运行的法
+        algorithm="RuleDQN_DispatchHeuri",   # 修改为你要运行的法
         instance_type="all", # 可选: benchmark, all
     )
