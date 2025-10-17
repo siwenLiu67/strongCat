@@ -1,0 +1,1000 @@
+{
+    "num_jobs": 10,
+    "num_machines": 5,
+    "num_transporters": 5,
+    "transporters": [
+        {
+            "transporter_id": 0,
+            "transport_time": 13,
+            "carbon_factor": 0.15
+        },
+        {
+            "transporter_id": 1,
+            "transport_time": 20,
+            "carbon_factor": 0.18
+        },
+        {
+            "transporter_id": 2,
+            "transport_time": 7,
+            "carbon_factor": 0.18
+        },
+        {
+            "transporter_id": 3,
+            "transport_time": 17,
+            "carbon_factor": 0.21
+        },
+        {
+            "transporter_id": 4,
+            "transport_time": 16,
+            "carbon_factor": 0.24
+        }
+    ],
+    "constraints": {
+        "max_wip": 8,
+        "total_energy": 5684,
+        "total_carbon": 3789
+    },
+    "weights": {
+        "makespan": 0.4,
+        "energy": 0.3,
+        "carbon": 0.3
+    },
+    "jobs": [
+        {
+            "job_id": 0,
+            "operations": [
+                {
+                    "op_id": 0,
+                    "processing_options": [
+                        {
+                            "machine": 0,
+                            "processing_time": 38,
+                            "energy_consumption": 46.23,
+                            "carbon_emission": 34.59
+                        }
+                    ]
+                },
+                {
+                    "op_id": 1,
+                    "processing_options": [
+                        {
+                            "machine": 3,
+                            "processing_time": 49,
+                            "energy_consumption": 49.36,
+                            "carbon_emission": 24.62
+                        },
+                        {
+                            "machine": 4,
+                            "processing_time": 27,
+                            "energy_consumption": 50.57,
+                            "carbon_emission": 15.05
+                        }
+                    ]
+                },
+                {
+                    "op_id": 2,
+                    "processing_options": [
+                        {
+                            "machine": 0,
+                            "processing_time": 50,
+                            "energy_consumption": 59.13,
+                            "carbon_emission": 25.68
+                        },
+                        {
+                            "machine": 1,
+                            "processing_time": 44,
+                            "energy_consumption": 53.84,
+                            "carbon_emission": 55.35
+                        },
+                        {
+                            "machine": 4,
+                            "processing_time": 30,
+                            "energy_consumption": 74.01,
+                            "carbon_emission": 36.74
+                        }
+                    ]
+                },
+                {
+                    "op_id": 3,
+                    "processing_options": [
+                        {
+                            "machine": 3,
+                            "processing_time": 21,
+                            "energy_consumption": 34.14,
+                            "carbon_emission": 14.64
+                        },
+                        {
+                            "machine": 2,
+                            "processing_time": 49,
+                            "energy_consumption": 76.62,
+                            "carbon_emission": 37.65
+                        },
+                        {
+                            "machine": 0,
+                            "processing_time": 13,
+                            "energy_consumption": 21.65,
+                            "carbon_emission": 14.28
+                        }
+                    ]
+                },
+                {
+                    "op_id": 4,
+                    "processing_options": [
+                        {
+                            "machine": 3,
+                            "processing_time": 43,
+                            "energy_consumption": 77.99,
+                            "carbon_emission": 51.5
+                        }
+                    ]
+                },
+                {
+                    "op_id": 5,
+                    "processing_options": [
+                        {
+                            "machine": 3,
+                            "processing_time": 13,
+                            "energy_consumption": 18.19,
+                            "carbon_emission": 12.24
+                        },
+                        {
+                            "machine": 4,
+                            "processing_time": 27,
+                            "energy_consumption": 52.19,
+                            "carbon_emission": 18.46
+                        }
+                    ]
+                },
+                {
+                    "op_id": 6,
+                    "processing_options": [
+                        {
+                            "machine": 0,
+                            "processing_time": 30,
+                            "energy_consumption": 45.11,
+                            "carbon_emission": 24.48
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "job_id": 1,
+            "operations": [
+                {
+                    "op_id": 0,
+                    "processing_options": [
+                        {
+                            "machine": 0,
+                            "processing_time": 13,
+                            "energy_consumption": 27.35,
+                            "carbon_emission": 7.32
+                        },
+                        {
+                            "machine": 2,
+                            "processing_time": 39,
+                            "energy_consumption": 82.13,
+                            "carbon_emission": 42.95
+                        },
+                        {
+                            "machine": 3,
+                            "processing_time": 15,
+                            "energy_consumption": 15.95,
+                            "carbon_emission": 21.54
+                        }
+                    ]
+                },
+                {
+                    "op_id": 1,
+                    "processing_options": [
+                        {
+                            "machine": 0,
+                            "processing_time": 26,
+                            "energy_consumption": 41.71,
+                            "carbon_emission": 13.04
+                        }
+                    ]
+                },
+                {
+                    "op_id": 2,
+                    "processing_options": [
+                        {
+                            "machine": 2,
+                            "processing_time": 12,
+                            "energy_consumption": 23.45,
+                            "carbon_emission": 8.74
+                        },
+                        {
+                            "machine": 4,
+                            "processing_time": 37,
+                            "energy_consumption": 39.79,
+                            "carbon_emission": 52.57
+                        }
+                    ]
+                },
+                {
+                    "op_id": 3,
+                    "processing_options": [
+                        {
+                            "machine": 2,
+                            "processing_time": 44,
+                            "energy_consumption": 76.31,
+                            "carbon_emission": 35.01
+                        }
+                    ]
+                },
+                {
+                    "op_id": 4,
+                    "processing_options": [
+                        {
+                            "machine": 0,
+                            "processing_time": 16,
+                            "energy_consumption": 21.39,
+                            "carbon_emission": 19.14
+                        },
+                        {
+                            "machine": 3,
+                            "processing_time": 32,
+                            "energy_consumption": 43.87,
+                            "carbon_emission": 22.09
+                        },
+                        {
+                            "machine": 1,
+                            "processing_time": 12,
+                            "energy_consumption": 29.89,
+                            "carbon_emission": 13.45
+                        }
+                    ]
+                },
+                {
+                    "op_id": 5,
+                    "processing_options": [
+                        {
+                            "machine": 1,
+                            "processing_time": 44,
+                            "energy_consumption": 66.9,
+                            "carbon_emission": 46.79
+                        },
+                        {
+                            "machine": 3,
+                            "processing_time": 14,
+                            "energy_consumption": 15.81,
+                            "carbon_emission": 19.77
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "job_id": 2,
+            "operations": [
+                {
+                    "op_id": 0,
+                    "processing_options": [
+                        {
+                            "machine": 3,
+                            "processing_time": 36,
+                            "energy_consumption": 76.65,
+                            "carbon_emission": 23.48
+                        },
+                        {
+                            "machine": 4,
+                            "processing_time": 46,
+                            "energy_consumption": 110.29,
+                            "carbon_emission": 62.53
+                        },
+                        {
+                            "machine": 2,
+                            "processing_time": 37,
+                            "energy_consumption": 63.8,
+                            "carbon_emission": 42.84
+                        }
+                    ]
+                },
+                {
+                    "op_id": 1,
+                    "processing_options": [
+                        {
+                            "machine": 2,
+                            "processing_time": 30,
+                            "energy_consumption": 49.64,
+                            "carbon_emission": 32.64
+                        }
+                    ]
+                },
+                {
+                    "op_id": 2,
+                    "processing_options": [
+                        {
+                            "machine": 1,
+                            "processing_time": 13,
+                            "energy_consumption": 19.01,
+                            "carbon_emission": 7.74
+                        }
+                    ]
+                },
+                {
+                    "op_id": 3,
+                    "processing_options": [
+                        {
+                            "machine": 4,
+                            "processing_time": 17,
+                            "energy_consumption": 25.68,
+                            "carbon_emission": 11.73
+                        },
+                        {
+                            "machine": 1,
+                            "processing_time": 33,
+                            "energy_consumption": 33.84,
+                            "carbon_emission": 37.89
+                        }
+                    ]
+                },
+                {
+                    "op_id": 4,
+                    "processing_options": [
+                        {
+                            "machine": 2,
+                            "processing_time": 17,
+                            "energy_consumption": 25.34,
+                            "carbon_emission": 19.9
+                        },
+                        {
+                            "machine": 3,
+                            "processing_time": 43,
+                            "energy_consumption": 91.37,
+                            "carbon_emission": 40.44
+                        }
+                    ]
+                },
+                {
+                    "op_id": 5,
+                    "processing_options": [
+                        {
+                            "machine": 3,
+                            "processing_time": 20,
+                            "energy_consumption": 23.38,
+                            "carbon_emission": 24.94
+                        }
+                    ]
+                },
+                {
+                    "op_id": 6,
+                    "processing_options": [
+                        {
+                            "machine": 3,
+                            "processing_time": 13,
+                            "energy_consumption": 28.21,
+                            "carbon_emission": 16.88
+                        }
+                    ]
+                },
+                {
+                    "op_id": 7,
+                    "processing_options": [
+                        {
+                            "machine": 4,
+                            "processing_time": 39,
+                            "energy_consumption": 56.31,
+                            "carbon_emission": 21.45
+                        },
+                        {
+                            "machine": 0,
+                            "processing_time": 32,
+                            "energy_consumption": 65.52,
+                            "carbon_emission": 43.14
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "job_id": 3,
+            "operations": [
+                {
+                    "op_id": 0,
+                    "processing_options": [
+                        {
+                            "machine": 4,
+                            "processing_time": 33,
+                            "energy_consumption": 56.12,
+                            "carbon_emission": 28.35
+                        },
+                        {
+                            "machine": 1,
+                            "processing_time": 16,
+                            "energy_consumption": 19.65,
+                            "carbon_emission": 22.27
+                        }
+                    ]
+                },
+                {
+                    "op_id": 1,
+                    "processing_options": [
+                        {
+                            "machine": 0,
+                            "processing_time": 42,
+                            "energy_consumption": 63.69,
+                            "carbon_emission": 36.79
+                        },
+                        {
+                            "machine": 1,
+                            "processing_time": 25,
+                            "energy_consumption": 45.41,
+                            "carbon_emission": 26.54
+                        },
+                        {
+                            "machine": 3,
+                            "processing_time": 27,
+                            "energy_consumption": 48.23,
+                            "carbon_emission": 23.87
+                        }
+                    ]
+                },
+                {
+                    "op_id": 2,
+                    "processing_options": [
+                        {
+                            "machine": 4,
+                            "processing_time": 37,
+                            "energy_consumption": 45.69,
+                            "carbon_emission": 29.38
+                        },
+                        {
+                            "machine": 0,
+                            "processing_time": 14,
+                            "energy_consumption": 19.96,
+                            "carbon_emission": 13.97
+                        }
+                    ]
+                },
+                {
+                    "op_id": 3,
+                    "processing_options": [
+                        {
+                            "machine": 1,
+                            "processing_time": 19,
+                            "energy_consumption": 29.41,
+                            "carbon_emission": 21.39
+                        },
+                        {
+                            "machine": 0,
+                            "processing_time": 10,
+                            "energy_consumption": 21.89,
+                            "carbon_emission": 9.88
+                        }
+                    ]
+                },
+                {
+                    "op_id": 4,
+                    "processing_options": [
+                        {
+                            "machine": 0,
+                            "processing_time": 38,
+                            "energy_consumption": 51.94,
+                            "carbon_emission": 38.63
+                        },
+                        {
+                            "machine": 1,
+                            "processing_time": 44,
+                            "energy_consumption": 89.71,
+                            "carbon_emission": 61.02
+                        },
+                        {
+                            "machine": 2,
+                            "processing_time": 12,
+                            "energy_consumption": 24.26,
+                            "carbon_emission": 8.12
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "job_id": 4,
+            "operations": [
+                {
+                    "op_id": 0,
+                    "processing_options": [
+                        {
+                            "machine": 1,
+                            "processing_time": 46,
+                            "energy_consumption": 101.91,
+                            "carbon_emission": 51.28
+                        }
+                    ]
+                },
+                {
+                    "op_id": 1,
+                    "processing_options": [
+                        {
+                            "machine": 4,
+                            "processing_time": 25,
+                            "energy_consumption": 36.32,
+                            "carbon_emission": 21.47
+                        }
+                    ]
+                },
+                {
+                    "op_id": 2,
+                    "processing_options": [
+                        {
+                            "machine": 2,
+                            "processing_time": 48,
+                            "energy_consumption": 57.62,
+                            "carbon_emission": 53.98
+                        },
+                        {
+                            "machine": 1,
+                            "processing_time": 23,
+                            "energy_consumption": 23.5,
+                            "carbon_emission": 34.4
+                        }
+                    ]
+                },
+                {
+                    "op_id": 3,
+                    "processing_options": [
+                        {
+                            "machine": 3,
+                            "processing_time": 45,
+                            "energy_consumption": 55.1,
+                            "carbon_emission": 61.69
+                        },
+                        {
+                            "machine": 0,
+                            "processing_time": 42,
+                            "energy_consumption": 63.11,
+                            "carbon_emission": 48.79
+                        }
+                    ]
+                },
+                {
+                    "op_id": 4,
+                    "processing_options": [
+                        {
+                            "machine": 2,
+                            "processing_time": 35,
+                            "energy_consumption": 57.38,
+                            "carbon_emission": 29.2
+                        },
+                        {
+                            "machine": 3,
+                            "processing_time": 14,
+                            "energy_consumption": 26.51,
+                            "carbon_emission": 7.65
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "job_id": 5,
+            "operations": [
+                {
+                    "op_id": 0,
+                    "processing_options": [
+                        {
+                            "machine": 3,
+                            "processing_time": 38,
+                            "energy_consumption": 63.39,
+                            "carbon_emission": 19.49
+                        },
+                        {
+                            "machine": 4,
+                            "processing_time": 46,
+                            "energy_consumption": 111.85,
+                            "carbon_emission": 41.83
+                        },
+                        {
+                            "machine": 1,
+                            "processing_time": 18,
+                            "energy_consumption": 20.74,
+                            "carbon_emission": 20.8
+                        }
+                    ]
+                },
+                {
+                    "op_id": 1,
+                    "processing_options": [
+                        {
+                            "machine": 1,
+                            "processing_time": 19,
+                            "energy_consumption": 21.42,
+                            "carbon_emission": 17.49
+                        },
+                        {
+                            "machine": 3,
+                            "processing_time": 23,
+                            "energy_consumption": 51.1,
+                            "carbon_emission": 16.89
+                        },
+                        {
+                            "machine": 0,
+                            "processing_time": 33,
+                            "energy_consumption": 49.51,
+                            "carbon_emission": 33.14
+                        }
+                    ]
+                },
+                {
+                    "op_id": 2,
+                    "processing_options": [
+                        {
+                            "machine": 1,
+                            "processing_time": 33,
+                            "energy_consumption": 54.18,
+                            "carbon_emission": 30.2
+                        },
+                        {
+                            "machine": 3,
+                            "processing_time": 20,
+                            "energy_consumption": 41.79,
+                            "carbon_emission": 26.43
+                        },
+                        {
+                            "machine": 4,
+                            "processing_time": 34,
+                            "energy_consumption": 67.57,
+                            "carbon_emission": 40.39
+                        }
+                    ]
+                },
+                {
+                    "op_id": 3,
+                    "processing_options": [
+                        {
+                            "machine": 1,
+                            "processing_time": 25,
+                            "energy_consumption": 43.1,
+                            "carbon_emission": 32.12
+                        }
+                    ]
+                },
+                {
+                    "op_id": 4,
+                    "processing_options": [
+                        {
+                            "machine": 0,
+                            "processing_time": 35,
+                            "energy_consumption": 83.03,
+                            "carbon_emission": 51.14
+                        },
+                        {
+                            "machine": 1,
+                            "processing_time": 22,
+                            "energy_consumption": 51.84,
+                            "carbon_emission": 18.94
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "job_id": 6,
+            "operations": [
+                {
+                    "op_id": 0,
+                    "processing_options": [
+                        {
+                            "machine": 1,
+                            "processing_time": 35,
+                            "energy_consumption": 82.59,
+                            "carbon_emission": 38.72
+                        },
+                        {
+                            "machine": 2,
+                            "processing_time": 40,
+                            "energy_consumption": 76.27,
+                            "carbon_emission": 27.64
+                        }
+                    ]
+                },
+                {
+                    "op_id": 1,
+                    "processing_options": [
+                        {
+                            "machine": 4,
+                            "processing_time": 39,
+                            "energy_consumption": 68.54,
+                            "carbon_emission": 30.15
+                        },
+                        {
+                            "machine": 1,
+                            "processing_time": 49,
+                            "energy_consumption": 88.47,
+                            "carbon_emission": 62.67
+                        },
+                        {
+                            "machine": 0,
+                            "processing_time": 10,
+                            "energy_consumption": 22.45,
+                            "carbon_emission": 8.72
+                        }
+                    ]
+                },
+                {
+                    "op_id": 2,
+                    "processing_options": [
+                        {
+                            "machine": 3,
+                            "processing_time": 11,
+                            "energy_consumption": 15.34,
+                            "carbon_emission": 13.94
+                        },
+                        {
+                            "machine": 4,
+                            "processing_time": 27,
+                            "energy_consumption": 50.03,
+                            "carbon_emission": 37.5
+                        },
+                        {
+                            "machine": 2,
+                            "processing_time": 22,
+                            "energy_consumption": 49.11,
+                            "carbon_emission": 25.23
+                        }
+                    ]
+                },
+                {
+                    "op_id": 3,
+                    "processing_options": [
+                        {
+                            "machine": 3,
+                            "processing_time": 42,
+                            "energy_consumption": 53.76,
+                            "carbon_emission": 27.72
+                        },
+                        {
+                            "machine": 4,
+                            "processing_time": 26,
+                            "energy_consumption": 32.34,
+                            "carbon_emission": 36.83
+                        },
+                        {
+                            "machine": 0,
+                            "processing_time": 42,
+                            "energy_consumption": 55.86,
+                            "carbon_emission": 31.99
+                        }
+                    ]
+                },
+                {
+                    "op_id": 4,
+                    "processing_options": [
+                        {
+                            "machine": 1,
+                            "processing_time": 10,
+                            "energy_consumption": 13.24,
+                            "carbon_emission": 6.51
+                        },
+                        {
+                            "machine": 0,
+                            "processing_time": 27,
+                            "energy_consumption": 33.83,
+                            "carbon_emission": 28.67
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "job_id": 7,
+            "operations": [
+                {
+                    "op_id": 0,
+                    "processing_options": [
+                        {
+                            "machine": 2,
+                            "processing_time": 10,
+                            "energy_consumption": 21.13,
+                            "carbon_emission": 5.94
+                        },
+                        {
+                            "machine": 3,
+                            "processing_time": 31,
+                            "energy_consumption": 39.29,
+                            "carbon_emission": 37.21
+                        }
+                    ]
+                },
+                {
+                    "op_id": 1,
+                    "processing_options": [
+                        {
+                            "machine": 2,
+                            "processing_time": 23,
+                            "energy_consumption": 28.94,
+                            "carbon_emission": 29.63
+                        }
+                    ]
+                },
+                {
+                    "op_id": 2,
+                    "processing_options": [
+                        {
+                            "machine": 0,
+                            "processing_time": 41,
+                            "energy_consumption": 53.43,
+                            "carbon_emission": 45.28
+                        },
+                        {
+                            "machine": 2,
+                            "processing_time": 26,
+                            "energy_consumption": 46.75,
+                            "carbon_emission": 27.71
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "job_id": 8,
+            "operations": [
+                {
+                    "op_id": 0,
+                    "processing_options": [
+                        {
+                            "machine": 1,
+                            "processing_time": 48,
+                            "energy_consumption": 119.47,
+                            "carbon_emission": 69.57
+                        }
+                    ]
+                },
+                {
+                    "op_id": 1,
+                    "processing_options": [
+                        {
+                            "machine": 1,
+                            "processing_time": 32,
+                            "energy_consumption": 74.89,
+                            "carbon_emission": 38.76
+                        },
+                        {
+                            "machine": 2,
+                            "processing_time": 42,
+                            "energy_consumption": 80.11,
+                            "carbon_emission": 27.59
+                        }
+                    ]
+                },
+                {
+                    "op_id": 2,
+                    "processing_options": [
+                        {
+                            "machine": 0,
+                            "processing_time": 48,
+                            "energy_consumption": 55.73,
+                            "carbon_emission": 61.13
+                        },
+                        {
+                            "machine": 4,
+                            "processing_time": 17,
+                            "energy_consumption": 19.51,
+                            "carbon_emission": 24.3
+                        }
+                    ]
+                },
+                {
+                    "op_id": 3,
+                    "processing_options": [
+                        {
+                            "machine": 1,
+                            "processing_time": 30,
+                            "energy_consumption": 66.62,
+                            "carbon_emission": 27.41
+                        },
+                        {
+                            "machine": 4,
+                            "processing_time": 43,
+                            "energy_consumption": 101.93,
+                            "carbon_emission": 64.25
+                        }
+                    ]
+                },
+                {
+                    "op_id": 4,
+                    "processing_options": [
+                        {
+                            "machine": 0,
+                            "processing_time": 31,
+                            "energy_consumption": 34.48,
+                            "carbon_emission": 21.27
+                        },
+                        {
+                            "machine": 2,
+                            "processing_time": 23,
+                            "energy_consumption": 28.78,
+                            "carbon_emission": 20.22
+                        },
+                        {
+                            "machine": 4,
+                            "processing_time": 31,
+                            "energy_consumption": 66.08,
+                            "carbon_emission": 39.04
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "job_id": 9,
+            "operations": [
+                {
+                    "op_id": 0,
+                    "processing_options": [
+                        {
+                            "machine": 4,
+                            "processing_time": 17,
+                            "energy_consumption": 38.45,
+                            "carbon_emission": 22.18
+                        },
+                        {
+                            "machine": 0,
+                            "processing_time": 11,
+                            "energy_consumption": 25.28,
+                            "carbon_emission": 9.93
+                        }
+                    ]
+                },
+                {
+                    "op_id": 1,
+                    "processing_options": [
+                        {
+                            "machine": 0,
+                            "processing_time": 16,
+                            "energy_consumption": 24.93,
+                            "carbon_emission": 15.34
+                        },
+                        {
+                            "machine": 2,
+                            "processing_time": 31,
+                            "energy_consumption": 67.33,
+                            "carbon_emission": 17.35
+                        }
+                    ]
+                },
+                {
+                    "op_id": 2,
+                    "processing_options": [
+                        {
+                            "machine": 3,
+                            "processing_time": 50,
+                            "energy_consumption": 51.55,
+                            "carbon_emission": 50.81
+                        }
+                    ]
+                },
+                {
+                    "op_id": 3,
+                    "processing_options": [
+                        {
+                            "machine": 4,
+                            "processing_time": 34,
+                            "energy_consumption": 78.35,
+                            "carbon_emission": 34.07
+                        },
+                        {
+                            "machine": 2,
+                            "processing_time": 48,
+                            "energy_consumption": 65.5,
+                            "carbon_emission": 24.59
+                        }
+                    ]
+                },
+                {
+                    "op_id": 4,
+                    "processing_options": [
+                        {
+                            "machine": 3,
+                            "processing_time": 40,
+                            "energy_consumption": 61.89,
+                            "carbon_emission": 20.19
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

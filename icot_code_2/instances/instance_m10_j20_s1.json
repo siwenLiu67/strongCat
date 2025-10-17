@@ -1,0 +1,56 @@
+{
+    "num_jobs": 2,
+    "num_machines": 3,
+    "num_transporters": 2,
+    "max_wip": 10,
+    "max_energy": 1000,
+    "max_carbon": 500,
+    "jobs": [
+        {
+            "job_id": 0,
+            "operations": [
+                {
+                    "op_id": 0,
+                    "proc_options": [
+                        [0, 10, 20],
+                        [1, 12, 25]
+                    ]
+                },
+                {
+                    "op_id": 1,
+                    "proc_options": [
+                        [2, 8, 15]
+                    ]
+                }
+            ]
+        },
+        {
+            "job_id": 1,
+            "operations": [
+                {
+                    "op_id": 0,
+                    "proc_options": [
+                        [1, 15, 30]
+                    ]
+                },
+                {
+                    "op_id": 1,
+                    "proc_options": [
+                        [0, 9, 18],
+                        [2, 11, 22]
+                    ]
+                }
+            ]
+        }
+    ],
+    "transporters": [
+        {
+            "time": 5,
+            "carbon_factor": 1.2
+        },
+        {
+            "time": 8,
+            "carbon_factor": 0.9
+        }
+    ]
+}
