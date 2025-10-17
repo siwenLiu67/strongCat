@@ -64,7 +64,7 @@ def define_search_space(prod_data, trans_data):
 
     max_production_time = min(max_production_times)
 
-    return int(min_production_time), int(max_production_time)
+    return int(min_production_time)-100, int(max_production_time)
 
 
 def evaluate_t_internal(t_internal, prod_data, trans_data, drl_params, max_episodes):
@@ -121,7 +121,7 @@ def main():
     from agents.ppo_agent import device
     print(f"DRL 代理将使用: {device}")
 
-    instance_id = "instance_m10_j20_s1"  # 替换为你的实例ID
+    instance_id = "instance_m20_j20_s13"  # 替换为你的实例ID
     file_path = '/Users/siwenliu/Desktop/my_project/strongCat/icot_code/instances/'+instance_id+'.json' # 替换为你的实例文件路径
     # 加载所有数据和参数
     prod_data = load_production_data(file_path)

@@ -399,7 +399,7 @@ def run_dqn_experiment(config, case, seed, **kwargs):
     state_dim = 20
     action_dim = 20000
     agent = DQNAgent(state_dim, action_dim, config)
-    episodes = getattr(config, "episodes", 50)
+    episodes =config.episodes
     stats = defaultdict(list)
 
     for episode in range(episodes):

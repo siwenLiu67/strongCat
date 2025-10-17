@@ -489,7 +489,7 @@ def run_ppo_experiment(config, case, seed, **kwargs):
     state_dim = 20
     action_dim = env.action_dim
     agent = PPOAgent(state_dim, action_dim, config)
-    episodes = getattr(config, "episodes", 50)
+    episodes = config.episodes
     stats = defaultdict(list)
 
     for episode in range(episodes):

@@ -1,0 +1,4 @@
+instance_id,algorithm,num_runs,mean_of_mean_curve
+Medium-40J10M5D,DQN,1,-331.74372
+Medium-40J10M5D,RuleDQN_DispatchHeuri,1,50.2129246
+Small-0J10M5D,RuleDQN+DispatchHeuristic,1,20.9583515
