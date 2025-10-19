@@ -191,7 +191,7 @@ class UniversalAlgorithmRunner:
                 'DDPG': 'run_ddpg_experiment',
                 # 特殊算法 - 自定义函数名
                 'HRL_GAT': 'run_hrl_gat_experiment',
-                'RuleDQN_DispatchHeuri': 'main',
+                'RuleDQN_DispatchHeuri': 'run_ruleDqn_dispatchHeuri_experiment',
                 # 优先规则启发式算法
                 'Rule': 'run_dynamic_priority_rule_experiment',
                 'CP-SAT': 'run_math_model_experiment',
@@ -422,6 +422,6 @@ if __name__ == "__main__":
     # 直接调用，无需命令行参数
     print("🚀 启动批量实验...")
     run_batch_experiment(
-        algorithm="PPO",   # 修改为你要运行的法
+        algorithm="RuleDQN_DispatchHeuri",   # 修改为你要运行的法
         instance_type="all", # 可选: benchmark, all
     )

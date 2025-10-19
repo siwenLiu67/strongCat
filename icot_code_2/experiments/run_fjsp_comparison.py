@@ -34,11 +34,11 @@ def get_all_agents(env):
     """
     return {
         "DQN": D3QN_Agent(env, config.DQN_CONFIG),
-         "GA": GA_Agent(env, config.GA_CONFIG),
+        "GA": GA_Agent(env, config.GA_CONFIG),
       #  "SA": SA_Agent(env, config.SA_CONFIG),
       #  "PSO": PSO_Agent(env, config.PSO_CONFIG),
       #  "A2C": A2C_Agent(env, config.A2C_CONFIG),
-     #   "PPO": PPO_Agent(env, config.PPO_CONFIG)
+      #  "PPO": PPO_Agent(env, config.PPO_CONFIG)
     }
 
 def run_experiment_on_instance(instance_path):

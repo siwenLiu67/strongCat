@@ -100,7 +100,7 @@ def run_ruleDqn_dispatchHeuri_experiment(config, case, seed, **kwargs):
         stats['tardy_penalty'].append(getattr(env, 'tardy_penalty', 0))
         stats['total_tardiness'].append(getattr(env, 'total_weighted_tardiness', 0))
         stats['meta_losses'].append(meta_loss)
-        stats['objective_value'].append(episode_reward + getattr(env, 'tardy_penalty', 0) + getattr(env, 'total_weighted_tardiness', 0))
+        stats['objective_value'].append(getattr(env, 'tardy_penalty', 0) + getattr(env, 'total_weighted_tardiness', 0))
         stats['machine_utilization'].append(calculate_machine_utilization(env))
         job = env.dispatched_jobs[0]
 
@@ -152,5 +152,5 @@ def main():
     result = run_ruleDqn_dispatchHeuri_experiment(config, case, seed)
     print("实验完成，结果已保存。")
 
-if __name__ == "__main__":
-    main()
+#if __name__ == "__main__":
+   # main()
