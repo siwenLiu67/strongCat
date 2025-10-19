@@ -1,6 +1,6 @@
 class Config:
     train_mode = True
-    episodes =  2
+    episodes =  100
     seeds = [42]
     
     # RL training parameters
