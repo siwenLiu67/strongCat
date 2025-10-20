@@ -152,10 +152,18 @@ class HighLevelAgent(nn.Module):
         probs = probs / probs.sum(dim=-1, keepdim=True)  # 重新
         print(f"Action probabilities: {probs}")
         
-        dist = torch.distributions.Categorical(probs)
-        action = dist.sample()
-        log_prob = dist.log_prob(action)
-        entropy = dist.entropy()
+        # 检查是否有有效的动作
+        if probs.sum() == 0:
+            # 如果没有有效动作，默认选择等待动作（索引2）
+            action = torch.tensor(2)
+            log_prob = torch.tensor(0.0)
+            entropy = torch.tensor(0.0)
+            print("No valid actions available, defaulting to wait action")
+        else:
+            dist = torch.distributions.Categorical(probs)
+            action = dist.sample()
+            log_prob = dist.log_prob(action)
+            entropy = dist.entropy()
         
         # 更新动作计数
         self.action_counts[0, action] += 1
@@ -176,7 +184,27 @@ class HighLevelAgent(nn.Module):
         """更新高层策略网络（批量处理）"""
         states: List[Dict] = batch['states']
         actions = torch.tensor(batch['actions'], dtype=torch.int64)
-        old_log_probs = torch.stack(batch['log_probs'])
+        
+        # 确保log_probs是有效的张量列表
+        log_probs_list = batch['log_probs']
+        if len(log_probs_list) == 0:
+            return 0.0  # 如果没有有效的log_probs，跳过更新
+            
+        # 检查log_probs是否都是张量，如果不是则转换为张量
+        processed_log_probs = []
+        for log_prob in log_probs_list:
+            if isinstance(log_prob, torch.Tensor):
+                # 确保张量有正确的形状
+                if log_prob.dim() == 0:  # 标量张量
+                    processed_log_probs.append(log_prob.unsqueeze(0))
+                else:
+                    processed_log_probs.append(log_prob)
+            else:
+                # 将Python标量转换为1D张量
+                processed_log_probs.append(torch.tensor([log_prob], dtype=torch.float32))
+        
+        # 确保所有张量形状一致
+        old_log_probs = torch.cat(processed_log_probs)
         returns = batch['returns']
 
         # 批量构建特征

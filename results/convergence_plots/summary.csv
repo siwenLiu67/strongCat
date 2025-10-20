@@ -1,3 +1,3 @@
 instance_id,algorithm,num_runs,mean_of_mean_curve
-Small-0J10M15D,RuleDQN+DispatchHeuristic,1,457.58818699999995
-Small-40J10M15D,RuleDQN_DispatchHeuri,1,457.58818699999995
+Small-0J10M15D,Hierarchical_RL_RuleDQN+DispatchHeuristic,1,350.967278
+Small-40J10M15D,RuleDQN_DispatchHeuri,1,350.967278
