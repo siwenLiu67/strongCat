@@ -321,39 +321,96 @@ class WarehouseEnvironment:
 
     
 
+    # def _calculate_reward(self, action) -> float:
+    #     reward = 0.0
+    #     debug_info = {}
+        
+    #     # 1. 核心业务目标奖励（权重最高）
+    #     # 延误惩罚 - 使用线性惩罚
+    #     current_tardiness = sum(max(0, job.dispatched_time - job.due_date) 
+    #                         for job in self.completed_jobs)
+    #     tardiness_penalty = -0.1 * current_tardiness  # 每单位延误惩罚0.1
+    #     reward += tardiness_penalty
+    #     debug_info['tardiness_penalty'] = tardiness_penalty
+        
+    #     # 2. 配送要求满足度
+    #     delivery_satisfaction = self._calculate_delivery_satisfaction()
+    #     reward += 0.3 * delivery_satisfaction
+    #     debug_info['delivery_satisfaction'] = 0.3 * delivery_satisfaction
+        
+    #     # 3. 资源利用率
+    #     utilization = self.calculate_machine_utilization()
+    #     reward += 0.2 * utilization
+    #     debug_info['utilization'] = 0.2 * utilization
+        
+    #     # 4. 进度推进（避免停滞）
+    #     if any(['schedule' in action, 'dispatch' in action]):
+    #         reward += 0.1  # 小奖励鼓励采取行动
+    #         debug_info['action_encouragement'] = 0.1
+        
+    #     # 5. 大事件奖励（稀疏但重要）
+    #     if self.job_completed_this_step:
+    #         reward += 0.5
+    #         debug_info['job_completion'] = 0.5
+        
+    #     debug_info['final_reward'] = reward
+    #     return reward
+
     def _calculate_reward(self, action) -> float:
         reward = 0.0
         debug_info = {}
         
-        # 1. 核心业务目标奖励（权重最高）
-        # 延误惩罚 - 使用线性惩罚
-        current_tardiness = sum(max(0, job.dispatched_time - job.due_date) 
-                            for job in self.completed_jobs)
-        tardiness_penalty = -0.1 * current_tardiness  # 每单位延误惩罚0.1
+        total_jobs = len(self.completed_jobs) + len(self.available_jobs) + len(self.dispatched_jobs)
+        if total_jobs == 0:
+            return 0.0
+        
+        # 1. 延误率惩罚（归一化到0-1范围）
+        if self.completed_jobs:
+            total_possible_tardiness = sum(job.due_date for job in self.completed_jobs)
+            current_tardiness = sum(max(0, job.dispatched_time - job.due_date) 
+                                for job in self.completed_jobs)
+            tardiness_ratio = current_tardiness / max(1, total_possible_tardiness)
+            tardiness_penalty = -1.0 * min(tardiness_ratio, 1.0)  # 限制在[-1, 0]
+        else:
+            tardiness_penalty = 0.0
+        
         reward += tardiness_penalty
         debug_info['tardiness_penalty'] = tardiness_penalty
         
-        # 2. 配送要求满足度
+        # 2. 配送满足度奖励（0-1范围）
         delivery_satisfaction = self._calculate_delivery_satisfaction()
-        reward += 0.3 * delivery_satisfaction
-        debug_info['delivery_satisfaction'] = 0.3 * delivery_satisfaction
+        delivery_reward = 2.0 * delivery_satisfaction  # 显著增加权重
+        reward += delivery_reward
+        debug_info['delivery_reward'] = delivery_reward
         
-        # 3. 资源利用率
+        # 3. 完成率奖励
+        completion_rate = len(self.completed_jobs) / total_jobs
+        completion_reward = 1.5 * completion_rate
+        reward += completion_reward
+        debug_info['completion_reward'] = completion_reward
+        
+        # 4. 资源利用率奖励
         utilization = self.calculate_machine_utilization()
-        reward += 0.2 * utilization
-        debug_info['utilization'] = 0.2 * utilization
+        utilization_reward = 1.0 * utilization
+        reward += utilization_reward
+        debug_info['utilization_reward'] = utilization_reward
         
-        # 4. 进度推进（避免停滞）
-        if any(['schedule' in action, 'dispatch' in action]):
-            reward += 0.1  # 小奖励鼓励采取行动
-            debug_info['action_encouragement'] = 0.1
-        
-        # 5. 大事件奖励（稀疏但重要）
+        # 5. 增量奖励
         if self.job_completed_this_step:
-            reward += 0.5
-            debug_info['job_completion'] = 0.5
+            reward += 0.8
+            debug_info['job_completion_bonus'] = 0.8
+        
+        if any(['schedule' in action, 'dispatch' in action]):
+            reward += 0.2
+            debug_info['action_bonus'] = 0.2
+        
+        # 6. 基础生存奖励（确保不为过负）
+        reward += 0.5
+        debug_info['base_reward'] = 0.5
         
         debug_info['final_reward'] = reward
+        
+        # 奖励范围应该在 [-1, 5] 左右，而不是 [-12000, -4000]
         return reward
 
     def _calculate_delivery_satisfaction(self):

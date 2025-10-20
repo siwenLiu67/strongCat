@@ -172,14 +172,13 @@ class HighLevelAgent(nn.Module):
                list(self.fc2.parameters()) + \
                list(self.fc3.parameters())
 
-    def update(self, batch: Dict):
+    def update(self, batch: Dict, optimizer, scheduler) -> float:
         """更新高层策略网络（批量处理）"""
         states: List[Dict] = batch['states']
         actions = torch.tensor(batch['actions'], dtype=torch.int64)
         old_log_probs = torch.stack(batch['log_probs'])
         returns = batch['returns']
 
-        
         # 批量构建特征
         features = torch.cat([self._build_features(state) for state in states], dim=0)
         
@@ -203,11 +202,16 @@ class HighLevelAgent(nn.Module):
         # 打印调试信息
         print(f"Policy loss: {policy_loss.item():.4f}, Entropy: {entropy_loss.item():.4f}")
         
-        self.optimizer.zero_grad()
+        # 关键修正：使用传入的optimizer，而不是self.optimizer
+        optimizer.zero_grad()
         loss.backward()
         
         # 梯度裁剪
         torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=1.0)
         
-        self.optimizer.step()
+        optimizer.step()
+        
+        # 关键修正：更新学习率调度器
+        scheduler.step()
+        
         return loss.item()

@@ -4,13 +4,14 @@ class Config:
     seeds = [42]
     
     # RL training parameters
-    entropy_coef = 0.01  # Entropy regularization coefficient
-    replay_buffer_size = 2000  # Experience replay buffer size
-    batch_size = 64  # Training batch size
-    gamma = 0.95  # Discount factor
+    entropy_coef = 0.02  # Entropy regularization coefficient
+    
+    replay_buffer_size = 10000  # Experience replay buffer size
+    batch_size = 256  # Training batch size
+    gamma = 0.97  # Discount factor
     n_step = 3  # N-step TD learning
-    ucb_exploration = 0.5  # UCB exploration coefficient
-    learning_rate = 0.001
+    ucb_exploration = 0.3  # UCB exploration coefficient
+    learning_rate = 0.0003
 
     num_initial_jobs = 4
     num_dynamic_jobs = 10
