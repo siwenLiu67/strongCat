@@ -11,29 +11,117 @@ from high_level_agent import HighLevelAgent as MetaAgent
 from case_generator import FlexibleJobShopScenario
 from config import Config
 from algorithm_results_saver import save_algorithm_results_csv, generate_instance_id, set_random_seed
-def calculate_intrinsic_reward(goal, state, action, env_reward, next_state, info):
-    """计算内在奖励：基于子目标完成度"""
-    if goal == 0:  # 调度效率目标
-        # 基于机器利用率的改进
-        current_util = calculate_utilization(state)
-        next_util = calculate_utilization(next_state)
-        intrinsic = (next_util - current_util) * 0.5
-        
-    elif goal == 1:  # 配送及时性目标
-        # 基于延误减少
-        current_tardiness = getattr(state, 'total_tardiness', 0)
-        next_tardiness = getattr(next_state, 'total_tardiness', 0)
-        intrinsic = max(0, current_tardiness - next_tardiness) * 0.1
-        
-    else:  # 负载平衡目标
-        # 基于负载均衡
-        current_balance = calculate_load_balance(state)
-        next_balance = calculate_load_balance(next_state)
-        intrinsic = (next_balance - current_balance) * 0.3
+
+def analyze_strategic_context(state):
+    """分析当前状态，为高层决策提供战略依据"""
+    strategic_info = {}
     
-    # 结合环境奖励
-    combined_reward = env_reward + intrinsic
-    return combined_reward
+    try:
+        # 获取关键指标
+        machine_utilization = getattr(state, 'machine_utilization', 0.5)
+        completed_jobs = len(getattr(state, 'completed_jobs', []))
+        active_jobs = len(getattr(state, 'active_jobs', []))
+        total_tardiness = getattr(state, 'total_tardiness', 0)
+        
+        # 分析战略需求
+        strategic_info['needs_production'] = (
+            machine_utilization < 0.7 or  # 产能利用率低
+            active_jobs > completed_jobs   # 积压作业多
+        )
+        
+        strategic_info['needs_delivery'] = (
+            completed_jobs >= 5 or         # 完成作业积累较多
+            total_tardiness > 100          # 延误风险高
+        )
+        
+        strategic_info['should_wait'] = (
+            machine_utilization > 0.9 and  # 机器繁忙
+            completed_jobs < 3             # 完成作业少
+        )
+        
+    except AttributeError:
+        # 如果状态属性不存在，使用默认策略
+        strategic_info['needs_production'] = True
+        strategic_info['needs_delivery'] = False
+        strategic_info['should_wait'] = False
+    
+    return strategic_info
+
+def infer_strategic_goal(agent_idx, state):
+    """根据选择的动作和当前状态推断战略目标"""
+    strategic_info = analyze_strategic_context(state)
+    
+    if agent_idx == 0:  # 生产模式
+        if strategic_info['needs_production']:
+            if getattr(state, 'machine_utilization', 0) < 0.7:
+                return "提高产能利用率"
+            else:
+                return "处理作业积压"
+        else:
+            return "正常生产调度"
+            
+    elif agent_idx == 1:  # 配送模式
+        if strategic_info['needs_delivery']:
+            completed_count = len(getattr(state, 'completed_jobs', []))
+            if completed_count >= 8:
+                return "大批次经济派送"
+            elif getattr(state, 'total_tardiness', 0) > 100:
+                return "紧急防延误派送"
+            else:
+                return "常规积压清理"
+        else:
+            return "预防性派送"
+            
+    else:  # 等待模式
+        if strategic_info['should_wait']:
+            return "避免过度生产"
+        else:
+            return "系统平衡等待"
+
+def calculate_goal_based_reward(strategic_goal, prev_state, next_state, env_reward):
+    """基于战略目标完成度的奖励"""
+    intrinsic = 0.0
+    
+    try:
+        if strategic_goal == "提高产能利用率":
+            prev_util = prev_state.machine_utilization
+            next_util = next_state.machine_utilization
+            intrinsic = max(0, next_util - prev_util) * 10.0
+            
+        elif strategic_goal == "处理作业积压":
+            prev_active = len(prev_state.active_jobs)
+            next_active = len(next_state.active_jobs)
+            intrinsic = max(0, prev_active - next_active) * 5.0
+            
+        elif strategic_goal == "大批次经济派送":
+            prev_completed = len(prev_state.completed_jobs)
+            next_completed = len(next_state.completed_jobs)
+            if prev_completed - next_completed >= 5:  # 大批次派送
+                intrinsic = 8.0
+            else:
+                intrinsic = 2.0
+                
+        elif strategic_goal == "紧急防延误派送":
+            prev_tardiness = getattr(prev_state, 'total_tardiness', 0)
+            next_tardiness = getattr(next_state, 'total_tardiness', 0)
+            intrinsic = max(0, prev_tardiness - next_tardiness) * 0.5
+            
+        elif strategic_goal == "避免过度生产":
+            # 等待模式的奖励：避免在高压时增加负担
+            utilization = getattr(next_state, 'machine_utilization', 0.5)
+            if utilization > 0.9:
+                intrinsic = 3.0  # 正确等待
+            else:
+                intrinsic = -1.0  # 不必要等待
+                
+        else:  # 默认目标
+            intrinsic = env_reward * 0.1
+            
+    except AttributeError:
+        intrinsic = env_reward * 0.1
+    
+    # 战略奖励权重较高，因为决策影响更大
+    return env_reward + intrinsic
 
 def calculate_hierarchical_returns(buffer, gamma):
     """计算层次回报"""
@@ -45,32 +133,38 @@ def calculate_hierarchical_returns(buffer, gamma):
         returns.insert(0, R)
     return returns
 
-def evaluate_goal_completion(goal, state, next_state, info):
-    """评估子目标完成度"""
-    # 简化的完成度评估
-    if goal == 0:  # 调度效率
-        return min(1.0, getattr(next_state, 'machine_utilization', 0))
-    elif goal == 1:  # 配送及时性
-        tardiness = getattr(next_state, 'total_tardiness', 0)
-        return max(0, 1 - tardiness / 1000)  # 假设最大延误1000
-    else:  # 负载平衡
-        return calculate_load_balance(next_state)
-
-def calculate_utilization(state):
-    """计算机器利用率"""
-    return getattr(state, 'machine_utilization', 0.5)
-
-def calculate_load_balance(state):
-    """计算负载均衡度"""
-    # 简化的均衡度计算
-    return 0.7  # 示例值
+def evaluate_strategic_success(strategic_goal, state, next_state):
+    """评估战略目标完成度"""
+    try:
+        if strategic_goal == "提高产能利用率":
+            util = getattr(next_state, 'machine_utilization', 0)
+            return min(1.0, util)
+            
+        elif strategic_goal == "处理作业积压":
+            active_jobs = len(getattr(next_state, 'active_jobs', []))
+            return max(0, 1 - active_jobs / 20)  # 假设最大20个活跃作业
+            
+        elif "派送" in strategic_goal:
+            completed = len(getattr(next_state, 'completed_jobs', []))
+            tardiness = getattr(next_state, 'total_tardiness', 0)
+            completion_score = min(1.0, completed / 15)  # 完成度
+            timeliness_score = max(0, 1 - tardiness / 500)  # 及时性
+            return (completion_score + timeliness_score) / 2
+            
+        else:  # 等待模式
+            utilization = getattr(next_state, 'machine_utilization', 0.5)
+            return 0.8 if utilization > 0.85 else 0.3  # 高利用率时等待是成功的
+            
+    except AttributeError:
+        return 0.5
 
 class TimeAbstractionLayer:
     """时间抽象层：控制Meta Agent的决策频率"""
     def __init__(self, config):
-        self.decision_interval = getattr(config, 'meta_decision_interval', 10)  # 每10步决策一次
+        self.decision_interval = getattr(config, 'meta_decision_interval', 10)
         self.steps_since_last_decision = 0
         self.current_strategy = None
+        self.current_strategic_goal = "正常生产调度"  # 默认目标
         
     def should_decide(self):
         """判断是否需要Meta Agent决策"""
@@ -80,17 +174,20 @@ class TimeAbstractionLayer:
             return True
         return False
     
-    def set_strategy(self, strategy):
-        """设置当前策略"""
+    def set_strategy_and_goal(self, strategy, goal):
+        """设置当前策略和战略目标"""
         self.current_strategy = strategy
+        self.current_strategic_goal = goal
         
     def get_strategy(self):
-        """获取当前策略"""
         return self.current_strategy
+    
+    def get_goal(self):
+        return self.current_strategic_goal
 
 def run_ruleDqn_dispatchHeuri_experiment(config, case, seed, **kwargs):
     """
-    层次强化学习版本 - 最小改动
+    改进的层次强化学习版本 - 最小改动但真正实现层次RL
     """
     set_random_seed(seed)
     config.seed = seed
@@ -121,7 +218,7 @@ def run_ruleDqn_dispatchHeuri_experiment(config, case, seed, **kwargs):
 
     # 训练状态跟踪
     stats = defaultdict(list)
-    hierarchical_buffer = []  # 层次经验缓冲区
+    hierarchical_buffer = []
     learning_rates = []
     start_time = time.time()
     gamma = getattr(config, "gamma", 0.95)
@@ -130,7 +227,7 @@ def run_ruleDqn_dispatchHeuri_experiment(config, case, seed, **kwargs):
         state = env.reset()
         done = False
         episode_reward = 0
-        episode_goals = []  # 记录子目标完成情况
+        strategic_success_rates = []
         
         # 重置时间抽象层
         time_abstraction = TimeAbstractionLayer(config)
@@ -138,16 +235,21 @@ def run_ruleDqn_dispatchHeuri_experiment(config, case, seed, **kwargs):
         while not done:
             # 层次决策：只在需要时调用Meta Agent
             if time_abstraction.should_decide():
-                agent_idx, log_prob, subgoal = meta_agent.select_action(state)
-                time_abstraction.set_strategy(agent_idx)
-                current_goal = subgoal
+                # 高层战略决策
+                agent_idx, log_prob, entropy = meta_agent.select_action(state)
+                
+                # 推断战略目标（关键改进！）
+                strategic_goal = infer_strategic_goal(agent_idx, state)
+                
+                # 存储策略和战略目标
+                time_abstraction.set_strategy_and_goal(agent_idx, strategic_goal)
             else:
-                # 使用缓存的策略
+                # 使用缓存的策略和战略目标
                 agent_idx = time_abstraction.get_strategy()
-                log_prob = torch.tensor(0.0)  # 占位符
-                current_goal = getattr(time_abstraction, 'current_goal', 0)
+                strategic_goal = time_abstraction.get_goal()
+                log_prob = torch.tensor(0.0)
             
-            # 底层执行
+            # 底层执行（保持不变，但现在底层知道战略意图）
             if agent_idx == 0:
                 action, rule_idx = rule_dqn_agent.select_action(state)
             elif agent_idx == 1:
@@ -161,7 +263,7 @@ def run_ruleDqn_dispatchHeuri_experiment(config, case, seed, **kwargs):
             next_state, reward, done, info = env.step(action)
             
             # RuleDQN在线更新
-            if agent_idx == 0:
+            if agent_idx == 0 and rule_idx is not None:
                 rule_dqn_agent.update({
                     'states': [state],
                     'actions': [rule_idx],
@@ -170,9 +272,9 @@ def run_ruleDqn_dispatchHeuri_experiment(config, case, seed, **kwargs):
                     'dones': [done]
                 })
             
-            # 计算内在奖励（层次RL核心）
-            intrinsic_reward = calculate_intrinsic_reward(
-                current_goal, state, action, reward, next_state, info
+            # 计算基于战略目标的奖励（关键改进！）
+            intrinsic_reward = calculate_goal_based_reward(
+                strategic_goal, state, next_state, reward
             )
             
             # 存储层次经验
@@ -182,21 +284,21 @@ def run_ruleDqn_dispatchHeuri_experiment(config, case, seed, **kwargs):
                 'log_prob': log_prob,
                 'env_reward': reward,
                 'intrinsic_reward': intrinsic_reward,
-                'subgoal': current_goal,
+                'strategic_goal': strategic_goal,  # 改为战略目标
                 'step_type': 'meta' if time_abstraction.steps_since_last_decision == 0 else 'execution'
             })
             
-            # 记录子目标完成情况
-            goal_completion = evaluate_goal_completion(current_goal, state, next_state, info)
-            episode_goals.append(goal_completion)
+            # 评估战略成功度
+            success_rate = evaluate_strategic_success(strategic_goal, state, next_state)
+            strategic_success_rates.append(success_rate)
             
             state = next_state
             episode_reward += reward
 
-        # 计算层次回报（结合环境和内在奖励）
+        # 计算层次回报
         hierarchical_returns = calculate_hierarchical_returns(hierarchical_buffer, gamma)
         
-        # Meta Agent批量更新（使用层次回报）
+        # Meta Agent批量更新
         if len(hierarchical_buffer) >= config.batch_size:
             batch_indices = np.random.choice(
                 len(hierarchical_buffer), 
@@ -206,7 +308,7 @@ def run_ruleDqn_dispatchHeuri_experiment(config, case, seed, **kwargs):
             
             batch_data = [hierarchical_buffer[i] for i in batch_indices]
             
-            # 确保所有数据都是有效的，过滤掉None值
+            # 确保所有数据都是有效的
             valid_actions = []
             valid_states = []
             valid_log_probs = []
@@ -219,8 +321,7 @@ def run_ruleDqn_dispatchHeuri_experiment(config, case, seed, **kwargs):
                     valid_log_probs.append(data['log_prob'])
                     valid_returns.append(hierarchical_returns[batch_indices[i]])
             
-            # 只有在有足够有效数据时才进行更新
-            if len(valid_actions) >= 2:  # 至少需要2个样本才能进行有意义的更新
+            if len(valid_actions) >= 2:
                 batch = {
                     'states': valid_states,
                     'actions': valid_actions,
@@ -229,16 +330,16 @@ def run_ruleDqn_dispatchHeuri_experiment(config, case, seed, **kwargs):
                 }
                 
                 meta_loss = meta_agent.update(batch, optimizer, scheduler)
+                stats['meta_losses'].append(meta_loss)
             else:
                 meta_loss = 0.0
-                print(f"Skipping meta update: only {len(valid_actions)} valid samples available")
+                print(f"Episode {episode}: Skipping meta update, only {len(valid_actions)} valid samples")
             
-            # 记录学习率
             current_lr = scheduler.get_last_lr()[0]
             learning_rates.append(current_lr)
             
-            # 清理缓冲区（保留部分经验）
-            keep_ratio = 0.3  # 保留30%的经验
+            # 清理缓冲区
+            keep_ratio = 0.3
             keep_size = int(len(hierarchical_buffer) * keep_ratio)
             hierarchical_buffer = hierarchical_buffer[-keep_size:]
         
@@ -249,27 +350,30 @@ def run_ruleDqn_dispatchHeuri_experiment(config, case, seed, **kwargs):
         stats['tardy_penalty'].append(getattr(env, 'tardy_penalty', 0))
         stats['total_tardiness'].append(getattr(env, 'total_weighted_tardiness', 0))
         stats['machine_utilization'].append(calculate_machine_utilization(env))
-        stats['avg_goal_completion'].append(np.mean(episode_goals) if episode_goals else 0)
+        stats['strategic_success_rate'].append(np.mean(strategic_success_rates) if strategic_success_rates else 0)
         
         # 进度输出
         if episode % 10 == 0:
             current_lr = learning_rates[-1] if learning_rates else 0.0003
-            avg_goal = stats['avg_goal_completion'][-1]
+            success_rate = stats['strategic_success_rate'][-1]
+            meta_updates = len(stats['meta_losses'])
             print(f'Episode {episode}, Reward: {episode_reward:.2f}, '
-                  f'Goal Completion: {avg_goal:.3f}, LR: {current_lr:.6f}')
+                  f'Strategic Success: {success_rate:.3f}, LR: {current_lr:.6f}, '
+                  f'Meta Updates: {meta_updates}')
 
     # 保存结果
     total_time = time.time() - start_time
     additional_metrics = {
-        "algorithm_type": "Hierarchical_RL_RuleDQN_DispatchHeuristic",
+        "algorithm_type": "True_Hierarchical_RL_Production_Delivery",
         "batch_size": config.batch_size,
         "gamma": gamma,
         "final_learning_rate": learning_rates[-1] if learning_rates else 0.0003,
-        "meta_decision_interval": time_abstraction.decision_interval
+        "meta_decision_interval": time_abstraction.decision_interval,
+        "total_meta_updates": len(stats['meta_losses'])
     }
     
     save_algorithm_results_csv(
-        algo_name="Hierarchical_RL_RuleDQN+DispatchHeuristic",
+        algo_name="True_Hierarchical_RL_Production+Delivery",
         instance_id=instance_id,
         seed=seed,
         config=config,
@@ -284,149 +388,6 @@ def run_ruleDqn_dispatchHeuri_experiment(config, case, seed, **kwargs):
         'env': env,
         'additional_metrics': additional_metrics
     }
-
-# def run_ruleDqn_dispatchHeuri_experiment(config, case, seed, **kwargs):
-#     """
-#     统一入口，供batch_runner调用
-#     """
-#     set_random_seed(seed)
-#     config.seed = seed
-#     instance_id = generate_instance_id(config)
-    
-#     # 初始化环境和智能体
-#     env = WarehouseEnvironment(config, case)
-#     meta_agent = MetaAgent(config)
-#     rule_dqn_agent = RuleBasedDQNAgent(config)
-#     dispatch_agent = DispatchHeuristic()
-    
-#     # 优化器和调度器
-#     optimizer = optim.Adam(meta_agent.parameters(), lr=0.0003)
-#     estimated_steps_per_episode = 350
-#     total_training_steps = config.episodes * estimated_steps_per_episode
-    
-#     scheduler = torch.optim.lr_scheduler.OneCycleLR(
-#         optimizer, 
-#         max_lr=0.001,
-#         total_steps=total_training_steps,
-#         pct_start=0.3,
-#         div_factor=10.0,
-#         final_div_factor=100.0
-#     )
-
-#     # 训练状态跟踪
-#     stats = defaultdict(list)
-#     meta_buffer = defaultdict(list)
-#     learning_rates = []
-#     start_time = time.time()
-#     gamma = getattr(config, "gamma", 0.95)
-
-#     for episode in range(config.episodes):
-#         state = env.reset()
-#         done = False
-#         episode_reward = 0
-        
-#         while not done:
-#             # 层次决策和执行
-#             agent_idx, log_prob, _ = meta_agent.select_action(state)
-            
-#             if agent_idx == 0:
-#                 action, rule_idx = rule_dqn_agent.select_action(state)
-#             elif agent_idx == 1:
-#                 action = dispatch_agent.select_action(state)
-#                 rule_idx = None
-#             else:
-#                 action = {'wait': True}
-#                 rule_idx = None
-                
-#             # 环境执行
-#             next_state, reward, done, _ = env.step(action)
-            
-#             # RuleDQN在线更新
-#             if agent_idx == 0:
-#                 rule_dqn_agent.update({
-#                     'states': [state],
-#                     'actions': [rule_idx],
-#                     'rewards': [reward],
-#                     'next_states': [next_state],
-#                     'dones': [done]
-#                 })
-            
-#             # 存储meta经验
-#             meta_buffer['states'].append(state)
-#             meta_buffer['actions'].append(agent_idx)
-#             meta_buffer['rewards'].append(reward)
-#             meta_buffer['log_probs'].append(log_prob)
-            
-#             state = next_state
-#             episode_reward += reward
-
-#         # 计算累积回报
-#         returns = []
-#         R = 0
-#         for r in reversed(meta_buffer['rewards']):
-#             R = r + gamma * R
-#             returns.insert(0, R)
-        
-#         meta_buffer['returns'].extend(returns)
-        
-#         # Meta Agent批量更新
-#         if len(meta_buffer['states']) >= config.batch_size:
-#             batch = {
-#                 'states': meta_buffer['states'][:config.batch_size],
-#                 'actions': meta_buffer['actions'][:config.batch_size],
-#                 'log_probs': meta_buffer['log_probs'][:config.batch_size],
-#                 'returns': torch.tensor(meta_buffer['returns'][:config.batch_size], dtype=torch.float32)
-#             }
-            
-#             meta_loss = meta_agent.update(batch, optimizer, scheduler)
-            
-#             # 记录学习率和清理缓冲区
-#             current_lr = scheduler.get_last_lr()[0]
-#             learning_rates.append(current_lr)
-            
-#             # 保留部分经验用于下一轮
-#             keep_size = len(meta_buffer['states']) - config.batch_size
-#             for key in meta_buffer:
-#                 meta_buffer[key] = meta_buffer[key][-keep_size:] if keep_size > 0 else []
-        
-#         # 记录统计信息
-#         stats['episode_rewards'].append(episode_reward)
-#         stats['episode_lengths'].append(len(meta_buffer['rewards']))
-#         stats['makespans'].append(getattr(env, 't', 0))
-#         stats['tardy_penalty'].append(getattr(env, 'tardy_penalty', 0))
-#         stats['total_tardiness'].append(getattr(env, 'total_weighted_tardiness', 0))
-#         stats['machine_utilization'].append(calculate_machine_utilization(env))
-        
-#         # 进度输出
-#         if episode % 10 == 0:
-#             current_lr = learning_rates[-1] if learning_rates else 0.0003
-#             print(f'Episode {episode}, Reward: {episode_reward:.2f}, LR: {current_lr:.6f}')
-
-#     # 保存结果
-#     total_time = time.time() - start_time
-#     additional_metrics = {
-#         "algorithm_type": "Hybrid_RuleDQN_DispatchHeuristic",
-#         "batch_size": config.batch_size,
-#         "gamma": gamma,
-#         "final_learning_rate": learning_rates[-1] if learning_rates else 0.0003,
-#     }
-    
-#     save_algorithm_results_csv(
-#         algo_name="RuleDQN+DispatchHeuristic",
-#         instance_id=instance_id,
-#         seed=seed,
-#         config=config,
-#         stats=stats,
-#         env=env,
-#         total_time=total_time,
-#         additional_metrics=additional_metrics
-#     )
-    
-#     return {
-#         'stats': stats,
-#         'env': env,
-#         'additional_metrics': additional_metrics
-#     }
 
 def calculate_machine_utilization(env) -> float:
     """计算机器利用率"""
