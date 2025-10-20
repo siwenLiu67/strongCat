@@ -16,34 +16,27 @@ def analyze_strategic_context(state):
     """分析当前状态，为高层决策提供战略依据"""
     strategic_info = {}
     
-    try:
-        # 获取关键指标
-        machine_utilization = getattr(state, 'machine_utilization', 0.5)
-        completed_jobs = len(getattr(state, 'completed_jobs', []))
-        active_jobs = len(getattr(state, 'active_jobs', []))
-        total_tardiness = getattr(state, 'total_tardiness', 0)
-        
-        # 分析战略需求
-        strategic_info['needs_production'] = (
-            machine_utilization < 0.7 or  # 产能利用率低
-            active_jobs > completed_jobs   # 积压作业多
-        )
-        
-        strategic_info['needs_delivery'] = (
-            completed_jobs >= 5 or         # 完成作业积累较多
-            total_tardiness > 100          # 延误风险高
-        )
-        
-        strategic_info['should_wait'] = (
-            machine_utilization > 0.9 and  # 机器繁忙
-            completed_jobs < 3             # 完成作业少
-        )
-        
-    except AttributeError:
-        # 如果状态属性不存在，使用默认策略
-        strategic_info['needs_production'] = True
-        strategic_info['needs_delivery'] = False
-        strategic_info['should_wait'] = False
+    # 正确获取关键指标 - 使用字典访问
+    machine_utilization = state.get('machine_utilization', 0.5)
+    completed_jobs = len(state.get('completed_jobs', []))
+    active_jobs = len(state.get('available_jobs', []))
+    total_tardiness = state.get('total_tardiness', 0)
+    
+    # 分析战略需求
+    strategic_info['needs_production'] = (
+        machine_utilization < 0.7 or  # 产能利用率低
+        active_jobs > completed_jobs   # 积压作业多
+    )
+    
+    strategic_info['needs_delivery'] = (
+        completed_jobs >= 5 or         # 完成作业积累较多
+        total_tardiness > 100          # 延误风险高
+    )
+    
+    strategic_info['should_wait'] = (
+        machine_utilization > 0.9 and  # 机器繁忙
+        completed_jobs < 3             # 完成作业少
+    )
     
     return strategic_info
 
@@ -53,7 +46,8 @@ def infer_strategic_goal(agent_idx, state):
     
     if agent_idx == 0:  # 生产模式
         if strategic_info['needs_production']:
-            if getattr(state, 'machine_utilization', 0) < 0.7:
+            machine_utilization = state.get('machine_utilization', 0.5)
+            if machine_utilization < 0.7:
                 return "提高产能利用率"
             else:
                 return "处理作业积压"
@@ -62,10 +56,11 @@ def infer_strategic_goal(agent_idx, state):
             
     elif agent_idx == 1:  # 配送模式
         if strategic_info['needs_delivery']:
-            completed_count = len(getattr(state, 'completed_jobs', []))
+            completed_count = len(state.get('completed_jobs', []))
+            total_tardiness = state.get('total_tardiness', 0)
             if completed_count >= 8:
                 return "大批次经济派送"
-            elif getattr(state, 'total_tardiness', 0) > 100:
+            elif total_tardiness > 100:
                 return "紧急防延误派送"
             else:
                 return "常规积压清理"
@@ -82,42 +77,38 @@ def calculate_goal_based_reward(strategic_goal, prev_state, next_state, env_rewa
     """基于战略目标完成度的奖励"""
     intrinsic = 0.0
     
-    try:
-        if strategic_goal == "提高产能利用率":
-            prev_util = prev_state.machine_utilization
-            next_util = next_state.machine_utilization
-            intrinsic = max(0, next_util - prev_util) * 10.0
+    if strategic_goal == "提高产能利用率":
+        prev_util = prev_state.get('machine_utilization', 0.5)
+        next_util = next_state.get('machine_utilization', 0.5)
+        intrinsic = max(0, next_util - prev_util) * 20.0
             
-        elif strategic_goal == "处理作业积压":
-            prev_active = len(prev_state.active_jobs)
-            next_active = len(next_state.active_jobs)
-            intrinsic = max(0, prev_active - next_active) * 5.0
+    elif strategic_goal == "处理作业积压":
+        prev_active = len(prev_state.get('active_jobs', []))
+        next_active = len(next_state.get('active_jobs', []))
+        intrinsic = max(0, prev_active - next_active) * 5.0
             
-        elif strategic_goal == "大批次经济派送":
-            prev_completed = len(prev_state.completed_jobs)
-            next_completed = len(next_state.completed_jobs)
-            if prev_completed - next_completed >= 5:  # 大批次派送
-                intrinsic = 8.0
-            else:
-                intrinsic = 2.0
+    elif strategic_goal == "大批次经济派送":
+        prev_completed = len(prev_state.get('completed_jobs', []))
+        next_completed = len(next_state.get('completed_jobs', []))
+        if prev_completed - next_completed >= 5:  # 大批次派送
+            intrinsic = 8.0
+        else:
+            intrinsic = 2.0
                 
-        elif strategic_goal == "紧急防延误派送":
-            prev_tardiness = getattr(prev_state, 'total_tardiness', 0)
-            next_tardiness = getattr(next_state, 'total_tardiness', 0)
-            intrinsic = max(0, prev_tardiness - next_tardiness) * 0.5
+    elif strategic_goal == "紧急防延误派送":
+        prev_tardiness = prev_state.get('total_tardiness', 0)
+        next_tardiness = next_state.get('total_tardiness', 0)
+        intrinsic = max(0, prev_tardiness - next_tardiness) * 1.0
             
-        elif strategic_goal == "避免过度生产":
-            # 等待模式的奖励：避免在高压时增加负担
-            utilization = getattr(next_state, 'machine_utilization', 0.5)
-            if utilization > 0.9:
-                intrinsic = 3.0  # 正确等待
-            else:
-                intrinsic = -1.0  # 不必要等待
+    elif strategic_goal == "避免过度生产":
+        # 等待模式的奖励：避免在高压时增加负担
+        next_util = next_state.get('machine_utilization', 0.5)
+        if next_util > 0.9:
+            intrinsic = 3.0  # 正确等待
+        else:
+            intrinsic = -1.0  # 不必要等待
                 
-        else:  # 默认目标
-            intrinsic = env_reward * 0.1
-            
-    except AttributeError:
+    else:  # 默认目标
         intrinsic = env_reward * 0.1
     
     # 战略奖励权重较高，因为决策影响更大
@@ -135,33 +126,29 @@ def calculate_hierarchical_returns(buffer, gamma):
 
 def evaluate_strategic_success(strategic_goal, state, next_state):
     """评估战略目标完成度"""
-    try:
-        if strategic_goal == "提高产能利用率":
-            util = getattr(next_state, 'machine_utilization', 0)
-            return min(1.0, util)
+    if strategic_goal == "提高产能利用率":
+        next_util = next_state.get('machine_utilization', 0.5)
+        return min(1.0, next_util)
             
-        elif strategic_goal == "处理作业积压":
-            active_jobs = len(getattr(next_state, 'active_jobs', []))
-            return max(0, 1 - active_jobs / 20)  # 假设最大20个活跃作业
+    elif strategic_goal == "处理作业积压":
+        active_count = len(next_state.get('active_jobs', []))
+        return max(0, 1 - active_count / 20)  # 假设最大20个活跃作业
             
-        elif "派送" in strategic_goal:
-            completed = len(getattr(next_state, 'completed_jobs', []))
-            tardiness = getattr(next_state, 'total_tardiness', 0)
-            completion_score = min(1.0, completed / 15)  # 完成度
-            timeliness_score = max(0, 1 - tardiness / 500)  # 及时性
-            return (completion_score + timeliness_score) / 2
+    elif "派送" in strategic_goal:
+        completed_count = len(next_state.get('completed_jobs', []))
+        total_tardiness = next_state.get('total_tardiness', 0)
+        completion_score = min(1.0, completed_count / 15)  # 完成度
+        timeliness_score = max(0, 1 - total_tardiness / 500)  # 及时性
+        return (completion_score + timeliness_score) / 2
             
-        else:  # 等待模式
-            utilization = getattr(next_state, 'machine_utilization', 0.5)
-            return 0.8 if utilization > 0.85 else 0.3  # 高利用率时等待是成功的
-            
-    except AttributeError:
-        return 0.5
+    else:  # 等待模式
+        next_util = next_state.get('machine_utilization', 0.5)
+        return 0.8 if next_util > 0.85 else 0.3  # 高利用率时等待是成功的
 
 class TimeAbstractionLayer:
     """时间抽象层：控制Meta Agent的决策频率"""
     def __init__(self, config):
-        self.decision_interval = getattr(config, 'meta_decision_interval', 10)
+        self.decision_interval = config.meta_decision_interval
         self.steps_since_last_decision = 0
         self.current_strategy = None
         self.current_strategic_goal = "正常生产调度"  # 默认目标
@@ -221,7 +208,7 @@ def run_ruleDqn_dispatchHeuri_experiment(config, case, seed, **kwargs):
     hierarchical_buffer = []
     learning_rates = []
     start_time = time.time()
-    gamma = getattr(config, "gamma", 0.95)
+    gamma = config.gamma
 
     for episode in range(config.episodes):
         state = env.reset()
@@ -346,9 +333,9 @@ def run_ruleDqn_dispatchHeuri_experiment(config, case, seed, **kwargs):
         # 记录统计信息
         stats['episode_rewards'].append(episode_reward)
         stats['episode_lengths'].append(len(hierarchical_buffer))
-        stats['makespans'].append(getattr(env, 't', 0))
-        stats['tardy_penalty'].append(getattr(env, 'tardy_penalty', 0))
-        stats['total_tardiness'].append(getattr(env, 'total_weighted_tardiness', 0))
+        stats['makespans'].append(env.t)
+        stats['tardy_penalty'].append(env.tardy_penalty)
+        stats['total_tardiness'].append(env.total_weighted_tardiness)
         stats['machine_utilization'].append(calculate_machine_utilization(env))
         stats['strategic_success_rate'].append(np.mean(strategic_success_rates) if strategic_success_rates else 0)
         
@@ -392,7 +379,7 @@ def run_ruleDqn_dispatchHeuri_experiment(config, case, seed, **kwargs):
 def calculate_machine_utilization(env) -> float:
     """计算机器利用率"""
     makespan = env.t if env.t > 0 else 1
-    total_work_time = sum(getattr(m, 'total_busy_time', 0) for m in env.machines)
+    total_work_time = sum(m.total_busy_time for m in env.machines)
     total_available_time = makespan * len(env.machines)
     return total_work_time / total_available_time if total_available_time > 0 else 0.0
 

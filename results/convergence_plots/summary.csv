@@ -1,3 +1,3 @@
 instance_id,algorithm,num_runs,mean_of_mean_curve
-Small-0J10M15D,True_Hierarchical_RL_Production+Delivery,1,350.967278
-Small-40J10M15D,RuleDQN_DispatchHeuri,1,350.967278
+Small-0J10M15D,True_Hierarchical_RL_Production+Delivery,1,42.807885
+Small-40J10M15D,RuleDQN_DispatchHeuri,1,42.807885

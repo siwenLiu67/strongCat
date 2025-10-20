@@ -2,6 +2,8 @@ class Config:
     train_mode = True
     episodes =  100
     seeds = [42]
+
+    meta_decision_interval = 10  # 高层决策间隔（时间步数）
     
     # RL training parameters
     entropy_coef = 0.02  # Entropy regularization coefficient
