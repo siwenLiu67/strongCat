@@ -22,11 +22,11 @@ ACTION_DIM = 8  # 8种调度规则
 
 
 # 训练参数
-NUM_EPISODES =  1
-INIT_EPSILON = 1.0
-FINAL_EPSILON = 0.1
-EPS_ANNEAL_STEPS = 10000
-BATCH_SIZE = 32
+NUM_EPISODES =  20
+INIT_EPSILON = 0.9
+FINAL_EPSILON = 0.01
+EPS_ANNEAL_STEPS = 20000
+BATCH_SIZE = 128
 GAMMA = 0.99
 LR = 0.0005
 
@@ -137,10 +137,7 @@ class HierarchicalDQN(nn.Module):
         return self.meta_controller(state)
     
     def get_controller_q(self, state, subgoal):
-        print(f"state shape: {state.shape}")  # 应该是 [batch, 10]
-        print(f"subgoal shape: {subgoal.shape}")  # 应该是 [batch, 3]
         combined = torch.cat([state, subgoal], dim=1)
-        print(f"combined shape: {combined.shape}")  # 应该是 [batch, 13]
         return self.controller(combined)
 
     
@@ -496,6 +493,7 @@ class HierarchicalAgent:
                     goal_achieved = True
                 
                 F += extrinsic
+                total_extrinsic += extrinsic  # 累加总外在奖励
                 state = next_state
                 episode_steps += 1
                 self.steps_done += 1
@@ -536,10 +534,32 @@ def run_hierarchical_dqn_experiment(config, case, seed):
           f"Subgoal Success Rates: { {k: v['successes']/(v['attempts']+1e-5) for k, v in agent.subgoal_success.items()} }")
         episode_rewards.append(reward)
     
-    stats['episode_rewards'] = episode_rewards
+    # 计算总训练时间
+    total_time = time.time() - start_time
     
-    print(f"Training completed in {time.time() - start_time:.2f} seconds.")
+    # 构建 stats 字典，包含所有需要的指标
+    stats = {
+        'episode_rewards': episode_rewards,
+        'objective_value': -np.mean(episode_rewards),
+        'algorithm_type': 'HierarchicalDQN',
+        'total_tardiness': getattr(env, 'total_tardiness', 0.0),
+        'machine_utilization': getattr(env, 'machine_utilization', 0.0),
+        'final_makespan': getattr(env, 'makespan', 0.0),
+    }
+    
+    print(f"Training completed in {total_time:.2f} seconds.")
     print(f"all rewards: {episode_rewards}")
+    
+    # 调用保存函数存储实验结果
+    save_algorithm_results_csv(
+        algo_name="HierarchicalDQN",
+        instance_id=instance_id,
+        seed=seed,
+        config=config,
+        stats=stats,
+        env=env,
+        total_time=total_time
+    )
         
 if __name__ == "__main__":
     config = Config()
