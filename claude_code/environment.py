@@ -349,461 +349,78 @@ class WarehouseEnvironment:
 
         return boolean_condition
 
-    
-    # --- 重新设计的 _calculate_reward ---
-    # def _calculate_reward(self, action) -> float:
-    #     """
-    #     Per-step reward using deltas and normalized terms.
-    #     Returns a scalar reward (recommended range roughly [-5, +5]).
-    #     """
-    #     reward = 0.0
-    #     debug_info = {}
-    #     # 保存前一时刻的关键指标（确保 env 每步更新时记录 prev_*）
-    #     prev_tardiness = getattr(self, "prev_total_tardiness", 0)
-    #     prev_completed_count = getattr(self, "prev_completed_count", 0)
-    #     prev_utilization = getattr(self, "prev_utilization", 0.0)
-    #     prev_total_jobs = getattr(self, "prev_total_jobs", None)
-
-    #     # 当前指标
-    #     curr_tardiness = sum(max(0, job.dispatched_time - job.due_date) for job in self.completed_jobs)
-    #     curr_completed = len(self.completed_jobs)
-    #     curr_total_jobs = (len(self.completed_jobs) + len(self.available_jobs) + len(self.dispatched_jobs))
-    #     curr_util = self.calculate_machine_utilization()
-
-    #     # 1) tardiness delta (我们希望减小 tardiness -> 正向奖励 = - Δtardiness)
-    #     delta_tardiness = curr_tardiness - prev_tardiness
-    #     # 将 delta 正向化（减小 tardiness 为正，增加为负）
-    #     tardiness_signal = -delta_tardiness
-    #     # Clip 并缩放到合理区间
-    #     tardiness_term = np.clip(tardiness_signal / max(1.0, prev_total_jobs or curr_total_jobs), -2.0, 2.0)
-    #     reward += 1.5 * tardiness_term
-    #     debug_info['tardiness_term'] = float(tardiness_term)
-
-    #     # 2) completion delta: 每步完成作业数的奖励（通常 0 或正整数）
-    #     delta_completed = curr_completed - prev_completed_count
-    #     completion_term = np.clip(delta_completed, 0, 5)  # 防止批量完成导致极端值
-    #     reward += 1.0 * completion_term
-    #     debug_info['completion_term'] = int(delta_completed)
-
-    #     # 3) utilization change: 鼓励稳定较高利用率，但避免瞬时波动带来噪声
-    #     delta_util = curr_util - prev_utilization
-    #     util_term = np.clip(delta_util, -0.5, 0.5)  # 缩放
-    #     reward += 0.8 * util_term
-    #     debug_info['util_term'] = float(util_term)
-
-    #     # 4) delivery satisfaction: 使用归一化 0..1，但不要放大过度
-    #     delivery_satisfaction = self._calculate_delivery_satisfaction()  # assume 0..1
-    #     reward += 0.7 * (delivery_satisfaction - 0.5)  # 中心在0，范围[-0.35, +0.35]
-    #     debug_info['delivery_satisfaction'] = float(delivery_satisfaction)
-
-    #     # 5) small step penalty to encourage minimal steps (optional)
-    #     step_penalty = -0.01
-    #     reward += step_penalty
-    #     debug_info['step_penalty'] = step_penalty
-
-    #     # 6) job completion bonus (already counted by delta_completed; 若要额外加一个小奖励)
-    #     if delta_completed > 0:
-    #         reward += 0.2 * delta_completed
-    #         debug_info['job_completion_bonus'] = 0.2 * delta_completed
-
-    #     # Running normalization (可选，但推荐)
-    #     self._reward_stat.update(reward)
-    #     normalized_reward = self._reward_stat.normalize(reward)
-    #     # Clip normalized reward to avoid极端值
-    #     normalized_reward = float(np.clip(normalized_reward, -5.0, 5.0))
-
-    #     # 更新 prev_* （放在 end of step）
-    #     self.prev_total_tardiness = curr_tardiness
-    #     self.prev_completed_count = curr_completed
-    #     self.prev_utilization = curr_util
-    #     self.prev_total_jobs = curr_total_jobs
-
-    #     # 保存 debug（按需）
-    #     self.last_reward_debug = debug_info
-    #     self.last_raw_reward = reward
-
-    #     return normalized_reward
-
-
-    # def _calculate_reward(self, action) -> float:
-    #     """
-    #     Optimized reward function for stable convergence.
-    #     Focus on meaningful progress signals with reduced variance.
-    #     """
-    #     reward = 0.0
-    #     debug_info = {}
-        
-    #     # === 核心指标：当前状态 ===
-    #     curr_tardiness = sum(max(0, job.dispatched_time - job.due_date) 
-    #                         for job in self.completed_jobs)
-    #     curr_completed = len(self.completed_jobs)
-    #     curr_total_jobs = (len(self.completed_jobs) + 
-    #                     len(self.available_jobs) + 
-    #                     len(self.dispatched_jobs))
-    #     curr_util = self.calculate_machine_utilization()
-        
-    #     # === 前一状态（安全访问）===
-    #     prev_tardiness = getattr(self, "prev_total_tardiness", 0)
-    #     prev_completed = getattr(self, "prev_completed_count", 0)
-    #     prev_util = getattr(self, "prev_utilization", 0.0)
-        
-    #     # ============================================
-    #     # 1. 主要奖励：Tardiness 改善（稳定化处理）
-    #     # ============================================
-    #     if curr_total_jobs > 0:
-    #         # 使用归一化的 tardiness per job（减少绝对值波动）
-    #         curr_tardiness_norm = curr_tardiness / curr_total_jobs
-    #         prev_tardiness_norm = prev_tardiness / max(1, getattr(self, "prev_total_jobs", curr_total_jobs))
-            
-    #         # Delta 改善（平滑处理）
-    #         tardiness_improvement = prev_tardiness_norm - curr_tardiness_norm
-            
-    #         # 使用 tanh 压缩到 [-1, 1] 区间，减少极端值
-    #         tardiness_term = np.tanh(tardiness_improvement * 0.5)
-    #         reward += 2.0 * tardiness_term
-    #         debug_info['tardiness_term'] = float(tardiness_term)
-        
-    #     # ============================================
-    #     # 2. 完成作业奖励（平滑化）
-    #     # ============================================
-    #     delta_completed = curr_completed - prev_completed
-    #     if delta_completed > 0:
-    #         # 使用对数缩放避免批量完成时的尖峰
-    #         completion_reward = np.log1p(delta_completed)  # log(1 + x)
-    #         reward += 1.2 * completion_reward
-    #         debug_info['completion_reward'] = float(completion_reward)
-        
-    #     # ============================================
-    #     # 3. 利用率奖励（目标驱动）
-    #     # ============================================
-    #     # 目标利用率 0.85（避免过度优化到 1.0）
-    #     target_util = 0.85
-    #     util_distance = abs(curr_util - target_util)
-        
-    #     # 接近目标时给予奖励，远离时惩罚（平滑处理）
-    #     util_reward = -util_distance * 1.5
-    #     reward += util_reward
-    #     debug_info['util_reward'] = float(util_reward)
-        
-    #     # ============================================
-    #     # 4. 交付满意度（稳定贡献）
-    #     # ============================================
-    #     delivery_satisfaction = self._calculate_delivery_satisfaction()
-    #     # 直接使用 0-1 值，不做中心化（避免负奖励噪声）
-    #     reward += 0.8 * delivery_satisfaction
-    #     debug_info['delivery_satisfaction'] = float(delivery_satisfaction)
-        
-    #     # ============================================
-    #     # 5. 进度激励（防止停滞）
-    #     # ============================================
-    #     if curr_total_jobs > 0:
-    #         progress_ratio = curr_completed / curr_total_jobs
-    #         # 完成度越高，给予额外奖励（鼓励快速完成）
-    #         progress_bonus = progress_ratio * 0.5
-    #         reward += progress_bonus
-    #         debug_info['progress_bonus'] = float(progress_bonus)
-        
-    #     # ============================================
-    #     # 6. 时间效率惩罚（轻量级）
-    #     # ============================================
-    #     # 每步小惩罚，鼓励更快决策
-    #     time_penalty = -0.02
-    #     reward += time_penalty
-    #     debug_info['time_penalty'] = time_penalty
-        
-    #     # ============================================
-    #     # 最终处理：移除归一化，直接 Clip
-    #     # ============================================
-    #     # 原因：running normalization 在训练早期会引入非平稳性
-    #     raw_reward = reward
-    #     clipped_reward = float(np.clip(reward, -10.0, 10.0))
-        
-    #     # === 更新历史状态 ===
-    #     self.prev_total_tardiness = curr_tardiness
-    #     self.prev_completed_count = curr_completed
-    #     self.prev_utilization = curr_util
-    #     self.prev_total_jobs = curr_total_jobs
-        
-    #     # === 调试信息 ===
-    #     self.last_reward_debug = debug_info
-    #     self.last_raw_reward = raw_reward
-        
-    #     return clipped_reward
-
-
     def _calculate_reward(self, action) -> float:
-        """
-        More conservative reward design to prevent value explosion.
-        """
         reward = 0.0
         debug_info = {}
         
-        # === 当前指标 ===
-        curr_tardiness = sum(max(0, job.dispatched_time - job.due_date) 
-                            for job in self.completed_jobs)
-        curr_completed = len(self.completed_jobs)
-        curr_total_jobs = (len(self.completed_jobs) + 
-                        len(self.available_jobs) + 
-                        len(self.dispatched_jobs))
-        curr_util = self.calculate_machine_utilization()
+        total_jobs = len(self.completed_jobs) + len(self.available_jobs) + len(self.dispatched_jobs)
+        if total_jobs == 0:
+            return 0.0
         
-        # === 1. 小额基础奖励 ===
-        reward += 0.05  # 降低（原来 0.1）
+        # === 增量改进奖励（核心改进）===
         
-        # === 2. 完成作业奖励（降低系数）===
-        delta_completed = curr_completed - self.prev_completed_count
-        if delta_completed > 0:
-            completion_bonus = 2.0 * delta_completed  # 降低（原来 5.0）
-            reward += completion_bonus
-            debug_info['completion_bonus'] = completion_bonus
-            
-            # 准时完成加成（降低）
-            if curr_completed > 0:
-                on_time_jobs = sum(1 for job in self.completed_jobs 
-                                if job.dispatched_time <= job.due_date)
-                on_time_rate = on_time_jobs / curr_completed
-                on_time_bonus = 1.5 * on_time_rate * delta_completed  # 降低（原来 3.0）
-                reward += on_time_bonus
-                debug_info['on_time_bonus'] = on_time_bonus
+        # 1. 完成率增量奖励（鼓励持续进步）
+        current_completion_rate = len(self.completed_jobs) / total_jobs
+        prev_completion_rate = getattr(self, 'prev_completion_rate', 0)
+        completion_improvement = current_completion_rate - prev_completion_rate
         
-        # === 3. Tardiness 改善（保持）===
-        if curr_completed > 0 and self.prev_completed_count > 0:
-            curr_avg_tardiness = curr_tardiness / curr_completed
-            prev_avg_tardiness = self.prev_total_tardiness / self.prev_completed_count
-            
-            tardiness_improvement = prev_avg_tardiness - curr_avg_tardiness
-            if tardiness_improvement > 0:
-                reward += 1.0 * np.tanh(tardiness_improvement / 10.0)  # 降低（原来 2.0）
-                debug_info['tardiness_improvement'] = tardiness_improvement
+        if completion_improvement > 0:
+            # 使用指数奖励：小的持续改进 > 一次大的改进
+            completion_reward = 8.0 * (np.exp(completion_improvement * 3) - 1)  # 指数增长
+            reward += completion_reward
+            debug_info['completion_improvement'] = completion_reward
         
-        # === 4. 利用率（平滑处理）===
-        util_deviation = abs(curr_util - 0.85)
-        if util_deviation < 0.1:
-            reward += 0.3  # 在目标范围内
-        else:
-            reward -= 0.2 * util_deviation  # 温和惩罚
-        debug_info['util_deviation'] = util_deviation
+        # 2. 延误改善奖励（相对改进）
+        current_tardiness = sum(max(0, job.dispatched_time - job.due_date) for job in self.completed_jobs)
+        prev_tardiness = getattr(self, 'prev_tardiness', 0)
         
-        # === 5. 里程碑奖励（大幅降低）===
-        if curr_total_jobs > 0 and self.prev_total_jobs > 0:
-            progress = curr_completed / curr_total_jobs
-            prev_progress = self.prev_completed_count / self.prev_total_jobs
-            
-            milestone_bonus = 0.0
-            if prev_progress < 0.25 <= progress:
-                milestone_bonus = 2.0  # 大幅降低（原来 10.0）
-            elif prev_progress < 0.5 <= progress:
-                milestone_bonus = 3.0  # 大幅降低（原来 15.0）
-            elif prev_progress < 0.75 <= progress:
-                milestone_bonus = 4.0  # 大幅降低（原来 20.0）
-            elif prev_progress < 0.95 <= progress:
-                milestone_bonus = 5.0  # 大幅降低（原来 25.0）
-            
-            if milestone_bonus > 0:
-                reward += milestone_bonus
-                debug_info['milestone_bonus'] = milestone_bonus
+        if prev_tardiness > 0 and current_tardiness < prev_tardiness:
+            tardiness_improvement = (prev_tardiness - current_tardiness) / prev_tardiness  # 相对改进率
+            tardiness_reward = 6.0 * np.tanh(tardiness_improvement * 2)  # 压缩到合理范围
+            reward += tardiness_reward
+            debug_info['tardiness_improvement'] = tardiness_reward
         
-        # === 6. 交付满意度 ===
+        # 3. 里程碑奖励（防止后期饱和）
+        completion_milestone = len(self.completed_jobs)
+        if completion_milestone >= getattr(self, 'prev_milestone', 0) + 5:  # 每完成5个作业
+            milestone_bonus = 15.0
+            reward += milestone_bonus
+            self.prev_milestone = completion_milestone
+            debug_info['milestone_bonus'] = milestone_bonus
+        
+        # 4. 交付满意度（保持但调整权重）
         delivery_satisfaction = self._calculate_delivery_satisfaction()
-        reward += 0.5 * delivery_satisfaction  # 降低（原来 1.0）
-        debug_info['delivery_satisfaction'] = delivery_satisfaction
+        delivery_reward = 1.5 * delivery_satisfaction  # 降低权重
+        reward += delivery_reward
+        debug_info['delivery_reward'] = delivery_reward
         
-        # === 更严格的 Clip ===
-        clipped_reward = float(np.clip(reward, -5.0, 10.0))  # 缩小范围（原来 -20 到 50）
+        # 5. 利用率奖励（目标导向）
+        utilization = self.calculate_machine_utilization()
+        target_util = 0.8  # 提高目标
+        util_reward = 2.0 * np.exp(-((utilization - target_util) ** 2) / 0.1)  # 高斯奖励
+        reward += util_reward
+        debug_info['util_reward'] = util_reward
         
-        # === 更新状态 ===
-        self.prev_total_tardiness = curr_tardiness
-        self.prev_completed_count = curr_completed
-        self.prev_utilization = curr_util
-        self.prev_total_jobs = curr_total_jobs
+        # 6. 动作有效性奖励
+        if any(['schedule' in action, 'dispatch' in action]):
+            action_bonus = 0.3
+            reward += action_bonus
+            debug_info['action_bonus'] = action_bonus
         
-        self.last_reward_debug = debug_info
-        self.last_raw_reward = reward
+        # 基础奖励
+        reward += 1.0
+        debug_info['base_reward'] = 1.0
         
+        # 更新历史状态
+        self.prev_completion_rate = current_completion_rate
+        self.prev_tardiness = current_tardiness
+        
+        # 最终范围调整
+        clipped_reward = float(np.clip(reward, 0, 50))  # 确保奖励为正
+        
+        debug_info['final_reward'] = clipped_reward
         return clipped_reward
-    # def _calculate_reward(self, action) -> float:
-    #     """
-    #     Delta-based reward with proper state tracking.
-    #     Requires prev_* attributes initialized in __init__ and reset.
-    #     """
-    #     reward = 0.0
-    #     debug_info = {}
-        
-    #     # === 当前指标 ===
-    #     curr_tardiness = sum(max(0, job.dispatched_time - job.due_date) 
-    #                         for job in self.completed_jobs)
-    #     curr_completed = len(self.completed_jobs)
-    #     curr_total_jobs = (len(self.completed_jobs) + 
-    #                     len(self.available_jobs) + 
-    #                     len(self.dispatched_jobs))
-    #     curr_util = self.calculate_machine_utilization()
-        
-    #     # === 基础奖励 ===
-    #     reward += 0.1
-    #     debug_info['base_reward'] = 0.1
-        
-    #     # === 完成作业增量奖励 ===
-    #     delta_completed = curr_completed - self.prev_completed_count
-    #     if delta_completed > 0:
-    #         completion_bonus = 5.0 * delta_completed
-    #         reward += completion_bonus
-    #         debug_info['completion_bonus'] = completion_bonus
-            
-    #         # 准时完成加成
-    #         if curr_completed > 0:
-    #             on_time_jobs = sum(1 for job in self.completed_jobs 
-    #                             if job.dispatched_time <= job.due_date)
-    #             on_time_rate = on_time_jobs / curr_completed
-    #             on_time_bonus = 3.0 * on_time_rate * delta_completed
-    #             reward += on_time_bonus
-    #             debug_info['on_time_bonus'] = on_time_bonus
-        
-    #     # === Tardiness 改善 ===
-    #     if curr_completed > 0 and self.prev_completed_count > 0:
-    #         curr_avg_tardiness = curr_tardiness / curr_completed
-    #         prev_avg_tardiness = self.prev_total_tardiness / self.prev_completed_count
-            
-    #         tardiness_improvement = prev_avg_tardiness - curr_avg_tardiness
-    #         if tardiness_improvement > 0:
-    #             reward += 2.0 * np.tanh(tardiness_improvement / 10.0)
-    #             debug_info['tardiness_improvement'] = tardiness_improvement
-        
-    #     # === 利用率引导 ===
-    #     if curr_util < 0.5:
-    #         reward -= 0.5 * (0.5 - curr_util)
-    #     elif curr_util > 0.95:
-    #         reward -= 0.3 * (curr_util - 0.95)
-    #     else:
-    #         reward += 0.2
-        
-    #     # === 进度里程碑 ===
-    #     if curr_total_jobs > 0 and self.prev_total_jobs > 0:
-    #         progress = curr_completed / curr_total_jobs
-    #         prev_progress = self.prev_completed_count / self.prev_total_jobs
-            
-    #         if prev_progress < 0.25 <= progress:
-    #             reward += 10.0
-    #         elif prev_progress < 0.5 <= progress:
-    #             reward += 15.0
-    #         elif prev_progress < 0.75 <= progress:
-    #             reward += 20.0
-    #         elif prev_progress < 0.95 <= progress:
-    #             reward += 25.0
-        
-    #     # === 交付满意度 ===
-    #     delivery_satisfaction = self._calculate_delivery_satisfaction()
-    #     reward += 1.0 * delivery_satisfaction
-    #     debug_info['delivery_satisfaction'] = delivery_satisfaction
-        
-    #     # === Clip ===
-    #     clipped_reward = float(np.clip(reward, -20.0, 50.0))
-        
-    #     # === 更新历史状态 ===
-    #     self.prev_total_tardiness = curr_tardiness
-    #     self.prev_completed_count = curr_completed
-    #     self.prev_utilization = curr_util
-    #     self.prev_total_jobs = curr_total_jobs
-        
-    #     self.last_reward_debug = debug_info
-    #     self.last_raw_reward = reward
-        
-    #     return clipped_reward
-
-    # def _calculate_reward(self, action) -> float:
-    #     reward = 0.0
-    #     debug_info = {}
-        
-    #     # 1. 核心业务目标奖励（权重最高）
-    #     # 延误惩罚 - 使用线性惩罚
-    #     current_tardiness = sum(max(0, job.dispatched_time - job.due_date) 
-    #                         for job in self.completed_jobs)
-    #     tardiness_penalty = -0.1 * current_tardiness  # 每单位延误惩罚0.1
-    #     reward += tardiness_penalty
-    #     debug_info['tardiness_penalty'] = tardiness_penalty
-        
-    #     # 2. 配送要求满足度
-    #     delivery_satisfaction = self._calculate_delivery_satisfaction()
-    #     reward += 0.3 * delivery_satisfaction
-    #     debug_info['delivery_satisfaction'] = 0.3 * delivery_satisfaction
-        
-    #     # 3. 资源利用率
-    #     utilization = self.calculate_machine_utilization()
-    #     reward += 0.2 * utilization
-    #     debug_info['utilization'] = 0.2 * utilization
-        
-    #     # 4. 进度推进（避免停滞）
-    #     if any(['schedule' in action, 'dispatch' in action]):
-    #         reward += 0.1  # 小奖励鼓励采取行动
-    #         debug_info['action_encouragement'] = 0.1
-        
-    #     # 5. 大事件奖励（稀疏但重要）
-    #     if self.job_completed_this_step:
-    #         reward += 0.5
-    #         debug_info['job_completion'] = 0.5
-        
-    #     debug_info['final_reward'] = reward
-    #     return reward
-
-    # --- reward normalizer （放在 env 初始化时创建一次） ---
-
-
-    # def _calculate_reward(self, action) -> float:
-    #     reward = 0.0
-    #     debug_info = {}
-        
-    #     total_jobs = len(self.completed_jobs) + len(self.available_jobs) + len(self.dispatched_jobs)
-    #     if total_jobs == 0:
-    #         return 0.0
-        
-    #     # 1. 延误率惩罚（归一化到0-1范围）
-    #     if self.completed_jobs:
-    #         total_possible_tardiness = sum(job.due_date for job in self.completed_jobs)
-    #         current_tardiness = sum(max(0, job.dispatched_time - job.due_date) 
-    #                             for job in self.completed_jobs)
-    #         tardiness_ratio = current_tardiness / max(1, total_possible_tardiness)
-    #         tardiness_penalty = -1.0 * min(tardiness_ratio, 1.0)  # 限制在[-1, 0]
-    #     else:
-    #         tardiness_penalty = 0.0
-        
-    #     reward += tardiness_penalty
-    #     debug_info['tardiness_penalty'] = tardiness_penalty
-        
-    #     # 2. 配送满足度奖励（0-1范围）
-    #     delivery_satisfaction = self._calculate_delivery_satisfaction()
-    #     delivery_reward = 2.0 * delivery_satisfaction  # 显著增加权重
-    #     reward += delivery_reward
-    #     debug_info['delivery_reward'] = delivery_reward
-        
-    #     # 3. 完成率奖励
-    #     completion_rate = len(self.completed_jobs) / total_jobs
-    #     completion_reward = 1.5 * completion_rate
-    #     reward += completion_reward
-    #     debug_info['completion_reward'] = completion_reward
-        
-    #     # 4. 资源利用率奖励
-    #     utilization = self.calculate_machine_utilization()
-    #     utilization_reward = 1.0 * utilization
-    #     reward += utilization_reward
-    #     debug_info['utilization_reward'] = utilization_reward
-        
-    #     # 5. 增量奖励
-    #     if self.job_completed_this_step:
-    #         reward += 0.8
-    #         debug_info['job_completion_bonus'] = 0.8
-        
-    #     if any(['schedule' in action, 'dispatch' in action]):
-    #         reward += 0.2
-    #         debug_info['action_bonus'] = 0.2
-        
-    #     # 6. 基础生存奖励（确保不为过负）
-    #     reward += 0.5
-    #     debug_info['base_reward'] = 0.5
-        
-    #     debug_info['final_reward'] = reward
-        
-    #     # 奖励范围应该在 [-1, 5] 左右，而不是 [-12000, -4000]
-    #     return reward
-
+   
     def _calculate_delivery_satisfaction(self):
         """计算配送要求满足度，返回0-1之间的值"""
         total_satisfaction = 0
@@ -835,109 +452,7 @@ class WarehouseEnvironment:
             total_requirements += 1
         
         return total_satisfaction / total_requirements if total_requirements > 0 else 0
-    # def _calculate_reward(self, action) -> float:
-    #     reward = 0.0
-    #     debug_info = {}
-    
-    #     # 基础动作奖励
-    #     if 'wait' in action:
-    #         reward -= 1.0  # 增加等待动作的惩罚
-    #         debug_info['wait_penalty'] = -1.0
-    #     elif 'schedule' in action:
-    #         reward += 0.2  # 增加调度动作的奖励
-    #         debug_info['schedule_base'] = 0.2
-    #     elif 'dispatch' in action:
-    #         reward += 0.4  # 增加配送动作的奖励
-    #         debug_info['dispatch_base'] = 0.4
-    
-    #     # 调度质量奖励
-    #     if 'schedule' in action:
-    #         utilization = self.calculate_machine_utilization()
-    #         reward += 0.1 * utilization
-    #         debug_info['utilization'] = 0.1 * utilization
-    
-    #         job_progress = self.calculate_operation_progress_ratio()
-    #         reward += 0.3 * job_progress  # 增加作业推进奖励
-    #         debug_info['job_progress'] = 0.3 * job_progress
-    
-    #         load_balance = self.calculate_machine_load_variance()
-    #        # reward -= 0.5 * load_balance
-    #         debug_info['load_balance_penalty'] = -0.5 * load_balance
-    
-    #     # 配送质量奖励
-    #     if 'dispatch' in action:
-    #         reward += 0.5 # 增加配送动作的奖励
-    #         debug_info['dispatch_reward'] = 0.5
-
-    #     # 计算作业延误（只计算一次，避免重复计算）
-    #     current_tardiness = 0
-    #     for job in self.completed_jobs:
-    #         tardiness = max(0, job.dispatched_time - job.due_date)
-    #         current_tardiness += tardiness
-    #         debug_info[f'job_{job.job_id}_tardiness'] = -tardiness
-        
-    #     # 更新总延误（避免重复累加）
-    #     self.total_weighted_tardiness = current_tardiness
-    #     # 归一化total_weighted_tardiness
-    #     reward += 1/(1 + self.total_weighted_tardiness)
-        
-    #     # 计算分段配送时间要求延迟成本（只计算配送商要求的惩罚，不重复计算作业延误）
-    #     current_tardy_penalty = 0
-    #     for distributor in self.distributors:
-    #         if distributor.calculated:
-    #             continue
-    #         max_due_time = max(distributor.delivery_requirements.due_times) if distributor.delivery_requirements else float('inf')
-    #         if max_due_time < self.t:
-    #             # 计算每个配送商的延迟成本
-    #             requirement = distributor.delivery_requirements
-    #             for due_time, ratio, weight in zip(requirement.due_times, requirement.ratios, requirement.weights):
-    #                 # 在这个due_time之前完成的作业
-    #                 completed_jobs = [j for j in self.completed_jobs if j.dispatched_time <= due_time]
-    #                 completed_amount = sum(j.amount for j in completed_jobs)
-    #                 required_amount = ratio * distributor.total_amount
-    #                 distributor.calculated = True
-    #                 if completed_amount < required_amount:
-    #                     penalty = (required_amount - completed_amount) * weight
-    #                     penalty_reward = (required_amount - completed_amount)/required_amount * weight
-    #                     reward -= penalty_reward
-    #                     debug_info[f'distributor_{distributor.distributor_id}_due_time_{due_time}'] = -penalty
-    #                     current_tardy_penalty += penalty
-    #                 else:
-    #                     debug_info[f'distributor_{distributor.distributor_id}_due_time_{due_time}'] = 0
-    #                     #reward +=  (completed_amount - required_amount)  # 按时完成奖励
-        
-    #     # 更新配送时间要求惩罚（避免重复累加）
-    #     self.tardy_penalty = current_tardy_penalty
-
-            
-            
-    #     # 即时操作奖励
-    #     if self.operation_completed_this_step:
-    #         reward += 0.5  # 增加工序完成奖励
-    #         debug_info['operation_complete'] = 0.5
-    
-    #     if self.job_completed_this_step:
-    #         reward += 0.8  # 增加作业完成奖励
-    #         debug_info['job_complete'] = 0.8
-
-    #     # 如果有作业被配送，增加奖励
-    #     if self.job_dispatching_this_step:
-    #         reward += 1.0  # 增加作业配送奖励
-    #         debug_info['job_dispatching'] = 2.0
-
-    #     if self.job_dispatched_this_step:
-    #         reward += 1.0  # 增加作业配送奖励
-    #         debug_info['job_dispatched'] = 1.0
-    
-    #     # 不限制奖励范围
-    #     final_reward = reward
-    #     debug_info['final_reward'] = final_reward
-    
-    #     # 只在训练模式下显示详细的奖励分解（避免过多日志输出）
-    #     if hasattr(self.config, 'train_mode') and self.config.train_mode:
-    #         print("Reward breakdown:", debug_info)
-    #     return final_reward
-    
+ 
 
     def calculate_machine_utilization(self) -> float:
         """计算机器利用率"""

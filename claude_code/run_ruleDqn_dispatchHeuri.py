@@ -11,6 +11,7 @@ from high_level_agent import HighLevelAgent as MetaAgent
 from case_generator import FlexibleJobShopScenario
 from config import Config
 from algorithm_results_saver import save_algorithm_results_csv, generate_instance_id, set_random_seed
+from convergence_monitor import ConvergenceMonitor, TrainingVisualizer
 
 def analyze_strategic_context(state):
     """分析当前状态，为高层决策提供战略依据"""
@@ -150,7 +151,7 @@ class TimeAbstractionLayer:
     def __init__(self, config):
         self.decision_interval = config.meta_decision_interval
         self.steps_since_last_decision = 0
-        self.current_strategy = None
+        self.current_strategy = 0
         self.current_strategic_goal = "正常生产调度"  # 默认目标
         
     def should_decide(self):
@@ -174,7 +175,7 @@ class TimeAbstractionLayer:
 
 def run_ruleDqn_dispatchHeuri_experiment(config, case, seed, **kwargs):
     """
-    改进的层次强化学习版本 - 最小改动但真正实现层次RL
+    改进的层次强化学习版本 - 集成收敛检测系统
     """
     set_random_seed(seed)
     config.seed = seed
@@ -189,19 +190,22 @@ def run_ruleDqn_dispatchHeuri_experiment(config, case, seed, **kwargs):
     # 添加时间抽象层
     time_abstraction = TimeAbstractionLayer(config)
     
-    # 优化器和调度器
-    optimizer = optim.Adam(meta_agent.parameters(), lr=0.0003)
-    estimated_steps_per_episode = 350
+    # 优化器和调度器 - 收敛优化配置
+    optimizer = optim.Adam(meta_agent.parameters(), lr=config.learning_rate, weight_decay=1e-5)
+    estimated_steps_per_episode = 300
     total_training_steps = config.episodes * estimated_steps_per_episode
     
+    # 增强的学习率调度器 - 收敛优化配置
     scheduler = torch.optim.lr_scheduler.OneCycleLR(
         optimizer, 
-        max_lr=0.001,
+        max_lr=config.learning_rate * 1.5,  # 适当的最大学习率
         total_steps=total_training_steps,
-        pct_start=0.3,
-        div_factor=10.0,
-        final_div_factor=100.0
+        pct_start=0.3,  # 适中的预热阶段
+        div_factor=20.0,  # 合理的下降因子
+        final_div_factor=100.0,  # 合理的最终下降
+        anneal_strategy='cos'  # 使用余弦退火
     )
+    
 
     # 训练状态跟踪
     stats = defaultdict(list)
@@ -209,13 +213,15 @@ def run_ruleDqn_dispatchHeuri_experiment(config, case, seed, **kwargs):
     learning_rates = []
     start_time = time.time()
     gamma = config.gamma
+    
 
     for episode in range(config.episodes):
         state = env.reset()
         done = False
         episode_reward = 0
         strategic_success_rates = []
-        
+    
+    
         # 重置时间抽象层
         time_abstraction = TimeAbstractionLayer(config)
         
@@ -316,8 +322,21 @@ def run_ruleDqn_dispatchHeuri_experiment(config, case, seed, **kwargs):
                     'returns': torch.tensor(valid_returns, dtype=torch.float32)
                 }
                 
+                # 梯度裁剪和稳定性监控 - 收敛优化
+                torch.nn.utils.clip_grad_norm_(meta_agent.parameters(), max_norm=0.8)
+                
                 meta_loss = meta_agent.update(batch, optimizer, scheduler)
                 stats['meta_losses'].append(meta_loss)
+                
+                # 计算梯度范数
+                total_norm = 0.0
+                for p in meta_agent.parameters():
+                    if p.grad is not None:
+                        param_norm = p.grad.data.norm(2)
+                        total_norm += param_norm.item() ** 2
+                grad_norm = total_norm ** 0.5
+                stats['gradient_norms'].append(grad_norm)
+                print(f"Episode {episode}: Meta Loss = {meta_loss:.4f}, Grad Norm = {grad_norm:.4f}")
             else:
                 meta_loss = 0.0
                 print(f"Episode {episode}: Skipping meta update, only {len(valid_actions)} valid samples")
@@ -338,15 +357,6 @@ def run_ruleDqn_dispatchHeuri_experiment(config, case, seed, **kwargs):
         stats['total_tardiness'].append(env.total_weighted_tardiness)
         stats['machine_utilization'].append(calculate_machine_utilization(env))
         stats['strategic_success_rate'].append(np.mean(strategic_success_rates) if strategic_success_rates else 0)
-        
-        # 进度输出
-        if episode % 10 == 0:
-            current_lr = learning_rates[-1] if learning_rates else 0.0003
-            success_rate = stats['strategic_success_rate'][-1]
-            meta_updates = len(stats['meta_losses'])
-            print(f'Episode {episode}, Reward: {episode_reward:.2f}, '
-                  f'Strategic Success: {success_rate:.3f}, LR: {current_lr:.6f}, '
-                  f'Meta Updates: {meta_updates}')
 
     # 保存结果
     total_time = time.time() - start_time
@@ -388,6 +398,7 @@ def main():
     seed = 42
     set_random_seed(seed)
     config = Config()
+    config.episodes = 2
     case = FlexibleJobShopScenario(config=config)
     result = run_ruleDqn_dispatchHeuri_experiment(config, case, seed)
     print("实验完成，结果已保存。")
