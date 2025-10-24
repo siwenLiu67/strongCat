@@ -328,7 +328,7 @@ def main():
     agent = PPOAgent(state_dim, action_dim, config)
     
     # 训练参数
-    episodes = 100
+    episodes = 50
     stats = defaultdict(list)
     
     print(f"\n开始PPO训练 {episodes} episodes...")
@@ -432,6 +432,7 @@ def main():
     print(f"平均派遣作业数: {np.mean(stats['dispatched_jobs']):.2f}")
     print(f"结果已保存至: ppo_results.pkl")
     print(f"模型已保存至: ppo_model.pth")
+    print(f"reward值序列: {stats['episode_rewards']}")
 
 
 def test_trained_model():

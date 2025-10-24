@@ -1,6 +1,6 @@
 class Config:
     train_mode = True
-    episodes = 1  # 增加训练轮次，提供更多收敛机会
+    episodes = 200  # 增加训练轮次，提供更多收敛机会
     seeds = [42]
 
     meta_decision_interval = 10  # 高层决策间隔（时间步数）
@@ -34,7 +34,7 @@ class Config:
     min_improvement = 0.01  # 降低最小改进阈值
     
     # DQN相关配置
-    epsilon_start = 0.8
+    epsilon_start = 0.9 
     epsilon_end = 0.05
     epsilon_decay = 0.995
     target_update_frequency = 100
@@ -44,7 +44,7 @@ class Config:
     num_machines = 2
     num_distributors = 2
     min_operations = 1
-    max_operations = 20
+    max_operations = 1
     min_machines_per_op = 1
     max_machines_per_op = 5
     min_processing_time = 1

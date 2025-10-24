@@ -368,6 +368,7 @@ def main():
     print(f"平均派遣作业数: {np.mean(stats['dispatched_jobs']):.2f}")
     print(f"结果已保存至: dqn_results.pkl")
     print(f"模型已保存至: dqn_model.pth")
+    print(f"reward值序列: {stats['episode_rewards']}")
 
     # 统计总步数（用于 time_per_step）
     steps_sum = int(np.sum(stats['episode_lengths'])) if len(stats['episode_lengths']) > 0 else 0

@@ -22,13 +22,13 @@ ACTION_DIM = 8  # 8种调度规则
 
 
 # 训练参数
-NUM_EPISODES =  20
+NUM_EPISODES = 20
 INIT_EPSILON = 0.9
-FINAL_EPSILON = 0.01
-EPS_ANNEAL_STEPS = 20000
+FINAL_EPSILON = 0.05
+EPS_ANNEAL_STEPS = NUM_EPISODES*0.8
 BATCH_SIZE = 128
 GAMMA = 0.99
-LR = 0.0005
+LR = 0.00005
 
 class InternalCritic:
     """内部评判器，生成内在奖励"""
@@ -47,69 +47,31 @@ class InternalCritic:
     def _evaluate_production_goal(self, state):
         """评估生产优化子目标达成度"""
         # 关键指标：机器利用率、作业完成率、调度效率
-        machine_utilization = state['machine_utilization']
+      #  machine_utilization = state['machine_utilization']
         completed_jobs = len(state['completed_jobs'])
-        active_jobs = len(state['available_jobs'])
+      #  active_jobs = len(state['available_jobs'])
         
         # 计算生产效率得分
-        utilization_score = min(1.0, machine_utilization / 0.8)  # 目标80%利用率
-        completion_rate = completed_jobs / max(1, completed_jobs + active_jobs)
+      #  utilization_score = min(1.0, machine_utilization / 0.8)  # 目标80%利用率
+        completion_rate = completed_jobs / (self.config.num_initial_jobs + self.config.num_dynamic_jobs)
         
         # 综合生产得分
-        production_score = (utilization_score * 0.6 + completion_rate * 0.4)
-        return production_score * 5.0  # 放大奖励
+     #   production_score = (utilization_score * 0.6 + # completion_rate * 0.4)
+        return completion_rate  # 放大奖励
     
     def _evaluate_delivery_goal(self, state):
-        """评估配送效率子目标达成度"""
-        # 关键指标：配送及时性、批次效率、延误成本
-        completed_jobs = state['completed_jobs']
         dispatched_jobs = state['dispatched_jobs']
-        current_time = state['current_time']
-        
-        if not completed_jobs:
+        if not dispatched_jobs:
             return 0.0
-        
-        # 计算平均延误
-        total_tardiness = sum(max(0, current_time - j.due_date) for j in completed_jobs)
-        avg_tardiness = total_tardiness / len(completed_jobs)
-        
-        # 计算配送效率（完成作业数量）
-        delivery_efficiency = min(1.0, len(dispatched_jobs) / len(completed_jobs))  
-        
-        # 延误惩罚（越小越好）
-        tardiness_penalty = max(0, 1 - avg_tardiness / 100.0)  # 假设最大容忍100时间单位
-        
-        delivery_score = (delivery_efficiency * 0.7 + tardiness_penalty * 0.3)
-        return delivery_score * 5.0
+        total_tardiness = sum(max(0, j.dispatched_time - j.due_date) for j in dispatched_jobs)
+        avg_tardiness = total_tardiness / len(dispatched_jobs)
+        return 1.0 / (1.0 + avg_tardiness)  # 小延迟 -> 奖励接近1
+
     
     def _evaluate_balancing_goal(self, state):
         """评估系统平衡子目标达成度"""
         # 关键指标：系统负载均衡、资源分配、避免瓶颈
-        machines = state.get('machines', [])
-        jobs = state.get('available_jobs', [])
-        
-        if not machines:
-            return 0.0
-        
-        # 计算机器负载均衡度
-        machine_loads = [m.remaining_time for m in machines]
-        load_std = np.std(machine_loads) if machine_loads else 0
-        load_balance = max(0, 1 - load_std / self.config.max_processing_time)
-        
-        # 计算作业等待均衡度
-        if jobs:
-            wait_times = [getattr(j, 'waiting_time', 0) for j in jobs]
-            wait_std = np.std(wait_times)
-            wait_balance = max(0, 1 - wait_std / 50.0)  # 假设最大容忍50时间单位
-        else:
-            wait_balance = 1.0
-        
-        # 系统压力指标（避免过度拥挤）
-        system_pressure = len(jobs) / max(1, len(machines) * 3)  # 假设每台机器最多处理3个作业
-        pressure_score = max(0, 1 - system_pressure)
-        
-        balancing_score = (load_balance * 0.4 + wait_balance * 0.3 + pressure_score * 0.3)
-        return balancing_score * 3.0  # 平衡目标奖励相对较小
+        return state['machine_utilization']   # 平衡目标奖励相对较小
 
 
 class HierarchicalDQN(nn.Module):
@@ -168,6 +130,8 @@ class HierarchicalAgent:
         self.epsilon_end = 0.90
         self.epsilon_decay = 10000
         self.count = 0
+        self.loss_list = []
+        self.meta_loss_list = []
         
         # 子目标跟踪
         self.subgoal_success = defaultdict(lambda: {'attempts': 0, 'successes': 0})
@@ -241,8 +205,10 @@ class HierarchicalAgent:
             mask[1] = False
        
         # 如果没有可调度作业，禁用调度动作
-        if not state['available_jobs'] or not(getattr(j, 'status') in ['waiting'] for j in state['available_jobs']):
+        jobs = state.get('available_jobs', [])
+        if not jobs or not any(getattr(j, 'status', None) == 'waiting' for j in jobs):
             mask[0] = False
+
         
         # 只要有空闲机器且有可调度作业，就允许schedule
         if not state['machines'] or all(m.remaining_time > 0 for m in state['machines']):
@@ -297,6 +263,7 @@ class HierarchicalAgent:
         elif subgoal == 1:
             # 使用DispatchHeuristic进行配送决策
             action = self.dispatch_agent.select_action(state)
+            self.last_rule_idx = 7  # 假设7代表配送规则
             return action
         
         else:
@@ -382,10 +349,6 @@ class HierarchicalAgent:
                 # 选择Q值最大的动作
                 action = masked_q_values.argmax().item()
         
-        # 更新epsilon
-        self.epsilon_meta = max(FINAL_EPSILON, 
-                          self.epsilon_meta * (EPS_ANNEAL_STEPS / NUM_EPISODES))
-        
         # 返回动作和占位符（保持接口兼容）
         self.last_action = action
         return action
@@ -396,25 +359,22 @@ class HierarchicalAgent:
             batch = random.sample(self.D1, BATCH_SIZE)
             states, subgoals, actions, rewards, next_states = zip(*batch)
             
-            # 将状态字典转换为特征向量
-            state_features = [self._get_state(state) for state in states]
-            next_state_features = [self._get_state(state) for state in next_states]
-        
-            # 转换为张量 - 确保数据类型正确
-            states = torch.FloatTensor(np.vstack(state_features))
-            subgoals = torch.FloatTensor(np.vstack(subgoals))
-            rewards = torch.FloatTensor(rewards)
-            next_states = torch.FloatTensor(np.vstack(next_state_features))
+            state_features = torch.stack([self._build_features(state, self.config).squeeze(0) for state in states])
+            next_state_features = torch.stack([self._build_features(state, self.config).squeeze(0) for state in next_states])
             
-            # 简化：使用固定的动作索引（因为底层智能体已经处理了动作选择）
-            actions_tensor = torch.zeros(BATCH_SIZE, dtype=torch.long)
+            subgoals_tensor = torch.FloatTensor(np.vstack(subgoals))
+            rewards_tensor = torch.FloatTensor(rewards)
             
-            current_q = self.net.get_controller_q(states, subgoals).gather(1, actions_tensor.unsqueeze(1))
+            actions_tensor = torch.LongTensor(actions)
+            
+            current_q = self.net.get_controller_q(state_features, subgoals_tensor).gather(1, actions_tensor.unsqueeze(1))
+            
             with torch.no_grad():
-                next_q = self.target_net.get_controller_q(next_states, subgoals).max(1)[0]
-                target = rewards + GAMMA * next_q
+                next_q = self.target_net.get_controller_q(next_state_features, subgoals_tensor).max(1)[0]
+                target = rewards_tensor + GAMMA * next_q
             
             loss = nn.MSELoss()(current_q.squeeze(), target)
+            self.loss_list.append(loss.item())
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -439,27 +399,46 @@ class HierarchicalAgent:
                 target = F + GAMMA * next_q
             
             loss = nn.MSELoss()(current_q, target)
+            self.meta_loss_list.append(loss.item())
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
         
         # 更新目标网络
-        if self.steps_done % 1000 == 0:
+        if self.count % 20 == 0:
             self.target_net.load_state_dict(self.net.state_dict())
         self.count += 1
 
     def anneal_epsilon(self, episode):
-        # Meta-Controller退火
-        self.epsilon_meta = max(FINAL_EPSILON, INIT_EPSILON - 
-                               (INIT_EPSILON - FINAL_EPSILON) * episode / NUM_EPISODES)
+        """标准的epsilon退火策略"""
         
-        # Controller自适应退火
+        # 1. Meta-Controller: 标准指数退火
+        if EPS_ANNEAL_STEPS > 0:
+            # 线性衰减到指定步数，然后保持最小值
+            progress = min(1.0, episode / EPS_ANNEAL_STEPS)
+            self.epsilon_meta = INIT_EPSILON - (INIT_EPSILON - FINAL_EPSILON) * progress
+
+        else:
+            # 基于总episode数的指数退火
+            decay_rate = (FINAL_EPSILON / INIT_EPSILON) ** (1.0 / max(1, NUM_EPISODES))
+            self.epsilon_meta = max(FINAL_EPSILON, INIT_EPSILON * (decay_rate ** episode))
+        
+        # 2. Controller: 基于成功率的自适应退火
         for g in range(SUBGOAL_DIM):
             attempts = self.subgoal_success[g]['attempts']
             successes = self.subgoal_success[g]['successes']
-            if attempts > 0:
+            
+            if attempts >= 10:  # 有足够统计数据
                 success_rate = successes / attempts
-                self.epsilon_g[g] = max(FINAL_EPSILON, 1.0 - success_rate)
+                
+                # 修复：保持合理探索，即使成功率很高
+                base_epsilon = 0.1  # 基础探索率
+                adaptive_component = (1.0 - success_rate) * 0.3  # 自适应部分
+                
+                self.epsilon_g[g] = max(FINAL_EPSILON, base_epsilon + adaptive_component)
+            else:
+                # 数据不足时使用中等探索率
+                self.epsilon_g[g] = 0.3
 
     def train_episode(self, env, episode):
         state = env.reset()
@@ -482,8 +461,9 @@ class HierarchicalAgent:
                 # 存储Controller经验
                 subgoal_onehot = np.zeros(SUBGOAL_DIM)
                 subgoal_onehot[subgoal] = 1
+                # 然后在经验回放中存储动作索引
                 self.D1.append((
-                    state, subgoal_onehot, action, intrinsic, next_state
+                    state, subgoal_onehot, self.last_rule_idx, intrinsic, next_state  # 存储动作索引而不是动作对象
                 ))
                 
                 # 更新统计
@@ -499,7 +479,8 @@ class HierarchicalAgent:
                 self.steps_done += 1
                 
                 # 更新网络
-                self.update_networks()
+                if self.steps_done % 10 == 0:
+                    self.update_networks()
                 
                 if done or goal_achieved:
                     break
@@ -511,6 +492,9 @@ class HierarchicalAgent:
             
             if done:
                 break
+
+            print(f"Episode {episode}, Step {episode_steps}, Subgoal {subgoal}, "
+                  f"Extrinsic Reward: {F:.2f}, Total Extrinsic: {total_extrinsic:.2f}, ")
         
         # 退火探索率
         self.anneal_epsilon(episode)
@@ -531,7 +515,10 @@ def run_hierarchical_dqn_experiment(config, case, seed):
         reward = agent.train_episode(env, episode)
         print(f"Episode {episode}, Total Reward: {reward:.2f}, "
           f"Meta Epsilon: {agent.epsilon_meta:.3f}, "
-          f"Subgoal Success Rates: { {k: v['successes']/(v['attempts']+1e-5) for k, v in agent.subgoal_success.items()} }")
+          f"Subgoal Success Rates: { {k: v['successes']/(v['attempts']+1e-5) for k, v in agent.subgoal_success.items()} }",
+          f"total penalty: {env.tardy_penalty},",
+          f"tardiness: {env.total_weighted_tardiness},",
+          f"makespan: {env.t},")
         episode_rewards.append(reward)
     
     # 计算总训练时间
@@ -549,6 +536,9 @@ def run_hierarchical_dqn_experiment(config, case, seed):
     
     print(f"Training completed in {total_time:.2f} seconds.")
     print(f"all rewards: {episode_rewards}")
+    print(f"all sub losses: {agent.loss_list}")
+    print(f"all meta losses: {agent.meta_loss_list}")
+
     
     # 调用保存函数存储实验结果
     save_algorithm_results_csv(
@@ -563,5 +553,11 @@ def run_hierarchical_dqn_experiment(config, case, seed):
         
 if __name__ == "__main__":
     config = Config()
+    config.max_operations = 2
+    config.num_initial_jobs = 4
+    config.num_dynamic_jobs = 1
+    config.max_time_steps = 50
+    config.num_distributors = 2
+   
     case = FlexibleJobShopScenario(config)
     run_hierarchical_dqn_experiment(config, case, seed=42)

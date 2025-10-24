@@ -4,25 +4,6 @@ from data_structures import Job, Operation,Machine,Distributor,DeliveryRequireme
 from case_generator import FlexibleJobShopScenario
 import numpy as np
 from itertools import chain
-class RunningStat:
-    def __init__(self, eps=1e-4):
-        self.mean = 0.0
-        self.var = 1.0
-        self.count = eps
-
-    def update(self, x):
-        # Welford online update
-        self.count += 1
-        delta = x - self.mean
-        self.mean += delta / self.count
-        delta2 = x - self.mean
-        self.var = ((self.count - 1) * self.var + delta * delta2) / self.count
-
-    def normalize(self, x):
-        std = max(1e-6, self.var ** 0.5)
-        return (x - self.mean) / std
-
-
 
 class WarehouseEnvironment:
     """仓储-配送环境"""
@@ -37,8 +18,7 @@ class WarehouseEnvironment:
         # 保存配置和算例
         self.config = config
         self.case = case
-        # 在 env.__init__ 中
-        self._reward_stat = RunningStat()
+    
         # 初始化时间和状态
         self.t = 0  
         self.done = False
@@ -62,6 +42,7 @@ class WarehouseEnvironment:
         self.arrival_events = []
         self.total_weighted_tardiness = 0
         self.tardy_penalty = 0
+        self.early_reward = 0
         self.machine_utilization = []
         self.completion_times = {}
         self.last_schedule_time = 0
@@ -115,6 +96,7 @@ class WarehouseEnvironment:
 
         # 初始化统计指标
         self.total_weighted_tardiness = 0
+        self.early_reward = 0
         self.machine_utilization = 0
         self.completion_times = {}
         self.last_schedule_time = 0
@@ -338,124 +320,217 @@ class WarehouseEnvironment:
 
         return boolean_condition
 
+        # def _calculate_reward(self, action) -> float:
+    #     reward = 0.0
+    #     debug_info = {}
+    
+    #     # 基础动作奖励
+    #     if 'wait' in action:
+    #         reward -= 1.0  # 增加等待动作的惩罚
+    #         debug_info['wait_penalty'] = -1.0
+    #     elif 'schedule' in action:
+    #         reward += 0.2  # 增加调度动作的奖励
+    #         debug_info['schedule_base'] = 0.2
+    #     elif 'dispatch' in action:
+    #         reward += 0.4  # 增加配送动作的奖励
+    #         debug_info['dispatch_base'] = 0.4
+    
+    #     # 调度质量奖励
+    #     if 'schedule' in action:
+    #         utilization = self.calculate_machine_utilization()
+    #         reward += 0.1 * utilization
+    #         debug_info['utilization'] = 0.1 * utilization
+    
+    #         job_progress = self.calculate_operation_progress_ratio()
+    #         reward += 0.3 * job_progress  # 增加作业推进奖励
+    #         debug_info['job_progress'] = 0.3 * job_progress
+    
+    #         load_balance = self.calculate_machine_load_variance()
+    #        # reward -= 0.5 * load_balance
+    #         debug_info['load_balance_penalty'] = -0.5 * load_balance
+    
+    #     # 配送质量奖励
+    #     if 'dispatch' in action:
+    #         reward += 0.5 # 增加配送动作的奖励
+    #         debug_info['dispatch_reward'] = 0.5
+
+    #     # 计算作业延误（只计算一次，避免重复计算）
+    #     current_tardiness = 0
+    #     for job in self.completed_jobs:
+    #         tardiness = max(0, job.dispatched_time - job.due_date)
+    #         current_tardiness += tardiness
+    #         debug_info[f'job_{job.job_id}_tardiness'] = -tardiness
+        
+    #     # 更新总延误（避免重复累加）
+    #     self.total_weighted_tardiness = current_tardiness
+    #     # 归一化total_weighted_tardiness
+    #     reward += 1/(1 + self.total_weighted_tardiness)
+        
+    #     # 计算分段配送时间要求延迟成本（只计算配送商要求的惩罚，不重复计算作业延误）
+    #     current_tardy_penalty = 0
+    #     for distributor in self.distributors:
+    #         if distributor.calculated:
+    #             continue
+    #         max_due_time = max(distributor.delivery_requirements.due_times) if distributor.delivery_requirements else float('inf')
+    #         if max_due_time < self.t:
+    #             # 计算每个配送商的延迟成本
+    #             requirement = distributor.delivery_requirements
+    #             for due_time, ratio, weight in zip(requirement.due_times, requirement.ratios, requirement.weights):
+    #                 # 在这个due_time之前完成的作业
+    #                 completed_jobs = [j for j in self.completed_jobs if j.dispatched_time <= due_time]
+    #                 completed_amount = sum(j.amount for j in completed_jobs)
+    #                 required_amount = ratio * distributor.total_amount
+    #                 distributor.calculated = True
+    #                 if completed_amount < required_amount:
+    #                     penalty = (required_amount - completed_amount) * weight
+    #                     penalty_reward = (required_amount - completed_amount)/required_amount * weight
+    #                     reward -= penalty_reward
+    #                     debug_info[f'distributor_{distributor.distributor_id}_due_time_{due_time}'] = -penalty
+    #                     current_tardy_penalty += penalty
+    #                 else:
+    #                     debug_info[f'distributor_{distributor.distributor_id}_due_time_{due_time}'] = 0
+    #                     #reward +=  (completed_amount - required_amount)  # 按时完成奖励
+        
+    #     # 更新配送时间要求惩罚（避免重复累加）
+    #     self.tardy_penalty = current_tardy_penalty
+
+            
+            
+    #     # 即时操作奖励
+    #     if self.operation_completed_this_step:
+    #         reward += 0.5  # 增加工序完成奖励
+    #         debug_info['operation_complete'] = 0.5
+    
+    #     if self.job_completed_this_step:
+    #         reward += 0.8  # 增加作业完成奖励
+    #         debug_info['job_complete'] = 0.8
+
+    #     # 如果有作业被配送，增加奖励
+    #     if self.job_dispatching_this_step:
+    #         reward += 1.0  # 增加作业配送奖励
+    #         debug_info['job_dispatching'] = 2.0
+
+    #     if self.job_dispatched_this_step:
+    #         reward += 1.0  # 增加作业配送奖励
+    #         debug_info['job_dispatched'] = 1.0
+    
+    #     # 不限制奖励范围
+    #     final_reward = reward
+    #     debug_info['final_reward'] = final_reward
+    
+    #     # 只在训练模式下显示详细的奖励分解（避免过多日志输出）
+    #     if hasattr(self.config, 'train_mode') and self.config.train_mode:
+    #         print("Reward breakdown:", debug_info)
+    #     return final_reward
 
     def _calculate_reward(self, action, episode_progress) -> float:
-        """
-        最终优化的环境奖励函数
-        - 明确的渐进式引导
-        - 避免过大惩罚导致躺平  
-        - 合理的奖励归一化
-        - 自适应训练阶段调整
-        episode_progress: 当前训练进度 [0,1]
-        """
+
         total_reward = 0.0
         debug_info = {}
         
-        # === 阶段自适应参数 ===
-        if episode_progress < 0.3:  # 前期：鼓励探索
-            penalty_weight = 0.3
-            exploration_bonus = 0.05
-            milestone_threshold = 2  # 较低的里程碑门槛
-        elif episode_progress < 0.7:  # 中期：平衡学习
-            penalty_weight = 0.7
-            exploration_bonus = 0.02
-            milestone_threshold = 3
-        else:  # 后期：严格优化
-            penalty_weight = 1.0
-            exploration_bonus = 0.0
-            milestone_threshold = 4
+        current_tardiness = 0
+        for job in self.completed_jobs:
+            tardiness = max(0, job.dispatched_time - job.due_date)
+            current_tardiness += tardiness
+            debug_info[f'job_{job.job_id}_tardiness'] = tardiness
         
-        total_reward += exploration_bonus
-        debug_info['exploration_bonus'] = exploration_bonus
+        # 更新总延误
+        total_reward -= (current_tardiness)
+        print(f"Total reward after tardiness penalty: {total_reward}")
+        self.total_weighted_tardiness = current_tardiness
+    
+        # 计算分段配送时间要求延迟成本（只计算配送商要求的惩罚，不重复计算作业延误）
+        current_tardy_penalty = 0
+        current_early_reward = 0
+        for distributor in self.distributors:
+            due_times = distributor.delivery_requirements.due_times 
+            for due_time in due_times:
+                if due_time >= self.t:
+                    break  # 只计算已过期的时间点
+
+                distributor_jobs = [j for j in self.completed_jobs if j.distributor_id == distributor.distributor_id]
+                required_amount = distributor.total_amount * distributor.delivery_requirements.ratios[due_times.index(due_time)]
+                completed_amount = 0
+                for job in distributor_jobs:
+                    if job.dispatched_time <= due_time:
+                        completed_amount += job.amount
+                    if completed_amount < required_amount:
+                        penalty = (required_amount - completed_amount) * distributor.delivery_requirements.weights[due_times.index(due_time)]
+                            
+                        debug_info[f'distributor_{distributor.distributor_id}_due_time_{due_time}'] = penalty
+                        current_tardy_penalty += penalty
+                        
+                    else:
+                        debug_info[f'distributor_{distributor.distributor_id}_due_time_{due_time}'] = 0
+                        current_early_reward += (completed_amount - required_amount) * distributor.delivery_requirements.weights[due_times.index(due_time)]
+                        
+        # 更新配送时间要求惩罚（避免重复累加）
+        total_reward -= (current_tardy_penalty)
+        total_reward += (current_early_reward)
+        self.tardy_penalty = current_tardy_penalty
+        self.early_reward = current_early_reward
+       
+        print(f"Total reward after distributor tardy penalty: {total_reward}")
+
+        # 3. 里程碑奖励 - 鼓励持续进步
         
-        # === 核心正向奖励（明确的好的策略）===
-        
-        # 1. 作业完成奖励 - 最明确的成功信号    
-        new_completions =  self.this_step_complete_jobs
-        
-        if new_completions > 0:
-            completion_reward = new_completions * 0.8  # 明确但合理的奖励
-            total_reward += completion_reward
-            debug_info['completion_reward'] = completion_reward
-        
-        # 2. 配送效率奖励 - 鼓励及时行动
-        new_dispatches = self.this_step_dispatch_jobs
-        
-        if new_dispatches > 0:
-            dispatch_reward = new_dispatches * 0.4
-            total_reward += dispatch_reward
-            debug_info['dispatch_reward'] = dispatch_reward
-        
-        # 3. 里程碑奖励 - 防止后期动力不足
-        milestone_bonus = self._check_milestone(milestone_threshold)
-        total_reward += milestone_bonus
-        if milestone_bonus > 0:
-            debug_info['milestone_bonus'] = milestone_bonus
-        
-        # 4. 资源高效利用奖励
-        utilization = self.calculate_machine_utilization()
-        if 0.6 <= utilization <= 0.85:  # 最佳利用率区间
-            util_reward = 0.3
-            total_reward += util_reward
-            debug_info['util_reward'] = util_reward
-        elif utilization > 0.9:  # 轻微过载
-            util_penalty = 0.1 * penalty_weight
-            total_reward -= util_penalty
-            debug_info['util_penalty'] = util_penalty
-        
-        # 5. 积极决策奖励 - 鼓励采取行动
-        if self._is_action_effective(action):
-            action_reward = 0.15
-            total_reward += action_reward
-            debug_info['action_reward'] = action_reward
-        
-        # === 温和的负向惩罚（避免躺平）===
-        
-        # 1. 延误惩罚 - 重要但不过度
-        tardiness_penalty = self._calculate_tardiness_penalty()
-        if tardiness_penalty > 0:
-            # 使用渐进式惩罚：延误越大，惩罚增长越缓
-            adjusted_penalty = min(tardiness_penalty, 1.0) * penalty_weight * 0.5
-            total_reward -= adjusted_penalty
-            debug_info['tardiness_penalty'] = adjusted_penalty
-        
-        # 2. 资源闲置惩罚 - 温和提醒
-        idle_penalty = self._calculate_idle_penalty()
-        if idle_penalty > 0:
-            adjusted_penalty = idle_penalty * penalty_weight * 0.3
-            total_reward -= adjusted_penalty
-            debug_info['idle_penalty'] = adjusted_penalty
-        
-        # 3. 系统停滞惩罚 - 避免死锁
-        if not self._is_system_active():
-            stagnant_penalty = 0.1 * penalty_weight
-            total_reward -= stagnant_penalty
-            debug_info['stagnant_penalty'] = stagnant_penalty
-        
-        # === 基础保障奖励 ===
-        base_reward = 0.1  # 很小的基础奖励，避免过度负奖励
-        total_reward += base_reward
-        debug_info['base_reward'] = base_reward
-        
+        milestone_reward = self._check_milestone()
+        total_reward += milestone_reward
+        debug_info['milestone_reward'] = milestone_reward
+        print(f"Total reward after milestone reward: {total_reward}")
+       
         # === 最终归一化和范围控制 ===
         # 严格控制在合理范围内
-        normalized_reward = float(np.clip(total_reward, -1.0, 3.0))
-    
-        
-        debug_info['final_reward'] = normalized_reward
-        debug_info['raw_reward'] = total_reward
-        debug_info['penalty_weight'] = penalty_weight
-        
-    
-        return normalized_reward
+        normalized_reward = (total_reward) / 2000
+         
+        print(f"""Reward breakdown: {debug_info} | "
+              Total: {total_reward:.2f} | Normalized: {normalized_reward:.2f}""")
+        smoothed_reward = self._apply_smoothing(normalized_reward)
+        return smoothed_reward
 
-    def _check_milestone(self, threshold):
+
+    def _apply_smoothing(self, current_reward):
+        """
+        应用滑动平均平滑奖励值
+        提供两种平滑方法：指数移动平均和简单移动平均
+        """
+
+        # 方法1：指数移动平均 (EMA) - 更常用，内存效率高
+        if not hasattr(self, 'smoothed_reward'):
+            self.smoothed_reward = current_reward
+        else:
+            alpha = 0.9  # 平滑因子
+            self.smoothed_reward = alpha * self.smoothed_reward + (1 - alpha) * current_reward
+        
+        smoothed = self.smoothed_reward
+        return smoothed
+
+    def _check_milestone(self):
         """检查里程碑奖励"""
-        current_completed = len(self.completed_jobs)
+        total_jobs = self.config.num_initial_jobs + self.config.num_dynamic_jobs
+        current_dispatched_rate = len(self.dispatched_jobs) / total_jobs
+        current_completed_rate = len(self.completed_jobs) / total_jobs
       
-        if current_completed / len(self.available_jobs) >= 0.5: 
-            return 1.5  # 合理的里程碑奖励
-        return 0.0
+        milestone_bonus = 0.0
+        if current_dispatched_rate == 1: 
+            milestone_bonus+= 500 *  len(self.dispatched_jobs) # 合理的里程碑奖励
+        elif current_dispatched_rate >= 0.8:
+            milestone_bonus+=250 * len(self.dispatched_jobs)
+        elif current_dispatched_rate >= 0.5:
+            milestone_bonus+=150 * len(self.dispatched_jobs)
+        else:
+            milestone_bonus+=0
+        
+        if current_completed_rate >= 1:
+            milestone_bonus += 200.0 * len(self.completed_jobs) # 合理的里程碑奖励
+        elif current_completed_rate >= 0.8:
+            milestone_bonus += 100.0*len(self.completed_jobs)
+        elif current_completed_rate >= 0.5:
+            milestone_bonus += 50.0*len(self.completed_jobs)
+        else:
+            milestone_bonus += 0.0
+
+        return milestone_bonus
 
     def _calculate_tardiness_penalty(self):
         """计算延误惩罚（归一化）"""
@@ -471,16 +546,6 @@ class WarehouseEnvironment:
         max_tolerable_tardiness = 50  # 假设最大容忍50时间单位
         
         return min(avg_tardiness / max_tolerable_tardiness, 1.0)
-
-    def _calculate_idle_penalty(self):
-        """计算资源闲置惩罚"""
-        idle_machines = len([m for m in self.machines if m.status == 'waiting'])
-        waiting_jobs = len([j for j in self.available_jobs if j.status == 'waiting'])
-        
-        if idle_machines > 0 and waiting_jobs > 0:
-            # 有闲置资源且有作业等待的惩罚
-            return min(idle_machines / len(self.machines), 0.5)
-        return 0.0
 
     def _is_action_effective(self, action):
         """判断动作是否有效"""
@@ -762,10 +827,11 @@ class WarehouseEnvironment:
                 job.dispatch_remaining_time -= 1
                 if job.dispatch_remaining_time <= 0:
                     job.status = 'dispatched'
-                    self.this_step_dispatch_jobs += 1
+                    
                     job.dispatched_time = self.t  # 配送完成时间
                     if job not in self.dispatched_jobs:
                         self.dispatched_jobs.append(job)
+                        self.this_step_dispatch_jobs += 1
                         self.job_dispatched_this_step = True
 
     def _process_waiting(self, wait_action):
