@@ -115,8 +115,10 @@ class PPOBuffer:
     
     def store(self, state, action, reward, value, log_prob, done):
         """存储一步经验"""
-        assert self.ptr < self.max_size
-        
+        if self.ptr >= self.max_size:
+            print(f"Buffer full (ptr={self.ptr}, max_size={self.max_size}), skipping storage")
+            return False
+            
         self.states[self.ptr] = state
         self.actions[self.ptr] = action
         self.rewards[self.ptr] = reward
@@ -125,9 +127,14 @@ class PPOBuffer:
         self.dones[self.ptr] = done
         
         self.ptr += 1
+        return True
     
     def finish_path(self, last_value=0):
         """完成一个轨迹，计算优势和回报"""
+        if self.path_start_idx >= self.ptr:
+            print("No data to finish path")
+            return
+            
         path_slice = slice(self.path_start_idx, self.ptr)
         rewards = np.append(self.rewards[path_slice], last_value)
         values = np.append(self.values[path_slice], last_value)
@@ -143,19 +150,31 @@ class PPOBuffer:
     
     def get(self):
         """获取所有数据并重置缓冲区"""
-        assert self.ptr == self.max_size
+        if self.ptr == 0:
+            print("Buffer is empty, no data to get")
+            return None
+            
+        # 只获取实际存储的数据
+        actual_size = self.ptr
+        states = self.states[:actual_size]
+        actions = self.actions[:actual_size]
+        returns = self.returns[:actual_size]
+        advantages = self.advantages[:actual_size]
+        log_probs = self.log_probs[:actual_size]
         
         # 标准化优势
-        adv_mean = np.mean(self.advantages)
-        adv_std = np.std(self.advantages)
-        self.advantages = (self.advantages - adv_mean) / (adv_std + 1e-8)
+        if len(advantages) > 0:
+            adv_mean = np.mean(advantages)
+            adv_std = np.std(advantages)
+            if adv_std > 0:
+                advantages = (advantages - adv_mean) / (adv_std + 1e-8)
         
         data = dict(
-            states=self.states,
-            actions=self.actions,
-            returns=self.returns,
-            advantages=self.advantages,
-            log_probs=self.log_probs
+            states=states,
+            actions=actions,
+            returns=returns,
+            advantages=advantages,
+            log_probs=log_probs
         )
         
         # 重置
@@ -164,6 +183,10 @@ class PPOBuffer:
         
         return data
     
+    def is_full(self):
+        """检查缓冲区是否已满"""
+        return self.ptr >= self.max_size
+    
     def _discount_cumsum(self, x, discount):
         """计算折扣累积和"""
         cumsum = np.zeros_like(x)
@@ -171,8 +194,6 @@ class PPOBuffer:
         for t in reversed(range(x.shape[0] - 1)):
             cumsum[t] = x[t] + discount * cumsum[t + 1]
         return cumsum
-
-
 
 
 class PPOAgent:
@@ -219,7 +240,7 @@ class PPOAgent:
     
     def store_transition(self, state, action, reward, value, log_prob, done):
         """存储转换"""
-        self.buffer.store(state, action, reward, value, log_prob, done)
+        return self.buffer.store(state, action, reward, value, log_prob, done)
     
     def finish_path(self, last_value=0):
         """完成路径"""
@@ -227,11 +248,13 @@ class PPOAgent:
     
     def update(self):
         """更新网络"""
-        if self.buffer.ptr < self.buffer_size:
+        if not self.buffer.is_full():
             return {}
         
         # 获取数据
         data = self.buffer.get()
+        if data is None:
+            return {}
         
         # 转换为tensor
         states = torch.FloatTensor(data['states'])
@@ -244,13 +267,17 @@ class PPOAgent:
         total_policy_loss = 0
         total_value_loss = 0
         total_entropy_loss = 0
+        num_batches = 0
         
         for _ in range(self.ppo_epochs):
             # 随机打乱数据
             indices = torch.randperm(len(states))
             
             for start in range(0, len(states), self.batch_size):
-                end = start + self.batch_size
+                end = min(start + self.batch_size, len(states))
+                if start >= end:
+                    continue
+                    
                 batch_indices = indices[start:end]
                 
                 batch_states = states[batch_indices]
@@ -292,25 +319,30 @@ class PPOAgent:
                 total_policy_loss += policy_loss.item()
                 total_value_loss += value_loss.item()
                 total_entropy_loss += entropy_loss.item()
+                num_batches += 1
         
         self.update_count += 1
         
-        return {
-            'policy_loss': total_policy_loss / self.ppo_epochs,
-            'value_loss': total_value_loss / self.ppo_epochs,
-            'entropy_loss': total_entropy_loss / self.ppo_epochs
-        }
+        if num_batches > 0:
+            return {
+                'policy_loss': total_policy_loss / num_batches,
+                'value_loss': total_value_loss / num_batches,
+                'entropy_loss': total_entropy_loss / num_batches
+            }
+        else:
+            return {}
 
 
 def main():
     """主训练函数"""
     # 配置参数
     config = Config()
-    config.num_initial_jobs = 6
-    config.num_machines = 3
+    config.num_initial_jobs = 8
+    config.num_machines = 4
     config.num_distributors = 2
     config.min_operations = 2
-    config.max_operations = 3
+    config.max_operations = 4
+    config.max_time_steps = 20
     
     print("生成FJSP-DP场景...")
     scenario = FlexibleJobShopScenario(config=config)
@@ -328,7 +360,7 @@ def main():
     agent = PPOAgent(state_dim, action_dim, config)
     
     # 训练参数
-    episodes = 50
+    episodes = 500
     stats = defaultdict(list)
     
     print(f"\n开始PPO训练 {episodes} episodes...")
@@ -350,7 +382,9 @@ def main():
             next_state, reward, done, info = env.step(action)
             
             # 存储经验
-            agent.store_transition(state, action, reward, value, log_prob, done)
+            stored = agent.store_transition(state, action, reward, value, log_prob, done)
+            if not stored:
+                print(f"Episode {episode}: Buffer full, skipping storage")
             
             # 更新状态和统计
             state = next_state
@@ -384,7 +418,7 @@ def main():
         stats['objective_value'].append(episode_reward + tardy_penalty + total_weighted_tardiness)
         
         # 更新网络
-        if agent.buffer.ptr >= agent.buffer_size:
+        if agent.buffer.is_full():
             update_info = agent.update()
             if update_info:
                 stats['policy_loss'].append(update_info['policy_loss'])
@@ -509,7 +543,9 @@ def run_ppo_experiment(config, case, seed, **kwargs):
             next_state, reward, done, info = env.step(action)
             
             # 存储经验
-            agent.store_transition(state, action, reward, value, log_prob, done)
+            stored = agent.store_transition(state, action, reward, value, log_prob, done)
+            if not stored:
+                print(f"Episode {episode}: Buffer full, skipping storage")
             
             # 更新状态和统计
             state = next_state
@@ -531,8 +567,6 @@ def run_ppo_experiment(config, case, seed, **kwargs):
         
         
         # 获取环境中的惩罚指标
-        # tardy_penalty = getattr(env, 'tardy_penalty', 0)
-        # total_weighted_tardiness = getattr(env, 'total_weighted_tardiness', 0)
         tardy_penalty = env.tardy_penalty 
         total_weighted_tardiness = env.total_weighted_tardiness
         
@@ -541,7 +575,7 @@ def run_ppo_experiment(config, case, seed, **kwargs):
         stats['objective_value'].append(episode_reward + tardy_penalty + total_weighted_tardiness)
         
         # 更新网络
-        if agent.buffer.ptr >= agent.buffer_size:
+        if agent.buffer.is_full():
             update_info = agent.update()
             if update_info:
                 stats['policy_loss'].append(update_info['policy_loss'])

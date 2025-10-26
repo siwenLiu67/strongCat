@@ -268,6 +268,8 @@ def main():
     config.num_distributors = 2
     config.min_operations = 2
     config.max_operations = 4
+    # 用cpu训练以避免GPU内存不足
+    
     
     print("生成FJSP-DP场景...")
     scenario = FlexibleJobShopScenario(config=config)
@@ -285,7 +287,7 @@ def main():
     agent = DQNAgent(state_dim, action_dim, config)
     
     # 训练参数
-    episodes = 200
+    episodes = 1
     stats = defaultdict(list) 
     
     print(f"\n开始DQN训练 {episodes} episodes...")

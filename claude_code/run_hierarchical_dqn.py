@@ -22,7 +22,7 @@ ACTION_DIM = 8  # 8种调度规则
 
 
 # 训练参数
-NUM_EPISODES = 20
+NUM_EPISODES = 50
 INIT_EPSILON = 0.9
 FINAL_EPSILON = 0.05
 EPS_ANNEAL_STEPS = NUM_EPISODES*0.8
@@ -35,9 +35,9 @@ class InternalCritic:
     def __init__(self, config):
         self.config = config
         self.subgoal_thresholds = {
-            0: self._evaluate_production_goal,    # 生产优化子目标
-            1: self._evaluate_delivery_goal,      # 配送效率子目标
-            2: self._evaluate_balancing_goal      # 系统平衡子目标
+            0: lambda x: self._evaluate_production_goal(x) >= 0.8,    # 生产优化子目标
+            1: lambda x: self._evaluate_delivery_goal(x) < 0.5,      # 配送效率子目标
+            2: lambda x: self._evaluate_balancing_goal(x) > 0.2      # 系统平衡子目标
         }
     
     def get_reward(self, state, subgoal_idx):
@@ -45,33 +45,37 @@ class InternalCritic:
         return self.subgoal_thresholds[subgoal_idx](state)
 
     def _evaluate_production_goal(self, state):
-        """评估生产优化子目标达成度"""
-        # 关键指标：机器利用率、作业完成率、调度效率
-      #  machine_utilization = state['machine_utilization']
-        completed_jobs = len(state['completed_jobs'])
-      #  active_jobs = len(state['available_jobs'])
+        """评估生产优化指派生产工件的子目标达成度"""
+        # 计算tardiness
+        completed_jobs = state['dispatched_jobs']
+        completed_amount = sum(j.amount for j in completed_jobs)
+        total_amount = sum(j.amount for j in state['available_jobs']) + completed_amount 
+        completion_rate = completed_amount / total_amount
+        print(f"Completion Rate: {completion_rate:.4f}")
+        return completion_rate  # 提高完成率
         
-        # 计算生产效率得分
-      #  utilization_score = min(1.0, machine_utilization / 0.8)  # 目标80%利用率
-        completion_rate = completed_jobs / (self.config.num_initial_jobs + self.config.num_dynamic_jobs)
-        
-        # 综合生产得分
-     #   production_score = (utilization_score * 0.6 + # completion_rate * 0.4)
-        return completion_rate  # 放大奖励
+
     
     def _evaluate_delivery_goal(self, state):
-        dispatched_jobs = state['dispatched_jobs']
-        if not dispatched_jobs:
-            return 0.0
-        total_tardiness = sum(max(0, j.dispatched_time - j.due_date) for j in dispatched_jobs)
-        avg_tardiness = total_tardiness / len(dispatched_jobs)
-        return 1.0 / (1.0 + avg_tardiness)  # 小延迟 -> 奖励接近1
+        # 计算派送作业数量比例
+        tardy_jobs = [j for j in state['dispatched_jobs'] if j.due_date < j.dispatched_time]
+        tardi_job_rate = len(tardy_jobs) / max(1, len(state['dispatched_jobs']))
+        print(f"Tardy Job Rate: {tardi_job_rate:.4f}")
+        return tardi_job_rate  # 减少迟交率
+        # dispatched_jobs = state['dispatched_jobs']
+        # dispatch_amount = [j.amount for j in dispatched_jobs]
+        # total_amount = sum(j.amount for j in state['available_jobs']) + sum(j.amount for j in state.get('completed_jobs', []))
+        # return sum(dispatch_amount) / total_amount if total_amount > 0 else 0
+
 
     
     def _evaluate_balancing_goal(self, state):
         """评估系统平衡子目标达成度"""
         # 关键指标：系统负载均衡、资源分配、避免瓶颈
-        return state['machine_utilization']   # 平衡目标奖励相对较小
+        # 计算系统均衡性
+        machine_busy_rate = sum(1 for m in state['machines'] if m.status == 'busy') / len(state['machines'])
+        print(f"Machine Busy Rate: {machine_busy_rate:.4f}")
+        return machine_busy_rate  # 平衡目标奖励相对较小
 
 
 class HierarchicalDQN(nn.Module):
@@ -81,12 +85,20 @@ class HierarchicalDQN(nn.Module):
         self.meta_controller = nn.Sequential(
             nn.Linear(STATE_DIM, 64),  # 修正为实际状态维度
             nn.ReLU(),
+            nn.Linear(64, 128),
+            nn.ReLU(),
+            nn.Linear(128, 64),
+            nn.ReLU(),
             nn.Linear(64, 3)
         )
         
         # Controller网络（目标条件策略）
         self.controller = nn.Sequential(
             nn.Linear(STATE_DIM + SUBGOAL_DIM, 64),  # 修正为13维(10+3)
+            nn.ReLU(),
+            nn.Linear(64, 128),
+            nn.ReLU(),
+            nn.Linear(128, 64),
             nn.ReLU(),
             nn.Linear(64, ACTION_DIM)
         )
@@ -137,50 +149,81 @@ class HierarchicalAgent:
         self.subgoal_success = defaultdict(lambda: {'attempts': 0, 'successes': 0})
 
     def _build_features(self, state: Dict, config) -> torch.Tensor:
-        """构建10维特征向量以匹配网络输入维度"""
+        """构建10维特征向量以匹配网络输入维度，对齐_get_state的特征逻辑"""
         jobs = state['available_jobs']
         completed_jobs = state.get('completed_jobs', [])
         dispatched_jobs = state.get('dispatched_jobs', [])
         machines = state['machines']
         t = state.get('current_time', 0)
+        distributors = state.get('distributors', [])  # 假设state包含配送商信息
 
-        # 新特征
+        # 1. 归一化时间（对应_get_state的时间特征）
+        normalized_time = t / 100.0  # 与时间特征归一化方式保持一致
+
+        # 2. 机器状态：空闲比例（对应_get_state的机器状态特征）
+        idle_machines = sum(1 for m in machines if getattr(m, 'status', '') == "waiting")
+        idle_ratio = idle_machines / max(1, len(machines))
+
+        # 3. 机器状态：忙碌比例（对应_get_state的机器状态特征）
+        busy_ratio = 1.0 - idle_ratio  # 忙碌 = 总机器 - 空闲
+
+        # 4. 作业状态：等待作业比例（对应_get_state的作业特征）
         total_jobs = len(jobs) + len(completed_jobs) + len(dispatched_jobs)
+        waiting_jobs = sum(1 for j in jobs if getattr(j, 'status', '') == "waiting")
+        waiting_ratio = waiting_jobs / max(1, total_jobs)
+
+        # 5. 作业状态：处理中作业比例（对应_get_state的作业特征）
+        processing_jobs = sum(1 for j in jobs if getattr(j, 'status', '') == "processing")
+        processing_ratio = processing_jobs / max(1, total_jobs)
+
+        # 6. 作业状态：已完成作业比例（对应_get_state的作业特征）
         completed_ratio = len(completed_jobs) / max(1, total_jobs)
-        dispatched_ratio = len(dispatched_jobs) / max(1, total_jobs)
-        avg_util = sum(getattr(m, 'utilization', 0.0) for m in machines) / max(1, len(machines))
-        avg_wait = sum(getattr(j, 'waiting_time', 0.0) for j in jobs) / max(1, len(jobs))
 
-        # 原有特征
-        new_jobs = len(jobs) - len(completed_jobs)
-        q_new = new_jobs / max(1, len(jobs))
-        remaining_times = [float(m.remaining_time) for m in machines]
-        sigma_mach_t = torch.tensor(remaining_times, dtype=torch.float32).std().item() / max(1e-6, config.max_processing_time)
-        urgent_jobs = sum([1 for j in jobs if getattr(j, 'due_time', 1e9) <= t])
-        urgency_ratio = urgent_jobs / len(jobs) if jobs else 0.0
-        last_schedule_time = state.get('last_schedule_time', 0)
-        schedule_age = (t - last_schedule_time) / max(1, config.max_processing_time)
-        total_job_time = sum(getattr(j, 'processing_time', 0) for j in jobs)
-        total_machine_capacity = sum(m.remaining_time for m in machines)
-        system_pressure = total_job_time / max(1, total_machine_capacity)
+        # 7. 紧急度特征：平均紧急度（对应_get_state的紧急度特征）
+        urgencies = []
+        for job in jobs:
+            if getattr(job, 'status', '') == "waiting":
+                # 计算剩余处理时间（参考_get_state逻辑）
+                remaining_operations = getattr(job, 'operations', [])[getattr(job, 'current_operation', 0):]
+                remaining_time = sum(
+                    min(op.processing_times.values()) if hasattr(op, 'processing_times') and op.processing_times else 0
+                    for op in remaining_operations
+                ) if remaining_operations else 0
+                due_date = getattr(job, 'due_date', 100)
+                urgency = max(0, (due_date - t - remaining_time)) / 100.0  # 归一化紧急度
+                urgencies.append(urgency)
+        avg_urgency = np.mean(urgencies) if urgencies else 0.0
 
-        # 添加第10个特征：作业密度
-        job_density = len(jobs) / max(1, len(machines))
+        # 8. 紧急度特征：最小紧急度（对应_get_state的紧急度特征）
+        min_urgency = np.min(urgencies) if urgencies else 0.0
 
+        # 9. 紧急度特征：最大紧急度（对应_get_state的紧急度特征）
+        max_urgency = np.max(urgencies) if urgencies else 0.0
+
+        # 10. 配送商负载：平均完成比例（对应_get_state的配送商负载特征）
+        dist_load_ratios = []
+        for dist in distributors:
+            dist_jobs = [j for j in jobs + completed_jobs + dispatched_jobs 
+                        if getattr(j, 'distributor_id', None) == getattr(dist, 'distributor_id', None)]
+            completed_dist_jobs = [j for j in dist_jobs if j in completed_jobs]
+            dist_load_ratios.append(len(completed_dist_jobs) / max(1, len(dist_jobs)))
+        avg_dist_load = np.mean(dist_load_ratios) if dist_load_ratios else 0.0
+
+        # 构建10维特征向量
         feats = torch.tensor([
-            q_new,
-            sigma_mach_t,
-            urgency_ratio,
-            schedule_age,
-            system_pressure,
+            normalized_time,
+            idle_ratio,
+            busy_ratio,
+            waiting_ratio,
+            processing_ratio,
             completed_ratio,
-            dispatched_ratio,
-            avg_util,
-            avg_wait,
-            job_density
+            avg_urgency,
+            min_urgency,
+            max_urgency,
+            avg_dist_load
         ], dtype=torch.float32)
         
-        # 检查特征值是否有效
+        # 处理无效值
         if torch.isnan(feats).any() or torch.isinf(feats).any():
             feats = torch.nan_to_num(feats, nan=0.0, posinf=1.0, neginf=-1.0)
             
@@ -333,11 +376,11 @@ class HierarchicalAgent:
         # ε-贪婪策略
         if random.random() < self.epsilon_meta:
             # 随机探索，但只选择有效动作
-            valid_actions = [i for i, m in enumerate(mask.squeeze()) if m]
-            if valid_actions:
-                action = random.choice(valid_actions)
+            valid_subgoals = [i for i, m in enumerate(mask.squeeze()) if m]
+            if valid_subgoals:
+                subgoal = random.choice(valid_subgoals)
             else:
-                action = 2  # 默认等待
+                subgoal = 2  # 默认等待
         else:
             # 贪婪选择
             with torch.no_grad():
@@ -347,11 +390,15 @@ class HierarchicalAgent:
                 masked_q_values = q_values.masked_fill(~mask, float('-inf'))
                 
                 # 选择Q值最大的动作
-                action = masked_q_values.argmax().item()
+                subgoal = masked_q_values.argmax().item()
         
         # 返回动作和占位符（保持接口兼容）
-        self.last_action = action
-        return action
+        self.last_subgoal = subgoal
+        if subgoal in [0, 1]:
+            print(f"Meta-Controller selected subgoal {subgoal} with epsilon {self.epsilon_meta:.4f}")
+        elif subgoal == 2:
+            print(f"Meta-Controller selected WAIT subgoal with epsilon {self.epsilon_meta:.4f}")
+        return subgoal
 
     def update_networks(self):
         # 更新Controller
@@ -455,6 +502,7 @@ class HierarchicalAgent:
             # Controller执行循环
             for _ in range(20):  # 子目标最大持续时间
                 action = self.select_action(state, subgoal)
+                print(f"Controller selected action: {action}")
                 next_state, extrinsic, done, _ = env.step(action)
                 intrinsic = self.critic.get_reward(next_state, subgoal)
                 
@@ -553,11 +601,12 @@ def run_hierarchical_dqn_experiment(config, case, seed):
         
 if __name__ == "__main__":
     config = Config()
-    config.max_operations = 2
-    config.num_initial_jobs = 4
-    config.num_dynamic_jobs = 1
-    config.max_time_steps = 50
+    config.num_initial_jobs = 8
+    config.num_machines = 4
     config.num_distributors = 2
+    config.min_operations = 2
+    config.max_operations = 4
+    config.max_time_steps = 100
    
     case = FlexibleJobShopScenario(config)
     run_hierarchical_dqn_experiment(config, case, seed=42)
