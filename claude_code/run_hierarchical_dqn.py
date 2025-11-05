@@ -22,7 +22,7 @@ ACTION_DIM = 8  # 8种调度规则
 
 
 # 训练参数
-NUM_EPISODES = 50
+NUM_EPISODES = 200
 INIT_EPSILON = 0.9
 FINAL_EPSILON = 0.05
 EPS_ANNEAL_STEPS = NUM_EPISODES*0.8
@@ -51,7 +51,14 @@ class InternalCritic:
         completed_amount = sum(j.amount for j in completed_jobs)
         total_amount = sum(j.amount for j in state['available_jobs']) + completed_amount 
         completion_rate = completed_amount / total_amount
-        print(f"Completion Rate: {completion_rate:.4f}")
+     #   print(f"Completion Rate: {completion_rate:.4f}")
+
+        # 计算完成工序的比例
+        # completed_operations = sum(1 for j in state['available_jobs'] for op in j.operations if op.status=='completed')
+        # total_operations = sum(len(j.operations) for j in state['available_jobs'])
+        
+        # completion_rate = completed_operations / max(1, total_operations)
+
         return completion_rate  # 提高完成率
         
 
@@ -59,13 +66,10 @@ class InternalCritic:
     def _evaluate_delivery_goal(self, state):
         # 计算派送作业数量比例
         tardy_jobs = [j for j in state['dispatched_jobs'] if j.due_date < j.dispatched_time]
-        tardi_job_rate = len(tardy_jobs) / max(1, len(state['dispatched_jobs']))
-        print(f"Tardy Job Rate: {tardi_job_rate:.4f}")
+        tardi_job_rate = len(tardy_jobs) /  len(state['available_jobs'])
+     #   print(f"Tardy Job Rate: {tardi_job_rate:.4f}")
         return tardi_job_rate  # 减少迟交率
-        # dispatched_jobs = state['dispatched_jobs']
-        # dispatch_amount = [j.amount for j in dispatched_jobs]
-        # total_amount = sum(j.amount for j in state['available_jobs']) + sum(j.amount for j in state.get('completed_jobs', []))
-        # return sum(dispatch_amount) / total_amount if total_amount > 0 else 0
+       
 
 
     
@@ -74,7 +78,7 @@ class InternalCritic:
         # 关键指标：系统负载均衡、资源分配、避免瓶颈
         # 计算系统均衡性
         machine_busy_rate = sum(1 for m in state['machines'] if m.status == 'busy') / len(state['machines'])
-        print(f"Machine Busy Rate: {machine_busy_rate:.4f}")
+    #    print(f"Machine Busy Rate: {machine_busy_rate:.4f}")
         return machine_busy_rate  # 平衡目标奖励相对较小
 
 
@@ -357,9 +361,7 @@ class HierarchicalAgent:
                     schedule[job.job_id] = m_id
                     assigned_machines.add(m_id)  # 标记该机器已分配
                     break  # 跳出当前作业的机器分配循环，继续分配下一个作业
-                else:
-                    # 如果当前机器已分配作业，跳过该机器
-                    print(f"Machine {m_id} is already assigned, skipping.")
+            
         
         return {'schedule': schedule}
 
@@ -394,10 +396,6 @@ class HierarchicalAgent:
         
         # 返回动作和占位符（保持接口兼容）
         self.last_subgoal = subgoal
-        if subgoal in [0, 1]:
-            print(f"Meta-Controller selected subgoal {subgoal} with epsilon {self.epsilon_meta:.4f}")
-        elif subgoal == 2:
-            print(f"Meta-Controller selected WAIT subgoal with epsilon {self.epsilon_meta:.4f}")
         return subgoal
 
     def update_networks(self):
@@ -502,7 +500,7 @@ class HierarchicalAgent:
             # Controller执行循环
             for _ in range(20):  # 子目标最大持续时间
                 action = self.select_action(state, subgoal)
-                print(f"Controller selected action: {action}")
+              
                 next_state, extrinsic, done, _ = env.step(action)
                 intrinsic = self.critic.get_reward(next_state, subgoal)
                 
@@ -541,8 +539,8 @@ class HierarchicalAgent:
             if done:
                 break
 
-            print(f"Episode {episode}, Step {episode_steps}, Subgoal {subgoal}, "
-                  f"Extrinsic Reward: {F:.2f}, Total Extrinsic: {total_extrinsic:.2f}, ")
+            # print(f"Episode {episode}, Step {episode_steps}, Subgoal {subgoal}, "
+            #       f"Extrinsic Reward: {F:.2f}, Total Extrinsic: {total_extrinsic:.2f}, ")
         
         # 退火探索率
         self.anneal_epsilon(episode)
@@ -601,12 +599,15 @@ def run_hierarchical_dqn_experiment(config, case, seed):
         
 if __name__ == "__main__":
     config = Config()
-    config.num_initial_jobs = 8
-    config.num_machines = 4
-    config.num_distributors = 2
-    config.min_operations = 2
-    config.max_operations = 4
-    config.max_time_steps = 100
+    config.num_initial_jobs = 20
+    config.num_dynamic_jobs = 10
+    config.num_machines = 10
+    config.num_distributors = 5
+    
+    config.max_time_steps = 1000
+  
    
     case = FlexibleJobShopScenario(config)
-    run_hierarchical_dqn_experiment(config, case, seed=42)
+    # generate 30 random seeds
+    seed=1
+    run_hierarchical_dqn_experiment(config, case, seed=seed)

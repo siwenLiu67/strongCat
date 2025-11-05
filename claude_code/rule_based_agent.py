@@ -141,9 +141,7 @@ class RuleBasedDQNAgent:
                     schedule[job.job_id] = m_id
                     assigned_machines.add(m_id)  # 标记该机器已分配
                     break  # 跳出当前作业的机器分配循环，继续分配下一个作业
-                else:
-                    # 如果当前机器已分配作业，跳过该机器
-                    print(f"Machine {m_id} is already assigned, skipping.")
+                
         
         return {'schedule': schedule}
     def update(self, transition_dict: Dict):

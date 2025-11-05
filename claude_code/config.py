@@ -43,24 +43,24 @@ class Config:
     num_dynamic_jobs = 5  # 减少动态作业数量，确保能到达
     num_machines = 2
     num_distributors = 2
-    min_operations = 1
-    max_operations = 1
+    min_operations = 3
+    max_operations = 5
     min_machines_per_op = 1
     max_machines_per_op = 5
-    min_processing_time = 1
-    max_processing_time = 1
+    min_processing_time = 5
+    max_processing_time = 15
     max_job_amount = 100
     min_job_amount = 50
     earliest_arrival_time: int = 5  # 更早的到达时间
    
     # 批量到达参数（修复动态作业到达）
     batch_arrival_probability: float = 0.8  # 提高批量到达概率
-    max_batch_size: int = 3  # 减少批量大小，确保能到达
+    max_batch_size: int = 5  # 减少批量大小，确保能到达
     min_batch_size: int = 1  # 添加最小批量大小
 
     earliest_delivery_time = 1
     latest_delivery_time = 20
-    min_delivery_requirements = 1
+    min_delivery_requirements = 2
     max_delivery_requirements = 3
     min_load_ratio = 0.0
 
@@ -73,7 +73,7 @@ class Config:
     complexity_weight: float = 0.4      # 复杂度权重
 
     max_time_steps = 200  # 增加时间步数让智能体有足够时间学习
-    arrival_probability = 0
+    arrival_probability = 0.8
     max_job_num_limit = 20
     arrival_batch_size = 2
     

@@ -33,9 +33,13 @@ class DispatchHeuristic:
         
         return total_cost, dispatch_time
 
-    def select_action(self, state) -> Dict[str, Dict[int, List[int]]]:
+    def select_action_(self, state, method='cost_based') -> Dict[str, Dict[int, List[int]]]:
         """
-        基于成本的派送决策
+        派送决策主方法
+        
+        Args:
+            state: 环境状态
+            method: 选择方法，'cost_based' 或 'greedy'
         """
         completed_jobs = state.get('completed_jobs', [])
         current_time = state.get('t', 0)
@@ -45,6 +49,12 @@ class DispatchHeuristic:
         if not unscheduled_jobs:
             return {'dispatch': {}}
 
+        
+        return self.select_action(state) if method == 'greedy' else self._select_action_cost_based(unscheduled_jobs, current_time)
+        
+
+    def _select_action_cost_based(self, unscheduled_jobs, current_time):
+        """基于成本的派送决策"""
         best_cost = float('inf')
         best_batch_jobs = None
         
@@ -74,3 +84,92 @@ class DispatchHeuristic:
             return {'dispatch': {batch_id: batch_jobs_ids}}
         else:
             return {'dispatch': {}}
+
+    def select_action(self, state):
+        """基于贪心算法的派送决策"""
+        unscheduled_jobs = [j for j in state['completed_jobs'] if j.status == 'completed']
+        current_time = state['current_time']
+        batches = self.greedy_batch_selection(unscheduled_jobs, current_time)
+        
+        if batches:
+            print(f"基于贪心算法选择批次: {batches}")
+            return {'dispatch': batches}
+        else:
+            return {'dispatch': {}}
+        
+    def group_by_distributor(self, jobs):
+        """按配送商分组作业"""
+        jobs_by_distributor = defaultdict(list)
+        for job in jobs:
+            jobs_by_distributor[job.distributor_id].append(job)
+        return jobs_by_distributor
+
+    def calculate_priority_score(self, job, current_time):
+        """计算作业的优先级评分
+        
+        评分越高表示优先级越高，应该优先配送
+        """
+        # 1. 紧急作业优先级最高
+        if getattr(job, 'is_urgent', False):
+            urgency_score = 1000
+        else:
+            urgency_score = 0
+        
+        # 2. 基于截止时间的紧迫性
+        time_remaining = max(0, job.due_date - current_time)
+        if time_remaining == 0:
+            due_date_score = 100  # 已经超期的作业
+        else:
+            due_date_score = 100 / (time_remaining + 1)  # 时间越少，分数越高
+        
+        # 3. 基于作业数量的权重
+        amount_score = job.amount * 0.1
+        
+        # 4. 基于等待时间的权重（等待时间越长，优先级越高）
+        wait_time = current_time - job.completed_time
+        wait_score = wait_time * 0.5
+        
+        total_score = urgency_score + due_date_score + amount_score + wait_score
+        return total_score
+
+    def greedy_batch_selection(self, completed_jobs, current_time, batch_capacity=5):
+        """贪心批次选择方法
+        
+        按配送商分组，然后按优先级排序，贪心地填充批次
+        """
+        if not completed_jobs:
+            return {}
+            
+        batches = {}
+        batch_id = 1
+        
+        # 按配送商分组
+        jobs_by_distributor = self.group_by_distributor(completed_jobs)
+        
+        for distributor_id, jobs in jobs_by_distributor.items():
+            # 计算优先级评分并排序（分数高的在前）
+            sorted_jobs = sorted(jobs, 
+                            key=lambda j: self.calculate_priority_score(j, current_time),
+                            reverse=True)
+            
+            current_batch = []
+            current_batch_size = 0
+            
+            for job in sorted_jobs:
+                if current_batch_size < batch_capacity:
+                    current_batch.append(job.job_id)
+                    current_batch_size += 1
+                else:
+                    # 当前批次已满，创建新批次
+                    if current_batch:
+                        batches[batch_id] = current_batch
+                        batch_id += 1
+                    current_batch = [job.job_id]
+                    current_batch_size = 1
+            
+            # 处理最后一个批次
+            if current_batch:
+                batches[batch_id] = current_batch
+                batch_id += 1
+        
+        return batches
