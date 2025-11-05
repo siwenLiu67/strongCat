@@ -47,17 +47,17 @@ class InternalCritic:
     def _evaluate_production_goal(self, state):
         """评估生产优化指派生产工件的子目标达成度"""
         # 计算tardiness
-        completed_jobs = state['dispatched_jobs']
-        completed_amount = sum(j.amount for j in completed_jobs)
-        total_amount = sum(j.amount for j in state['available_jobs']) + completed_amount 
-        completion_rate = completed_amount / total_amount
+        # completed_jobs = state['dispatched_jobs']
+        # completed_amount = sum(j.amount for j in completed_jobs)
+        # total_amount = sum(j.amount for j in state['available_jobs']) + completed_amount 
+        # completion_rate = completed_amount / total_amount
      #   print(f"Completion Rate: {completion_rate:.4f}")
 
         # 计算完成工序的比例
-        # completed_operations = sum(1 for j in state['available_jobs'] for op in j.operations if op.status=='completed')
-        # total_operations = sum(len(j.operations) for j in state['available_jobs'])
+        completed_operations = sum(1 for j in state['available_jobs'] for op in j.operations if op.status=='completed')
+        total_operations = sum(len(j.operations) for j in state['available_jobs'])
         
-        # completion_rate = completed_operations / max(1, total_operations)
+        completion_rate = completed_operations / max(1, total_operations)
 
         return completion_rate  # 提高完成率
         
@@ -582,8 +582,8 @@ def run_hierarchical_dqn_experiment(config, case, seed):
     
     print(f"Training completed in {total_time:.2f} seconds.")
     print(f"all rewards: {episode_rewards}")
-    print(f"all sub losses: {agent.loss_list}")
-    print(f"all meta losses: {agent.meta_loss_list}")
+ #   print(f"all sub losses: {agent.loss_list}")
+ #   print(f"all meta losses: {agent.meta_loss_list}")
 
     
     # 调用保存函数存储实验结果

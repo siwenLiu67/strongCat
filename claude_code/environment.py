@@ -300,23 +300,23 @@ class WarehouseEnvironment:
         #         current_tardiness += tardiness
         
         # 更新总延误
-        total_reward = -max(0, (current_tardiness - self.total_weighted_tardiness))
+     #   total_reward = -max(0, (current_tardiness - self.total_weighted_tardiness))
        
         self.total_weighted_tardiness = current_tardiness
 
         # 即使动作奖励
-        if 'schedule' in action:
-            num_scheduled = len(action['schedule'])
-            schedule_reward = num_scheduled * 5.0  # 每调度一个作业奖励5分
-            total_reward += schedule_reward
-            debug_info['scheduling_reward'] = schedule_reward
-        elif 'dispatch' in action:
-            num_dispatched = sum(len(jobs) for jobs in action['dispatch'].values())
-            dispatch_reward = num_dispatched * 8.0  # 每配送一个作业奖励8分
-            total_reward += dispatch_reward
-            debug_info['dispatching_reward'] = dispatch_reward
-        else:
-            debug_info['no_action_reward'] = 0.0
+        # if 'schedule' in action:
+        #     num_scheduled = len(action['schedule'])
+        #     schedule_reward = num_scheduled * 5.0  # 每调度一个作业奖励5分
+        #     total_reward += schedule_reward
+        #     debug_info['scheduling_reward'] = schedule_reward
+        # elif 'dispatch' in action:
+        #     num_dispatched = sum(len(jobs) for jobs in action['dispatch'].values())
+        #     dispatch_reward = num_dispatched * 8.0  # 每配送一个作业奖励8分
+        #     total_reward += dispatch_reward
+        #     debug_info['dispatching_reward'] = dispatch_reward
+        # else:
+        #     debug_info['no_action_reward'] = 0.0
 
     
         # 计算分段配送时间要求延迟成本（只计算配送商要求的惩罚，不重复计算作业延误）
@@ -367,6 +367,8 @@ class WarehouseEnvironment:
         if episode_progress >= 0.9:
             not_dispatched_jobs = len(self.available_jobs)-len(self.dispatched_jobs)
             total_reward -= not_dispatched_jobs * 1000
+
+            total_reward += self.early_reward
        
         return total_reward
 
