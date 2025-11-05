@@ -300,7 +300,7 @@ class WarehouseEnvironment:
         #         current_tardiness += tardiness
         
         # 更新总延误
-        total_reward = -max(0, 0.1*(current_tardiness - self.total_weighted_tardiness))
+        total_reward = -max(0, (current_tardiness - self.total_weighted_tardiness))
        
         self.total_weighted_tardiness = current_tardiness
 
@@ -359,7 +359,7 @@ class WarehouseEnvironment:
                         
         # 更新配送时间要求惩罚（避免重复累加）
         delta_tardy_penalty = max(0, current_tardy_penalty - self.tardy_penalty)
-        total_reward += (-0.05*delta_tardy_penalty)
+        total_reward += (-0.5*delta_tardy_penalty)
        
         self.tardy_penalty = current_tardy_penalty
         self.early_reward = current_early_reward

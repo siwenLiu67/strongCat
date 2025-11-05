@@ -183,7 +183,7 @@ class FlexibleJobShopScenario:
             
             # 使用配送商差异化策略生成due_times
             due_times = self._generate_distributor_based_due_times(
-                d, len(ratios), 3*min_proc, 5*max_proc
+                d, len(ratios), 2*min_proc, 4*max_proc
             )
             
             weights = np.random.uniform(
