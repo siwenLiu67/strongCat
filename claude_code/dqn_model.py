@@ -263,11 +263,13 @@ def main():
     """主训练函数"""
     # 配置参数
     config = Config()
-    config.num_initial_jobs = 8
-    config.num_machines = 4
-    config.num_distributors = 2
-    config.min_operations = 2
-    config.max_operations = 4
+    config.num_initial_jobs = 20
+    config.num_dynamic_jobs = 10
+    config.num_machines = 10
+    config.num_distributors = 5
+    
+    config.max_time_steps = 1000
+  
     # 用cpu训练以避免GPU内存不足
     
     
@@ -287,7 +289,7 @@ def main():
     agent = DQNAgent(state_dim, action_dim, config)
     
     # 训练参数
-    episodes = 1
+    episodes = 200
     stats = defaultdict(list) 
     
     print(f"\n开始DQN训练 {episodes} episodes...")

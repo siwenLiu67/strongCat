@@ -498,7 +498,7 @@ class HierarchicalAgent:
             goal_achieved = False
             
             # Controller执行循环
-            for _ in range(20):  # 子目标最大持续时间
+            for _ in range(10):  # 子目标最大持续时间
                 action = self.select_action(state, subgoal)
               
                 next_state, extrinsic, done, _ = env.step(action)
